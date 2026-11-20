@@ -63,6 +63,7 @@ public class WordListsTest {
         volatile String user;
         volatile String device;
         volatile int forceStatus;
+        private volatile boolean stopped;
         final List<String> requests = Collections.synchronizedList(new ArrayList<>());
         private final Thread thread;
 
@@ -75,11 +76,26 @@ public class WordListsTest {
             thread.start();
         }
 
+        /**
+         * Stops serving and returns only once the server thread has ended. Closing the
+         * socket alone is not enough: an accept already in progress can still take one
+         * more connection and answer it, so a sync right after would reach a "stopped"
+         * gateway. Once the thread has ended, nothing listens on the port any more.
+         */
         void stop() {
+            stopped = true;
             try {
                 socket.close();
             } catch (IOException ignored) {
                 // Closed already.
+            }
+            try {
+                thread.join(10_000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            if (thread.isAlive()) {
+                throw new AssertionError("the fake gateway did not stop");
             }
         }
 
@@ -88,8 +104,11 @@ public class WordListsTest {
         }
 
         private void serve() {
-            while (!socket.isClosed()) {
+            while (!stopped && !socket.isClosed()) {
                 try (Socket client = socket.accept()) {
+                    if (stopped) {
+                        return; // accepted while stopping: closed unanswered
+                    }
                     handle(client);
                 } catch (IOException e) {
                     // Closed, or a client that went away.
@@ -373,24 +392,66 @@ public class WordListsTest {
         sync(); // a sync builds the snapshot on its own thread
         assertFalse(WordLists.forRecordStart(context, APP).legacy);
 
-        // Cold, as after a restart: the first recording uses the phone's list and asks for a build.
-        WordLists.removeOtherCopies(context, enrolment); // keeps this user's copy
-        WordLists.invalidate();
-        java.lang.reflect.Field last = WordLists.class.getDeclaredField("lastBuilt");
-        last.setAccessible(true);
-        last.set(null, null);
-        assertTrue(WordLists.forRecordStart(context, APP).legacy);
+        // No build from before may still be running: it would refill the memory cleared below.
         WordLists.awaitBackgroundBuild();
-        WordLists.DictationWords words = WordLists.forRecordStart(context, APP);
-        assertFalse(words.legacy);
-        assertTrue(words.keywords.contains("Milo"));
 
-        // Out of date (the phone's list changed): the last snapshot is used while a new one is built.
-        Prefs.saveUserPhraseReplacements(context, Collections.singletonList(new PhraseReplacement("Glim", "Glim", "")));
-        WordLists.DictationWords stale = WordLists.forRecordStart(context, APP);
-        assertFalse(stale.legacy);
-        WordLists.awaitBackgroundBuild();
-        assertTrue(WordLists.forRecordStart(context, APP).keywords.contains("Glim"));
+        // Each build asked for below is held back until the recording has started without it,
+        // so what the record start returns never depends on how fast the builder thread is.
+        Thread testThread = Thread.currentThread();
+        java.util.concurrent.Executor real = WordLists.builds;
+        List<Thread> buildThreads = Collections.synchronizedList(new ArrayList<>());
+        java.util.concurrent.atomic.AtomicReference<java.util.concurrent.CountDownLatch> gate =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        WordLists.builds = task -> {
+            java.util.concurrent.CountDownLatch held = gate.get();
+            real.execute(() -> {
+                try {
+                    held.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+                buildThreads.add(Thread.currentThread());
+                task.run();
+            });
+        };
+        try {
+            // Cold, as after a restart: the first recording uses the phone's list and asks for a build.
+            WordLists.removeOtherCopies(context, enrolment); // keeps this user's copy
+            WordLists.invalidate();
+            java.lang.reflect.Field last = WordLists.class.getDeclaredField("lastBuilt");
+            last.setAccessible(true);
+            last.set(null, null);
+            gate.set(new java.util.concurrent.CountDownLatch(1));
+            assertTrue(WordLists.forRecordStart(context, APP).legacy);
+            assertNull("the record start built a snapshot itself", last.get(null));
+            gate.get().countDown();
+            WordLists.awaitBackgroundBuild();
+            assertEquals(1, buildThreads.size());
+            WordLists.DictationWords words = WordLists.forRecordStart(context, APP);
+            assertFalse(words.legacy);
+            assertTrue(words.keywords.contains("Milo"));
+
+            // Out of date (the phone's list changed): the last snapshot is used while a new one is built.
+            Prefs.saveUserPhraseReplacements(context, Collections.singletonList(new PhraseReplacement("Glim", "Glim", "")));
+            gate.set(new java.util.concurrent.CountDownLatch(1));
+            WordLists.DictationWords stale = WordLists.forRecordStart(context, APP);
+            assertFalse(stale.legacy);
+            assertFalse(stale.keywords.contains("Glim"));
+            gate.get().countDown();
+            WordLists.awaitBackgroundBuild();
+            assertEquals(2, buildThreads.size());
+            assertTrue(WordLists.forRecordStart(context, APP).keywords.contains("Glim"));
+            // Both builds ran on the builder's thread, never on the caller's.
+            for (Thread thread : buildThreads) {
+                assertFalse(thread == testThread);
+            }
+        } finally {
+            if (gate.get() != null) {
+                gate.get().countDown();
+            }
+            WordLists.builds = real;
+        }
     }
 
     @Test
