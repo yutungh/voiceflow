@@ -252,6 +252,11 @@ final class WordLists {
                 return thread;
             });
     private static final java.util.concurrent.atomic.AtomicBoolean BUILDING = new java.util.concurrent.atomic.AtomicBoolean();
+    /**
+     * Where background builds are handed: {@link #BUILDER}. A test may wrap it to
+     * hold a build back until it has checked what the caller did without one.
+     */
+    static volatile java.util.concurrent.Executor builds = BUILDER;
 
     /** Builds the snapshot off the main thread; one build at a time. */
     static void buildInBackground(Context context) {
@@ -260,7 +265,7 @@ final class WordLists {
             return;
         }
         try {
-            BUILDER.execute(() -> {
+            builds.execute(() -> {
                 try {
                     prewarm(app);
                 } finally {
