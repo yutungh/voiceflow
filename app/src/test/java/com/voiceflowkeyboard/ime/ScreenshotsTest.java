@@ -58,6 +58,7 @@ public class ScreenshotsTest {
                 {"phone-light", "w412dp-h915dp-notnight-xhdpi", 412, 915},
                 {"phone-dark", "w412dp-h915dp-night-xhdpi", 412, 915},
                 {"fold-outer-light", "w344dp-h882dp-notnight-xhdpi", 344, 882},
+                {"fold-outer-dark", "w344dp-h882dp-night-xhdpi", 344, 882},
                 {"fold-inner-light", "w840dp-h900dp-notnight-xhdpi", 840, 900},
                 {"fold-inner-dark", "w840dp-h900dp-night-xhdpi", 840, 900},
         });
@@ -150,8 +151,8 @@ public class ScreenshotsTest {
         shootKeyboard("keyboard-suggestions");
     }
 
-    @Test public void keyboardListening() throws Exception {
-        startKeyboard();
+    /** A dictation recording 7 s in: the listening bar over the recording panel (0.8.6). */
+    private void startListening() {
         set("recording", true);
         set("recordingStartedAt", System.currentTimeMillis() - 7_000);
         call("showCaptureRecordingState");
@@ -160,10 +161,40 @@ public class ScreenshotsTest {
         wave.sample();
         TextView timer = ReflectionHelpers.getField(service, "timerText");
         timer.setText("0:07");
+    }
+
+    @Test public void keyboardListening() throws Exception {
+        startKeyboard();
+        startListening();
         shootKeyboard("keyboard-listening");
+        // The panel's More: every style, under the listening bar.
+        set("openAllStylesNext", true);
         call("showVoiceStyleOverlay");
-        shootKeyboard("keyboard-listening-style-sheet");
+        shootKeyboard("keyboard-listening-more");
         set("recording", false);
+    }
+
+    @Test public void keyboardListeningOtherStyle() throws Exception {
+        startKeyboard();
+        startListening();
+        // A style from More takes the fifth chip; Lively on the slider.
+        ReflectionHelpers.callInstanceMethod(service, "pickStyle",
+                ClassParameter.from(String.class, Prefs.PRESET_FUN_PIRATE),
+                ClassParameter.from(View.class, root));
+        StyleChoice choice = ReflectionHelpers.getField(service, "choice");
+        choice.setExpression(Prefs.EXPRESSION_LIVELY);
+        call("renderRecordingPanel");
+        shootKeyboard("keyboard-listening-picked");
+        set("recording", false);
+    }
+
+    @Test public void keyboardVoiceEdit() throws Exception {
+        startKeyboard();
+        set("instructionCapture", true);
+        startListening();
+        shootKeyboard("keyboard-voice-edit");
+        set("recording", false);
+        set("instructionCapture", false);
     }
 
     private void call(String method, boolean value) {
@@ -172,6 +203,9 @@ public class ScreenshotsTest {
 
     @Test public void keyboardWorking() throws Exception {
         startKeyboard();
+        startListening();
+        // Stop: the panel stays, its choice fixed, until the text is in.
+        set("recording", false);
         set("processing", true);
         call("showCaptureProcessingState");
         call("setKeyboardLocked", true);
@@ -179,6 +213,20 @@ public class ScreenshotsTest {
         status.setText("Tidying up: Clean…");
         shootKeyboard("keyboard-working");
         set("processing", false);
+    }
+
+    @Test public void keyboardShiftAndCapsLock() throws Exception {
+        startKeyboard();
+        service.connection.commitText("Meet at ", 1);
+        call("updateAutoCapitalization");
+        call("toggleShift", 1_000L);
+        shootKeyboard("keyboard-shift-on");
+        call("toggleShift", 1_200L);
+        shootKeyboard("keyboard-caps-lock");
+    }
+
+    private void call(String method, long value) {
+        ReflectionHelpers.callInstanceMethod(service, method, ClassParameter.from(long.class, value));
     }
 
     @Test public void keyboardInserted() throws Exception {
@@ -316,6 +364,20 @@ public class ScreenshotsTest {
         Prefs.addTranscriptHistory(app, "the QBR deck needs the new numbers", "The QBR deck needs the new numbers by Friday.",
                 Prefs.PRESET_CLEAN, Prefs.EXPRESSION_SUBTLE, VoiceHistoryItem.OPERATION_DICTATION, "");
         shootActivity("history", new Intent(app, HistoryActivity.class));
+    }
+
+    /** 0.8.6: a dictation whose tidy-up was held back keeps Use cleaned in History. */
+    @Test public void historyKeptWords() throws Exception {
+        assumeFalse(DIR.isEmpty());
+        RuntimeEnvironment.setQualifiers(qualifiers);
+        android.content.Context app = RuntimeEnvironment.getApplication();
+        String id = Prefs.addTranscriptHistory(app, "I talked to my mom and 她说周末可能不来了 because her back is still hurting",
+                "I talked to my mom and 她说周末可能不来了 because her back is still hurting",
+                Prefs.PRESET_CLEAN, Prefs.EXPRESSION_NATURAL, VoiceHistoryItem.OPERATION_DICTATION, "");
+        Prefs.setHeldBackCleanup(app, id, "I talked to my mom, and she said she might not come this weekend because her back still hurts.",
+                Prefs.PRESET_CLEAN, Prefs.EXPRESSION_NATURAL);
+        shootActivity("history-kept-words", new Intent(app, TranscriptDetailActivity.class)
+                .putExtra(TranscriptDetailActivity.EXTRA_HISTORY_ID, id));
     }
 
     @Test public void wordLists() throws Exception {

@@ -79,6 +79,10 @@ public class TranscriptDetailActivity extends Activity {
         ));
 
         content.addView(metadata());
+        View keptWords = keptWordsCard();
+        if (keptWords != null) {
+            content.addView(keptWords);
+        }
         content.addView(compareControl());
         content.addView(sectionLabel(historyItem.isTranslation() ? "Translation style" : "Version"));
         content.addView(versionSelector(primaryVariant, variant -> {
@@ -173,6 +177,62 @@ public class TranscriptDetailActivity extends Activity {
         stats.setPadding(0, dp(5), 0, dp(4));
         block.addView(stats);
         return block;
+    }
+
+    /**
+     * 0.8.6, desktop 0.9.13: his own words were kept because the tidy-up changed the
+     * language of part of it, and the tidy-up is still on offer. Use cleaned makes it
+     * this entry's text and copies it; nothing in any app is changed.
+     */
+    private View keptWordsCard() {
+        Prefs.HeldBack held = Prefs.heldBack(this, historyItem.id);
+        if (held == null) {
+            return null;
+        }
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(14), dp(12), dp(14), dp(12));
+        card.setBackground(Ui.roundedStroke(this, Ui.SURFACE, 8, Ui.DIVIDER));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, dp(14), 0, dp(2));
+        card.setLayoutParams(params);
+        card.addView(Ui.text(this, "Kept your words", 15, true, Ui.TEXT));
+        TextView detail = Ui.text(this, "Mixed languages: the tidy-up was held back. Use cleaned copies it and makes it this entry's text.",
+                12, false, Ui.MUTED);
+        detail.setPadding(0, dp(3), 0, dp(8));
+        card.addView(detail);
+        TextView use = Ui.text(this, "Use cleaned", 14, true, Ui.palette().accentInk);
+        use.setGravity(Gravity.CENTER);
+        use.setPadding(dp(16), 0, dp(16), 0);
+        use.setMinHeight(dp(48));
+        use.setBackground(Ui.roundedStroke(this, Ui.ACCENT_SOFT, 8, Ui.palette().accentTintBorder));
+        use.setContentDescription("Use cleaned: copy the tidied text and keep it in History");
+        use.setOnClickListener(v -> useCleaned(held));
+        card.addView(use, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                dp(48)
+        ));
+        return card;
+    }
+
+    private void useCleaned(Prefs.HeldBack held) {
+        // Saved under the style it was made in, whatever version is selected now.
+        Prefs.updateTranscriptHistory(this, historyItem.id, historyItem.rawText, held.text,
+                held.preset, held.expression);
+        Prefs.clearHeldBackCleanup(this, historyItem.id);
+        copyText(held.text);
+        historyItem = null;
+        loadHistoryItem();
+        if (historyItem == null) {
+            finish();
+            return;
+        }
+        primaryVariant = historyItem.selectedVariantKey();
+        comparisonVariant = comparisonVariantFor(primaryVariant);
+        render();
     }
 
     private View compareControl() {

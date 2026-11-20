@@ -189,7 +189,8 @@ public class VoiceBarServiceTest {
         assertFalse("no choosing: the style sheet does not open by itself", sheetOpen());
         assertNotNull(find("Stop and insert"));
         assertNotNull(find("Cancel recording"));
-        assertNotNull("the style chip stays one tap away", findStarting(root, "Style: Clean"));
+        // 0.8.6: the recording panel's chips, the style in use chosen.
+        assertNotNull("the style stays one tap away", findStarting(root, "Style Clean, chosen"));
         tap("Cancel recording");
         assertFalse(recording());
         assertNotNull(find("Dictate"));

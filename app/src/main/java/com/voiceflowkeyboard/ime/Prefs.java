@@ -82,6 +82,8 @@ final class Prefs {
     private static final String KEY_MODEL_SWITCH_NOTICE = "model_switch_notice";
     /** The styles "On the bar" in the keyboard's style sheet, in order; absent until he pins one. */
     private static final String KEY_PINNED_STYLES = "pinned_styles_json";
+    /** 0.8.6: the tidy-up the language check held back, by History id, for History's Use cleaned. */
+    private static final String KEY_HELD_BACK_JSON = "held_back_cleanup_json";
     /** Whether updates may download on mobile data; off by default (Wi-Fi only). */
     private static final String KEY_UPDATES_ON_MOBILE_DATA = "updates_on_mobile_data";
     private static final int MAX_TRANSCRIPT_HISTORY = 20;
@@ -988,6 +990,119 @@ final class Prefs {
         shared(context).edit().putString(KEY_PINNED_STYLES, array.toString()).apply();
     }
 
+    /**
+     * The tidy-up held back for a History entry (his own words were kept), or ""
+     * (0.8.6, desktop 0.9.13's History "Use cleaned"). Only for entries History
+     * still holds: one that has left History has left this store too.
+     */
+    static String heldBackCleanup(Context context, String historyId) {
+        HeldBack held = heldBack(context, historyId);
+        return held == null ? "" : held.text;
+    }
+
+    /** A held-back tidy-up and the style it was made in (the variant it belongs to). */
+    static final class HeldBack {
+        final String text;
+        final String preset;
+        final int expression;
+
+        HeldBack(String text, String preset, int expression) {
+            this.text = text;
+            this.preset = preset;
+            this.expression = sanitizeExpression(expression);
+        }
+    }
+
+    /** The held-back tidy-up for a History entry with its style, or null. */
+    static HeldBack heldBack(Context context, String historyId) {
+        if (historyId == null || historyId.isEmpty()) {
+            return null;
+        }
+        try {
+            JSONObject all = new JSONObject(shared(context).getString(KEY_HELD_BACK_JSON, "{}"));
+            JSONObject entry = all.optJSONObject(historyId);
+            if (entry == null) {
+                return null;
+            }
+            String text = entry.optString("text", "").trim();
+            String preset = entry.optString("preset", "");
+            if (text.isEmpty() || preset.isEmpty() || PRESET_RAW.equals(preset)) {
+                return null;
+            }
+            return new HeldBack(text, preset, entry.optInt("expression", DEFAULT_EXPRESSION));
+        } catch (JSONException e) {
+            return null;
+        }
+    }
+
+    /** Keeps the held-back tidy-up for a History entry, made in {@code preset} at {@code expression}. */
+    static void setHeldBackCleanup(Context context, String historyId, String cleaned, String preset, int expression) {
+        if (historyId == null || historyId.isEmpty() || cleaned == null || cleaned.trim().isEmpty()
+                || preset == null || preset.isEmpty() || PRESET_RAW.equals(preset)) {
+            clearHeldBackCleanup(context, historyId);
+            return;
+        }
+        Set<String> live = new HashSet<>();
+        for (VoiceHistoryItem item : transcriptHistory(context)) {
+            live.add(item.id);
+        }
+        if (!live.contains(historyId)) {
+            return;
+        }
+        JSONObject entry = new JSONObject();
+        try {
+            entry.put("text", cleaned.trim());
+            entry.put("preset", preset);
+            entry.put("expression", sanitizeExpression(expression));
+        } catch (JSONException e) {
+            return;
+        }
+        pruneHeldBack(context, live, historyId, entry);
+    }
+
+    /** Drops the held-back tidy-up for a History entry (it was used, or the entry changed). */
+    static void clearHeldBackCleanup(Context context, String historyId) {
+        if (historyId == null || historyId.isEmpty()) {
+            return;
+        }
+        Set<String> live = new HashSet<>();
+        for (VoiceHistoryItem item : transcriptHistory(context)) {
+            if (!item.id.equals(historyId)) {
+                live.add(item.id);
+            }
+        }
+        pruneHeldBack(context, live, null, null);
+    }
+
+    /** Keeps only the entries for {@code live} ids, then puts {@code entry} under {@code id} when given. */
+    private static void pruneHeldBack(Context context, Set<String> live, String id, JSONObject entry) {
+        String stored = shared(context).getString(KEY_HELD_BACK_JSON, null);
+        if (stored == null && entry == null) {
+            return;
+        }
+        JSONObject kept = new JSONObject();
+        try {
+            JSONObject all = new JSONObject(stored == null ? "{}" : stored);
+            Iterator<String> keys = all.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                JSONObject value = all.optJSONObject(key);
+                if (live.contains(key) && value != null) {
+                    kept.put(key, value);
+                }
+            }
+        } catch (JSONException e) {
+            // A damaged store starts again; nothing else depends on it.
+        }
+        try {
+            if (id != null && entry != null) {
+                kept.put(id, entry);
+            }
+        } catch (JSONException ignored) {
+        }
+        shared(context).edit().putString(KEY_HELD_BACK_JSON, kept.toString()).apply();
+    }
+
     static boolean updatesOnMobileData(Context context) {
         return shared(context).getBoolean(KEY_UPDATES_ON_MOBILE_DATA, false);
     }
@@ -1817,6 +1932,12 @@ final class Prefs {
             }
         }
         shared(context).edit().putString(KEY_TRANSCRIPT_HISTORY_JSON, array.toString()).apply();
+        // An entry that left History takes its held-back tidy-up with it.
+        Set<String> live = new HashSet<>();
+        for (VoiceHistoryItem item : history) {
+            live.add(item.id);
+        }
+        pruneHeldBack(context, live, null, null);
     }
 
     private static Map<String, String> historyOutputsFromJson(JSONObject json) {
