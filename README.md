@@ -20,11 +20,9 @@ Record a voice note from the keyboard, transcribe it, optionally clean it with a
 
 ## Try It
 
-Download the latest prototype APK from the [GitHub Releases page](https://github.com/yutungh/voiceflow/releases). Open the latest release, download the `voiceflow-keyboard-...-debug.apk` asset, then install it on your Android phone.
+There is no published APK yet. To try it now, build the debug APK from source (see [Build](#build)) and install it on your Android phone (see [Install On A Phone](#install-on-a-phone)).
 
-This is a debug-signed prototype build for sideloading and testing. For production use, build and sign your own release APK.
-
-Release APKs are built by GitHub Actions from the public repository. They do not include `.env.local` and do not bundle any API keys.
+Prebuilt APKs may be published on the [GitHub Releases page](https://github.com/yutungh/voiceflow/releases) later. If they are, they will be debug-signed prototype builds for sideloading and testing, built by GitHub Actions from this public repository, with no `.env.local` and no bundled API keys. For production use, build and sign your own release APK.
 
 ## Why This Exists
 
@@ -138,16 +136,7 @@ app/build/outputs/apk/debug/app-debug.apk
 
 Enable Developer Options and USB Debugging on your Android phone. On Samsung devices, you may also need to disable Auto Blocker for sideloading.
 
-If you downloaded an APK from Releases, install that APK:
-
-1. Go to [Releases](https://github.com/yutungh/voiceflow/releases).
-2. Download the APK asset named like `voiceflow-keyboard-vX.Y.Z-debug.apk`.
-3. On your phone, open the APK and allow install from that source if Android asks.
-4. Open **VoiceFlow Keyboard** from the app drawer.
-
-If you built from source, install the generated debug APK:
-
-Install:
+Install the debug APK you built from source:
 
 ```powershell
 adb install -r app/build/outputs/apk/debug/app-debug.apk
