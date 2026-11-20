@@ -1,0 +1,106 @@
+{
+	"description": "Test vectors for the feedback contract (pack/feedback/README.md). answers: a model's reply (answer: a JSON value, or answerText: raw text) to feedback on a dictation whose delivered text is given; expect.ok false means the whole answer is refused; otherwise the checked result: diagnosis, correctedText, the proposals kept (spelling: type, from, to, scope; style_adjust: type, expression_delta, style_id), noFixReason and how many proposals were dropped. styleFixes: one style_adjust proposal and the dictation it is about (app, the style id used or raw, the level used or null, the style's own level) with the app-style edit it becomes (expect.edit), or null when it is dropped. Synthetic names only.",
+	"answers": [
+		{
+			"name": "a mishearing with one spelling",
+			"delivered": "Castrel is ready for review.",
+			"answer": { "diagnosis": "mishearing", "explanation": "Kestrel was heard as Castrel.", "corrected_text": "Kestrel is ready for review.",
+				"proposals": [{ "type": "spelling", "from": ["Castrel"], "to": "Kestrel", "scope": "everywhere", "expression_delta": null, "style_id": null, "reason": "Heard as Castrel." }] },
+			"expect": { "ok": true, "diagnosis": "mishearing", "correctedText": "Kestrel is ready for review.",
+				"proposals": [{ "type": "spelling", "from": ["Castrel"], "to": "Kestrel", "scope": "everywhere" }], "noFixReason": null, "dropped": 0 }
+		},
+		{ "name": "not JSON", "delivered": "Hi.", "answerText": "Sure! Here is the fix: Kestrel", "expect": { "ok": false } },
+		{ "name": "an unknown diagnosis", "delivered": "Hi.",
+			"answer": { "diagnosis": "rewrite-everything", "explanation": "x", "corrected_text": "", "proposals": [] }, "expect": { "ok": false } },
+		{ "name": "a corrected text far longer than the dictation", "delivered": "Short.",
+			"answer": { "diagnosis": "tidy-up-rewrite", "explanation": "x", "corrected_text": "Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here. Longer text here.", "proposals": [] },
+			"expect": { "ok": false } },
+		{ "name": "an explanation with a control character", "delivered": "Hi.",
+			"answer": { "diagnosis": "uncertain", "explanation": "bell\u0007", "corrected_text": "", "proposals": [] }, "expect": { "ok": false } },
+		{ "name": "more than twelve proposals", "delivered": "Castrel.",
+			"answer": { "diagnosis": "mishearing", "explanation": "x", "corrected_text": "",
+				"proposals": [
+					{ "type": "none", "from": [], "to": null, "scope": null, "expression_delta": null, "style_id": null, "reason": "1" },
+					{ "type": "none", "from": [], "to": null, "scope": null, "expression_delta": null, "style_id": null, "reason": "2" },
+					{ "type": "none", "from": [], "to": null, "scope": null, "expression_delta": null, "style_id": null, "reason": "3" },
+					{ "type": "none", "from": [], "to": null, "scope": null, "expression_delta": null, "style_id": null, "reason": "4" },
+					{ "type": "none", "from": [], "to": null, "scope": null, "expression_delta": null, "style_id": null, "reason": "5" },
+					{ "type": "none", "from": [], "to": null, "scope": null, "expression_delta": null, "style_id": null, "reason": "6" },
+					{ "type": "none", "from": [], "to": null, "scope": null, "expression_delta": null, "style_id": null, "reason": "7" },
+					{ "type": "none", "from": [], "to": null, "scope": null, "expression_delta": null, "style_id": null, "reason": "8" },
+					{ "type": "none", "from": [], "to": null, "scope": null, "expression_delta": null, "style_id": null, "reason": "9" },
+					{ "type": "none", "from": [], "to": null, "scope": null, "expression_delta": null, "style_id": null, "reason": "10" },
+					{ "type": "none", "from": [], "to": null, "scope": null, "expression_delta": null, "style_id": null, "reason": "11" },
+					{ "type": "none", "from": [], "to": null, "scope": null, "expression_delta": null, "style_id": null, "reason": "12" },
+					{ "type": "none", "from": [], "to": null, "scope": null, "expression_delta": null, "style_id": null, "reason": "13" }
+				] },
+			"expect": { "ok": false } },
+		{
+			"name": "an empty corrected text: the delivered text stands",
+			"delivered": "Milo will bring the QBR deck.",
+			"answer": { "diagnosis": "uncertain", "explanation": "  Not   sure what changed. ", "corrected_text": "  ", "proposals": [] },
+			"expect": { "ok": true, "diagnosis": "uncertain", "correctedText": "Milo will bring the QBR deck.", "proposals": [], "noFixReason": null, "dropped": 0 }
+		},
+		{
+			"name": "malformed proposals are dropped one by one; repeated forms kept once; an odd scope counts as app",
+			"delivered": "Castrel and castrel again.",
+			"answer": { "diagnosis": "mishearing", "explanation": "x", "corrected_text": "Kestrel and Kestrel again.",
+				"proposals": [
+					{ "type": "spelling", "from": ["Castrel", "castrel"], "to": "Kestrel", "scope": "this-app", "expression_delta": null, "style_id": null, "reason": "r" },
+					{ "type": "spelling", "from": ["<b>"], "to": "Kestrel", "scope": "app", "expression_delta": null, "style_id": null, "reason": "r" },
+					{ "type": "spelling", "from": ["a", "b", "c", "d", "e", "f"], "to": "Kestrel", "scope": "app", "expression_delta": null, "style_id": null, "reason": "r" },
+					{ "type": "style_adjust", "from": [], "to": null, "scope": null, "expression_delta": 9, "style_id": null, "reason": "r" },
+					{ "type": "style_adjust", "from": [], "to": null, "scope": null, "expression_delta": 0, "style_id": null, "reason": "r" },
+					{ "type": "style_adjust", "from": [], "to": null, "scope": null, "expression_delta": null, "style_id": "../etc", "reason": "r" },
+					{ "type": "rewrite_prompt", "from": [], "to": null, "scope": null, "expression_delta": null, "style_id": null, "reason": "r" }
+				] },
+			"expect": { "ok": true, "diagnosis": "mishearing", "correctedText": "Kestrel and Kestrel again.",
+				"proposals": [{ "type": "spelling", "from": ["Castrel"], "to": "Kestrel", "scope": "app" }], "noFixReason": null, "dropped": 6 }
+		},
+		{
+			"name": "at most three fixes are kept; a none gives the reason and is not counted",
+			"delivered": "Pip, Zork, Flum and Quib.",
+			"answer": { "diagnosis": "mishearing", "explanation": "x", "corrected_text": "",
+				"proposals": [
+					{ "type": "none", "from": [], "to": null, "scope": null, "expression_delta": null, "style_id": null, "reason": "  One-off   wording. " },
+					{ "type": "spelling", "from": ["Pip"], "to": "Pipp", "scope": "app", "expression_delta": null, "style_id": null, "reason": "r" },
+					{ "type": "spelling", "from": ["Zork"], "to": "Zorblax", "scope": "app", "expression_delta": null, "style_id": null, "reason": "r" },
+					{ "type": "style_adjust", "from": [], "to": null, "scope": null, "expression_delta": 0, "style_id": "work", "reason": "r" },
+					{ "type": "spelling", "from": ["Quib"], "to": "Quibbit", "scope": "app", "expression_delta": null, "style_id": null, "reason": "r" }
+				] },
+			"expect": { "ok": true, "diagnosis": "mishearing", "correctedText": "Pip, Zork, Flum and Quib.",
+				"proposals": [
+					{ "type": "spelling", "from": ["Pip"], "to": "Pipp", "scope": "app" },
+					{ "type": "spelling", "from": ["Zork"], "to": "Zorblax", "scope": "app" },
+					{ "type": "style_adjust", "expression_delta": null, "style_id": "work" }
+				], "noFixReason": "One-off wording.", "dropped": 1 }
+		},
+		{
+			"name": "a delivery or privacy complaint never carries fixes",
+			"delivered": "Castrel.",
+			"answer": { "diagnosis": "delivery-privacy", "explanation": "It went to the wrong window.", "corrected_text": "",
+				"proposals": [{ "type": "spelling", "from": ["Castrel"], "to": "Kestrel", "scope": "app", "expression_delta": null, "style_id": null, "reason": "r" }] },
+			"expect": { "ok": true, "diagnosis": "delivery-privacy", "correctedText": "Castrel.", "proposals": [], "noFixReason": null, "dropped": 1 }
+		}
+	],
+	"styleFixes": [
+		{ "name": "one step more reserved, from the level used", "proposal": { "expression_delta": -1, "style_id": null },
+			"dictation": { "app": "kite.exe", "style": "work", "expression": 3, "styleExpression": 1 }, "expect": { "edit": { "app": "kite.exe", "expression": 2 } } },
+		{ "name": "a big step is limited to two", "proposal": { "expression_delta": -4, "style_id": null },
+			"dictation": { "app": "kite.exe", "style": "work", "expression": 3, "styleExpression": null }, "expect": { "edit": { "app": "kite.exe", "expression": 1 } } },
+		{ "name": "no level used: the style's own is the base", "proposal": { "expression_delta": 1, "style_id": null },
+			"dictation": { "app": "kite.exe", "style": "work", "expression": null, "styleExpression": 0 }, "expect": { "edit": { "app": "kite.exe", "expression": 1 } } },
+		{ "name": "no level known at all: Natural (2) is the base", "proposal": { "expression_delta": 1, "style_id": null },
+			"dictation": { "app": "kite.exe", "style": "casual", "expression": null, "styleExpression": null }, "expect": { "edit": { "app": "kite.exe", "expression": 3 } } },
+		{ "name": "already at the top: nothing to change, dropped", "proposal": { "expression_delta": 2, "style_id": null },
+			"dictation": { "app": "kite.exe", "style": "work", "expression": 4, "styleExpression": null }, "expect": { "edit": null } },
+		{ "name": "another of the speaker's styles", "proposal": { "expression_delta": null, "style_id": "casual" },
+			"dictation": { "app": "org.example.chat", "style": "work", "expression": null, "styleExpression": null }, "expect": { "edit": { "app": "org.example.chat", "style": "casual" } } },
+		{ "name": "a style that is not the speaker's is dropped", "proposal": { "expression_delta": null, "style_id": "ghost" },
+			"dictation": { "app": "kite.exe", "style": "work", "expression": null, "styleExpression": null }, "expect": { "edit": null } },
+		{ "name": "the app is not known: dropped", "proposal": { "expression_delta": -1, "style_id": null },
+			"dictation": { "app": null, "style": "work", "expression": 3, "styleExpression": null }, "expect": { "edit": null } },
+		{ "name": "Raw: the level is never changed", "proposal": { "expression_delta": 1, "style_id": null },
+			"dictation": { "app": "kite.exe", "style": "raw", "expression": null, "styleExpression": null }, "expect": { "edit": null } }
+	]
+}

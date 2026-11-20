@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "bar-capability",
+  "description": "VoiceFlow A2: the recording bar. It only listens to and sends dictation events and calls its own commands.",
+  "windows": [
+    "bar"
+  ],
+  "permissions": [
+    "core:event:default",
+    "core:window:default",
+    "log:default"
+  ]
+}

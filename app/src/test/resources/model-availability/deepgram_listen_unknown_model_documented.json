@@ -1,0 +1,7 @@
+{
+  "provider": "deepgram",
+  "request": "POST /v1/listen?model=<unknown>",
+  "status": 400,
+  "body": "{\"err_code\":\"Bad Request\",\"err_msg\":\"Bad Request: No such model/language/tier combination found.\",\"request_id\":\"00000000-0000-0000-0000-000000000000\"}",
+  "note": "Not captured: no Deepgram key was available. Copied from https://developers.deepgram.com/docs/errors (400 Unknown Model). The same error also covers an unsupported language, so Deepgram is never classified as missing."
+}

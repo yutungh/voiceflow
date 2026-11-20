@@ -1,0 +1,12 @@
+{
+	"schema": "voiceflow-op",
+	"version": 1,
+	"id": "demo2-7c3d1e4f-2222-4b2b-8e66-000000000003",
+	"device": "demo2",
+	"createdAt": "2026-11-17T09:05:00.000Z",
+	"type": "correction",
+	"from": ["Kwibbit"],
+	"to": "Quibit",
+	"scope": { "apps": ["*"] },
+	"note": "Made on another device; a typo, undone below."
+}

@@ -1,0 +1,302 @@
+{
+ "light": {
+  "text": [
+   [
+    "tile-ok-fg on tile-ok",
+    4.85
+   ],
+   [
+    "success on tile-ok",
+    4.85
+   ],
+   [
+    "tile-warn-fg on tile-warn",
+    5.16
+   ],
+   [
+    "subtle-foreground on rail",
+    5.24
+   ],
+   [
+    "subtle-foreground on surface-raised",
+    5.34
+   ],
+   [
+    "tile-bad-fg on tile-bad",
+    5.66
+   ],
+   [
+    "subtle-foreground on background",
+    5.68
+   ],
+   [
+    "success on surface",
+    5.71
+   ],
+   [
+    "warning on surface",
+    6.06
+   ],
+   [
+    "subtle-foreground on surface",
+    6.14
+   ],
+   [
+    "tile-acc-fg on tile-acc",
+    6.38
+   ],
+   [
+    "tile-ind-fg on tile-ind",
+    6.39
+   ],
+   [
+    "danger on surface",
+    6.84
+   ],
+   [
+    "accent-ink on accent-tint-hover",
+    7.22
+   ],
+   [
+    "accent on surface",
+    7.58
+   ],
+   [
+    "info on surface",
+    7.71
+   ],
+   [
+    "accent-ink on accent-tint",
+    7.9
+   ],
+   [
+    "muted-foreground on rail",
+    8.01
+   ],
+   [
+    "muted-foreground on surface-raised",
+    8.16
+   ],
+   [
+    "statusbar-ok on statusbar",
+    8.51
+   ],
+   [
+    "muted-foreground on background",
+    8.67
+   ],
+   [
+    "statusbar-warn on statusbar",
+    8.69
+   ],
+   [
+    "muted-foreground on surface",
+    9.37
+   ],
+   [
+    "accent-ink on surface",
+    9.38
+   ],
+   [
+    "statusbar-fg on statusbar",
+    9.93
+   ],
+   [
+    "kbd-fg on kbd-bg",
+    11.28
+   ],
+   [
+    "foreground on accent-tint",
+    14.33
+   ],
+   [
+    "foreground on rail",
+    14.55
+   ],
+   [
+    "foreground on background",
+    15.76
+   ],
+   [
+    "foreground on surface",
+    17.03
+   ]
+  ],
+  "nontext": [
+   [
+    "accent-tint-border on surface",
+    3.55
+   ],
+   [
+    "accent-tint-border on background",
+    3.29
+   ],
+   [
+    "accent on surface",
+    7.58
+   ],
+   [
+    "danger on surface",
+    6.84
+   ],
+   [
+    "warning on surface",
+    6.06
+   ],
+   [
+    "info on surface",
+    7.71
+   ]
+  ]
+ },
+ "dark": {
+  "text": [
+   [
+    "subtle-foreground on surface-raised",
+    5.9
+   ],
+   [
+    "subtle-foreground on surface",
+    6.62
+   ],
+   [
+    "subtle-foreground on rail",
+    6.92
+   ],
+   [
+    "subtle-foreground on background",
+    7.18
+   ],
+   [
+    "tile-bad-fg on tile-bad",
+    7.5
+   ],
+   [
+    "accent-ink on accent-tint-hover",
+    7.64
+   ],
+   [
+    "danger on surface",
+    7.72
+   ],
+   [
+    "muted-foreground on surface-raised",
+    7.93
+   ],
+   [
+    "tile-ind-fg on tile-ind",
+    8.27
+   ],
+   [
+    "kbd-fg on kbd-bg",
+    8.64
+   ],
+   [
+    "tile-warn-fg on tile-warn",
+    8.75
+   ],
+   [
+    "info on surface",
+    8.86
+   ],
+   [
+    "muted-foreground on surface",
+    8.89
+   ],
+   [
+    "muted-foreground on rail",
+    9.29
+   ],
+   [
+    "accent on surface",
+    9.5
+   ],
+   [
+    "statusbar-ok on statusbar",
+    9.53
+   ],
+   [
+    "tile-acc-fg on tile-acc",
+    9.55
+   ],
+   [
+    "muted-foreground on background",
+    9.65
+   ],
+   [
+    "accent-ink on accent-tint",
+    9.68
+   ],
+   [
+    "warning on surface",
+    9.74
+   ],
+   [
+    "statusbar-warn on statusbar",
+    9.78
+   ],
+   [
+    "tile-ok-fg on tile-ok",
+    10.02
+   ],
+   [
+    "success on tile-ok",
+    10.02
+   ],
+   [
+    "success on surface",
+    11.6
+   ],
+   [
+    "accent-ink on surface",
+    11.95
+   ],
+   [
+    "foreground on accent-tint",
+    12.04
+   ],
+   [
+    "statusbar-fg on statusbar",
+    12.11
+   ],
+   [
+    "foreground on surface",
+    14.86
+   ],
+   [
+    "foreground on rail",
+    15.53
+   ],
+   [
+    "foreground on background",
+    16.13
+   ]
+  ],
+  "nontext": [
+   [
+    "accent-tint-border on surface",
+    3.49
+   ],
+   [
+    "accent-tint-border on background",
+    3.79
+   ],
+   [
+    "accent on surface",
+    9.5
+   ],
+   [
+    "danger on surface",
+    7.72
+   ],
+   [
+    "warning on surface",
+    9.74
+   ],
+   [
+    "info on surface",
+    8.86
+   ]
+  ]
+ }
+}

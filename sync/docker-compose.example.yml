@@ -1,0 +1,29 @@
+# Example deployment. Copy it next to a config/ and state/ folder, set the paths and
+# the user, and run `docker compose up -d`. Keep the real copy out of git.
+services:
+  vf-sync:
+    image: vf-sync:0.1.0
+    container_name: vf-sync
+    restart: unless-stopped
+    # A user that can read and write the profile folder (and nothing more is mounted).
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    pids_limit: 64
+    environment:
+      VF_SYNC_CONFIG: /config/config.json
+    volumes:
+      - /path/to/voiceflow:/data # the profile folder: profiles/, status/, archive/, releases/
+      - ./config:/config:ro # config.json and tokens.txt (hashes only)
+      - ./state:/state # rollout evidence; outside the shared folder
+    ports:
+      # Loopback only: a reverse proxy in front terminates HTTPS.
+      - "127.0.0.1:8790:8790"
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "3" }
+    labels:
+      # A local-only image: tell Watchtower to leave it alone.
+      com.centurylinklabs.watchtower.enable: "false"

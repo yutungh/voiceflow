@@ -1,0 +1,160 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "voiceflow-op.v1.schema.json",
+	"title": "VoiceFlow edit (voiceflow-op v1)",
+	"description": "One immutable edit made in the app, one file per edit: profiles/<user>/ops/<id>.json. Never changed after it is written; removing an edit writes a tombstone that targets it (and a tombstone can itself be removed, which brings the edit back). Clients skip types they don't know. Edits are the highest layer. style-set and default-set are written only once every device of the user reads them (pack/README.md, Versions).",
+	"type": "object",
+	"required": ["schema", "version", "id", "device", "createdAt", "type"],
+	"properties": {
+		"schema": { "const": "voiceflow-op" },
+		"version": { "const": 1 },
+		"id": {
+			"type": "string",
+			"pattern": "^[a-z0-9][a-z0-9._-]{0,99}$",
+			"description": "\"<device>-<uuid>\"; also the file name without .json."
+		},
+		"device": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,31}$" },
+		"createdAt": { "type": "string", "description": "ISO 8601 (UTC). Orders edits; for the same heard form the newest edit wins." },
+		"type": { "enum": ["correction", "term", "app-style", "style-set", "default-set", "tombstone"] }
+	},
+	"allOf": [
+		{
+			"if": { "properties": { "type": { "const": "correction" } } },
+			"then": {
+				"required": ["from", "to", "scope"],
+				"properties": {
+					"from": {
+						"type": "array",
+						"minItems": 1,
+						"items": { "type": "string", "minLength": 1, "maxLength": 60, "pattern": "^[^<>\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2066-\\u2069\\ufeff]+$" }
+					},
+					"to": { "type": "string", "minLength": 1, "maxLength": 60, "pattern": "^[^<>\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2066-\\u2069\\ufeff]+$" },
+					"scope": {
+						"type": "object",
+						"required": ["apps"],
+						"properties": { "apps": { "type": "array", "minItems": 1, "items": { "type": "string" } } }
+					},
+					"note": { "type": "string", "maxLength": 500 }
+				}
+			}
+		},
+		{
+			"if": { "properties": { "type": { "const": "term" } } },
+			"then": {
+				"required": ["term"],
+				"properties": {
+					"term": {
+						"type": "object",
+						"required": ["text"],
+						"properties": {
+							"text": { "type": "string", "minLength": 1, "maxLength": 60, "pattern": "^[^<>\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2066-\\u2069\\ufeff]+$" },
+							"heardAs": { "type": "array", "items": { "type": "string" } },
+							"kind": { "type": "string" },
+							"gloss": { "type": "string", "maxLength": 80 },
+							"priority": { "type": "integer", "minimum": 0, "maximum": 100 },
+							"apps": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+						}
+					}
+				}
+			}
+		},
+		{
+			"if": { "properties": { "type": { "const": "app-style" } } },
+			"then": {
+				"required": ["app"],
+				"anyOf": [{ "required": ["style"] }, { "required": ["expression"] }],
+				"properties": {
+					"app": {
+						"type": "string",
+						"pattern": "^[a-z0-9][a-z0-9._-]{0,99}$",
+						"description": "Lower-case exe name (Windows), bundle id (macOS) or package name (Android). App ids are native to each platform."
+					},
+					"style": {
+						"type": "string",
+						"pattern": "^[a-z0-9][a-z0-9._-]{0,99}$",
+						"description": "A style id from the merged word lists, or \"raw\" (no tidy-up)."
+					},
+					"expression": { "type": "integer", "minimum": 0, "maximum": 4 }
+				}
+			}
+		},
+		{
+			"if": { "properties": { "type": { "const": "style-set" } } },
+			"then": {
+				"required": ["style", "set"],
+				"properties": {
+					"style": {
+						"type": "string",
+						"pattern": "^[a-z0-9][a-z0-9._-]{0,99}$",
+						"description": "The style id. A style no layer has is created by its edits once they give it a label and a prompt."
+					},
+					"set": {
+						"type": "object",
+						"additionalProperties": false,
+						"description": "The fields this edit sets. Field by field, the newest edit wins, so an expression change on one device never overwrites a prompt edit on another. null clears an optional field (label and prompt cannot be cleared). The fields mean what they mean in voiceflow-profile v2.",
+						"properties": {
+							"label": { "type": "string", "minLength": 1, "maxLength": 40 },
+							"prompt": { "type": "string", "minLength": 1, "maxLength": 8000 },
+							"model": { "type": ["string", "null"], "minLength": 1, "maxLength": 100 },
+							"models": {
+								"type": ["object", "null"],
+								"additionalProperties": false,
+								"properties": {
+									"openai": { "type": "string", "minLength": 1, "maxLength": 100 },
+									"anthropic": { "type": "string", "minLength": 1, "maxLength": 100 },
+									"google": { "type": "string", "minLength": 1, "maxLength": 100 },
+									"groq": { "type": "string", "minLength": 1, "maxLength": 100 },
+									"openrouter": { "type": "string", "minLength": 1, "maxLength": 100 },
+									"xai": { "type": "string", "minLength": 1, "maxLength": 100 },
+									"custom": { "type": "string", "minLength": 1, "maxLength": 100 }
+								}
+							},
+							"expression": { "type": ["integer", "null"], "minimum": 0, "maximum": 4 },
+							"expressionOverride": { "type": ["string", "null"], "maxLength": 2000 },
+							"icon": { "type": ["string", "null"], "minLength": 1, "maxLength": 16, "pattern": "^[^<>\\u0000-\\u001f\\u007f-\\u009f\\u2028\\u2029]+$" },
+							"kind": { "type": ["string", "null"], "pattern": "^(casual|business|family|partner|custom|fun_[a-z]{1,30})$" },
+							"guidance": { "type": ["string", "null"], "maxLength": 2000 },
+							"hidden": { "type": ["boolean", "null"] },
+							"note": { "type": ["string", "null"], "maxLength": 500 }
+						},
+						"anyOf": [
+							{ "required": ["label"] }, { "required": ["prompt"] }, { "required": ["model"] }, { "required": ["models"] },
+							{ "required": ["expression"] }, { "required": ["expressionOverride"] }, { "required": ["icon"] },
+							{ "required": ["kind"] }, { "required": ["guidance"] }, { "required": ["hidden"] }, { "required": ["note"] }
+						]
+					}
+				}
+			}
+		},
+		{
+			"if": { "properties": { "type": { "const": "default-set" } } },
+			"then": {
+				"required": ["set"],
+				"properties": {
+					"set": {
+						"type": "object",
+						"additionalProperties": false,
+						"description": "Defaults this edit sets over the layers, field by field (the newest edit wins). null takes the edits' value away, so the layers' value applies again.",
+						"properties": {
+							"cleanupStyle": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$", "description": "A style id, or \"raw\"." },
+							"pinnedStyles": {
+								"type": ["array", "null"],
+								"maxItems": 12,
+								"items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$" },
+								"description": "The styles pinned to the bar, in order."
+							}
+						},
+						"anyOf": [{ "required": ["cleanupStyle"] }, { "required": ["pinnedStyles"] }]
+					}
+				}
+			}
+		},
+		{
+			"if": { "properties": { "type": { "const": "tombstone" } } },
+			"then": {
+				"required": ["target"],
+				"properties": { "target": { "type": "string", "description": "The id of the edit this removes." } }
+			}
+		}
+	]
+}

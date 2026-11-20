@@ -1,0 +1,188 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "voiceflow-profile.v1.schema.json",
+	"title": "VoiceFlow word-list profile, one layer (voiceflow-profile v1)",
+	"description": "One layer of a user's word lists: household, generated (for example from notes) or personal. Version 2 (voiceflow-profile.v2.schema.json) adds shared style fields; a file that needs none of them stays version 1. VoiceFlow merges the layers by precedence: built-in defaults < household < generated < personal < edits made in the app. A file is accepted whole or not at all; a rejected file leaves the last good copy in use. See pack/README.md.",
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["schema", "schemaVersion", "layer", "user"],
+	"properties": {
+		"$schema": { "type": "string" },
+		"schema": { "const": "voiceflow-profile" },
+		"schemaVersion": {
+			"const": 1,
+			"description": "A client refuses a higher version and keeps its last good copy."
+		},
+		"layer": {
+			"enum": ["household", "generated", "personal"],
+			"description": "Must match where the file sits: profiles/household/profile.json is household, profiles/<user>/generated/profile.json is generated, profiles/<user>/profile.json is personal."
+		},
+		"user": {
+			"$ref": "#/$defs/name",
+			"description": "\"household\" for the household layer, else the user the file belongs to (the folder name)."
+		},
+		"updatedAt": { "type": "string", "description": "ISO 8601, informational." },
+		"updatedBy": { "type": "string", "description": "Who or what wrote it last (a person, an assistant, a generator)." },
+		"note": { "type": "string", "maxLength": 500 },
+		"terms": {
+			"type": "array",
+			"description": "Words VoiceFlow listens for. Hints only: they bias recognition and tidy-up, they never rewrite text.",
+			"items": { "$ref": "#/$defs/term" }
+		},
+		"corrections": {
+			"type": "array",
+			"description": "Spellings VoiceFlow always fixes: whole word, ignoring case, applied once to the final text, never chained.",
+			"items": { "$ref": "#/$defs/correction" }
+		},
+		"styles": {
+			"type": "array",
+			"description": "Tidy-up styles: a prompt and, optionally, a model.",
+			"items": { "$ref": "#/$defs/style" }
+		},
+		"defaults": { "$ref": "#/$defs/defaults" },
+		"privacy": { "$ref": "#/$defs/privacy" },
+		"apps": {
+			"type": "array",
+			"description": "Per-app rules. id: the app (a lower-case Windows exe name or macOS bundle id). style: the style a dictation into that app starts with (a style id or raw). expression: the level it starts with, 0-4. terms: reserved. Each entry needs a unique id; references to word ids and a style id are checked.",
+			"items": {
+				"type": "object",
+				"required": ["id"],
+				"properties": {
+					"id": { "$ref": "#/$defs/id" },
+					"terms": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+					"style": { "type": "string" },
+					"expression": { "type": "integer", "minimum": 0, "maximum": 4, "description": "The expression level dictations into this app start with, over the style's own." }
+				}
+			}
+		}
+	},
+	"$defs": {
+		"id": {
+			"type": "string",
+			"pattern": "^[a-z0-9][a-z0-9._-]{0,99}$",
+			"description": "Stable id: never reuse one for something else. Unique per kind (words, corrections, styles) within a file. The same id in a higher layer replaces the entry."
+		},
+		"name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,31}$" },
+		"word": {
+			"type": "string",
+			"minLength": 1,
+			"maxLength": 60,
+			"pattern": "^[^<>\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2066-\\u2069\\ufeff]+$"
+		},
+		"apps": {
+			"type": "array",
+			"minItems": 1,
+			"maxItems": 50,
+			"description": "[\"*\"] for every app, or lower-case app ids: a Windows exe name (\"telegram.exe\") or a macOS bundle id.",
+			"items": { "type": "string", "pattern": "^(\\*|[^A-Z<>\\r\\n]{1,200})$" }
+		},
+		"term": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["id", "text"],
+			"properties": {
+				"id": { "$ref": "#/$defs/id" },
+				"text": { "$ref": "#/$defs/word", "description": "How it is written." },
+				"heardAs": {
+					"type": "array",
+					"maxItems": 50,
+					"items": { "$ref": "#/$defs/word" },
+					"description": "Forms speech-to-text produces for it. Hints only."
+				},
+				"kind": {
+					"enum": ["person", "bot", "project", "org", "product", "acronym", "place", "term"]
+				},
+				"gloss": {
+					"type": "string",
+					"maxLength": 80,
+					"pattern": "^[^<>\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2066-\\u2069\\ufeff]*$",
+					"description": "A few words of meaning, for tidy-up (\"the household's assistant bot\")."
+				},
+				"priority": {
+					"type": "integer",
+					"minimum": 0,
+					"maximum": 100,
+					"default": 50,
+					"description": "Higher is more likely to fit in the prompt budget."
+				},
+				"apps": { "$ref": "#/$defs/apps" },
+				"note": { "type": "string", "maxLength": 500 }
+			}
+		},
+		"correction": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["id", "from", "to"],
+			"properties": {
+				"id": { "$ref": "#/$defs/id" },
+				"from": {
+					"type": "array",
+					"minItems": 1,
+					"maxItems": 50,
+					"items": { "$ref": "#/$defs/word" },
+					"description": "Heard forms, matched as whole words, ignoring case and runs of spaces."
+				},
+				"to": { "$ref": "#/$defs/word" },
+				"scope": {
+					"type": "object",
+					"additionalProperties": false,
+					"required": ["apps"],
+					"properties": { "apps": { "$ref": "#/$defs/apps" } },
+					"description": "Absent: every app."
+				},
+				"note": { "type": "string", "maxLength": 500 }
+			}
+		},
+		"style": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["id", "label", "prompt"],
+			"properties": {
+				"id": { "$ref": "#/$defs/id" },
+				"label": { "type": "string", "minLength": 1, "maxLength": 40 },
+				"prompt": { "type": "string", "minLength": 1, "maxLength": 8000 },
+				"model": { "type": "string" },
+				"expression": {
+					"type": "integer",
+					"minimum": 0,
+					"maximum": 4,
+					"description": "0 (plain) to 4 (most expressive), as on Android. Reserved."
+				},
+				"note": { "type": "string", "maxLength": 500 }
+			}
+		},
+		"defaults": {
+			"type": "object",
+			"additionalProperties": false,
+			"description": "Each field is taken from the highest layer that sets it. A field no layer sets is left to the device.",
+			"properties": {
+				"transcriptionModel": { "type": "string" },
+				"language": { "type": "string", "description": "ISO 639-1, e.g. \"en\"." },
+				"cleanupModel": { "type": "string", "description": "Model for styles that name none." },
+				"cleanupStyle": { "type": "string", "description": "A style id, or \"raw\" for no tidy-up." },
+				"cleanupTimeoutS": { "type": "integer", "minimum": 1, "maximum": 120 },
+				"promptChars": { "type": "integer", "minimum": 50, "maximum": 4000, "default": 600 },
+				"promptTerms": { "type": "integer", "minimum": 1, "maximum": 500, "default": 40 }
+			}
+		},
+		"privacy": {
+			"type": "object",
+			"additionalProperties": false,
+			"description": "Added to the built-in privacy lists (never removes a built-in block).",
+			"properties": {
+				"blockApps": {
+					"type": "array",
+					"maxItems": 50,
+					"items": { "type": "string", "pattern": "^[^A-Z]+$" },
+					"description": "App ids VoiceFlow never records in or pastes into."
+				},
+				"titleDenyRe": {
+					"type": "array",
+					"maxItems": 50,
+					"items": { "type": "string", "maxLength": 200 },
+					"description": "Window-title patterns (case-insensitive, Rust regex syntax, matched on the device only) that mark a page as sensitive: audio allowed, no context."
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,79 @@
+{
+	"build": {
+		"beforeBuildCommand": "bun run build",
+		"beforeDevCommand": "bun run dev:web",
+		"frontendDist": "../build",
+		"devUrl": "http://localhost:1420"
+	},
+	"bundle": {
+		"active": true,
+		"category": "Productivity",
+		"publisher": "VoiceFlow",
+		"copyright": "Copyright © 2023-2025 Braden Wong; modified by the VoiceFlow project, 2026. AGPL-3.0.",
+		"targets": "all",
+		"icon": [
+			"icons/32x32.png",
+			"icons/128x128.png",
+			"icons/128x128@2x.png",
+			"icons/icon.icns",
+			"icons/icon.ico"
+		],
+		"longDescription": "Hotkey dictation for your desktop: press a shortcut, speak, and get clean text at the cursor. Based on Whispering by Braden Wong.",
+		"shortDescription": "Press a shortcut, speak, get text.",
+		"createUpdaterArtifacts": false,
+		"macOS": {
+			"entitlements": "entitlements.plist",
+			"hardenedRuntime": true,
+			"minimumSystemVersion": "10.15",
+			"signingIdentity": "-"
+		},
+		"linux": {
+			"appimage": {
+				"bundleMediaFramework": true
+			}
+		},
+		"windows": {
+			"webviewInstallMode": {
+				"type": "embedBootstrapper"
+			},
+			"wix": {
+				"fipsCompliant": true,
+				"language": "en-US"
+			},
+			"nsis": {
+				"compression": "bzip2",
+				"installMode": "currentUser"
+			}
+		}
+	},
+	"productName": "VoiceFlow",
+	"version": "0.9.15",
+	"identifier": "com.voiceflowkeyboard.desktop",
+	"plugins": {},
+	"app": {
+		"macOSPrivateApi": true,
+		"windows": [
+			{
+				"label": "main",
+				"create": false,
+				"resizable": true,
+				"title": "VoiceFlow",
+				"visible": false,
+				"width": 1080,
+				"height": 800,
+				"minHeight": 84,
+				"minWidth": 72
+			}
+		],
+		"security": {
+			"csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.24/dist/; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: http://asset.localhost; media-src 'self' data: blob: asset: http://asset.localhost; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost blob: data: https://api.anthropic.com https://generativelanguage.googleapis.com https://api.elevenlabs.io https://api.mistral.ai https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.24/dist/ https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'",
+			"dangerousDisableAssetCspModification": ["style-src"],
+			"assetProtocol": {
+				"enable": true,
+				"scope": [
+					"**"
+				]
+			}
+		}
+	}
+}

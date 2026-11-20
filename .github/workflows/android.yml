@@ -1,0 +1,42 @@
+name: Android
+
+on:
+  push:
+    branches: [main, "android/**", "phase*/**"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          # v3's default also asks for the retired "tools" package, which the runner's
+          # sdkmanager no longer has; that failed every run from 2026-11-16.
+          packages: platform-tools
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: voiceflow-keyboard-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk

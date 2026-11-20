@@ -1,0 +1,13 @@
+{
+	"listen": { "host": "0.0.0.0", "port": 8790 },
+	"dataRoot": "/data",
+	"tokensFile": "/config/tokens.txt",
+	"stateDir": "/state",
+	"trustProxy": true,
+	"rollout": {
+		"canaryUser": "sam",
+		"canaryDevices": [],
+		"minAgeHours": 24,
+		"freshHours": 2
+	}
+}

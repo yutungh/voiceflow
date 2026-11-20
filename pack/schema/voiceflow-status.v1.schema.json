@@ -1,0 +1,55 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "voiceflow-status.v1.schema.json",
+	"title": "VoiceFlow device status (voiceflow-status v1)",
+	"description": "Written by each device to status/<user>/<device>.json after every refresh that reached the folder. Read by people and assistants to see whether a device is current. Never contains dictated text or words from the lists.",
+	"type": "object",
+	"required": ["schema", "schemaVersion", "app", "version", "os", "device", "user", "writtenAt", "profile"],
+	"properties": {
+		"schema": { "const": "voiceflow-status" },
+		"schemaVersion": { "const": 1 },
+		"app": { "const": "VoiceFlow" },
+		"version": { "type": "string" },
+		"os": { "type": "string" },
+		"device": { "type": "string" },
+		"user": { "type": "string" },
+		"writtenAt": { "type": "string" },
+		"reads": {
+			"type": "object",
+			"description": "What this app version reads, for the readers-before-writers rule (pack/README.md, Versions): a writer of a newer profile version or a new edit type starts only once every device of the user lists it here. Absent: an app from before this field, or a phone: it counts as reading profile version 1 and the edit types correction, term and tombstone only.",
+			"properties": {
+				"profile": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "description": "The voiceflow-profile schemaVersions it reads." },
+				"op": { "type": "array", "items": { "type": "string" }, "description": "The voiceflow-op types it reads." }
+			}
+		},
+		"profile": {
+			"type": "object",
+			"properties": {
+				"snapshotId": { "type": "string", "description": "Changes when the merged lists change." },
+				"words": { "type": "integer" },
+				"corrections": { "type": "integer" },
+				"styles": { "type": "integer" },
+				"lastSyncAt": { "type": ["string", "null"] },
+				"sourceReachable": { "type": "boolean" },
+				"usingCache": { "type": "boolean" },
+				"pendingEdits": { "type": "integer", "description": "Edits made on the device that are not on the share yet." },
+				"layers": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"layer": { "enum": ["household", "generated", "personal"] },
+							"state": { "enum": ["ok", "cached", "offline", "missing"] },
+							"updatedAt": { "type": "string" },
+							"error": { "type": "string" },
+							"words": { "type": "integer" },
+							"corrections": { "type": "integer" }
+						}
+					}
+				},
+				"issues": { "type": "array", "items": { "type": "string" }, "description": "Issue codes after merging (see pack/README.md)." },
+				"errors": { "type": "array", "items": { "type": "string" } }
+			}
+		}
+	}
+}

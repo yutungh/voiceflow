@@ -1,0 +1,13 @@
+{
+	"$schema": "../../../../../schema/voiceflow-profile.v1.schema.json",
+	"schema": "voiceflow-profile",
+	"schemaVersion": 1,
+	"layer": "generated",
+	"user": "sam",
+	"updatedAt": "2026-11-17T03:30:00Z",
+	"updatedBy": "demo-notes-generator",
+	"terms": [
+		{ "id": "notes-blimbo", "text": "Blimbo", "kind": "person", "priority": 70 },
+		{ "id": "zorblax", "text": "ZorbLax", "priority": 10, "note": "Overridden by the personal layer's id zorblax." }
+	]
+}

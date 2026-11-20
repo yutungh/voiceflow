@@ -1,0 +1,15 @@
+{
+	"name": "vf-sync",
+	"version": "0.1.0",
+	"description": "VoiceFlow's sync gateway: serves a profile folder to devices over HTTPS, one token per device",
+	"private": true,
+	"license": "MIT",
+	"type": "module",
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"start": "node bin/vf-sync.mjs",
+		"test": "node --test test/*.test.mjs"
+	}
+}

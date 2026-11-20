@@ -1,0 +1,9 @@
+{
+	"schema": "voiceflow-op",
+	"version": 1,
+	"id": "demo1-0b6f9a2e-1111-4c1a-9d55-000000000001",
+	"device": "demo1",
+	"createdAt": "2026-11-17T09:00:00.000Z",
+	"type": "term",
+	"term": { "text": "Flumox", "heardAs": ["Flu Mocks"] }
+}

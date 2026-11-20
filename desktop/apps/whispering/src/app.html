@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" href="%sveltekit.assets%/favicon.ico" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>VoiceFlow</title>
+		<script>
+			// Theme before first paint. Default System (follows the OS). Builds
+			// before the B3.1 theme forced dark and stored it as if chosen, so
+			// that stored value is reset once.
+			if (!localStorage.getItem('voiceflow-theme-v1')) {
+				localStorage.removeItem('mode-watcher-mode');
+				localStorage.setItem('voiceflow-theme-v1', '1');
+			}
+			const mode = localStorage.getItem('mode-watcher-mode') ?? 'system';
+			const isLight =
+				mode === 'light' ||
+				(mode === 'system' &&
+					matchMedia('(prefers-color-scheme: light)').matches);
+			document.documentElement.classList.toggle('dark', !isLight);
+			document.documentElement.style.colorScheme = isLight ? 'light' : 'dark';
+			localStorage.setItem('mode-watcher-mode', mode);
+		</script>
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>

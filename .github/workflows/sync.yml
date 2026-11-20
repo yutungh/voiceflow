@@ -1,0 +1,44 @@
+name: Sync gateway
+
+# Tests the vf-sync gateway (sync/) and checks its container builds.
+
+on:
+  push:
+    paths:
+      - "sync/**"
+      # The gateway validates uploads against the pack schemas and tests with its fixtures.
+      - "pack/**"
+      - ".github/workflows/sync.yml"
+  pull_request:
+    paths:
+      - "sync/**"
+      - "pack/**"
+      - ".github/workflows/sync.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Test
+        working-directory: sync
+        run: npm test
+
+      - name: Build the container
+        run: docker build -f sync/Dockerfile -t vf-sync:ci .

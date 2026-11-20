@@ -1,0 +1,7 @@
+{
+  "provider": "xai",
+  "request": "POST /v1/chat/completions model=voiceflow-nonexistent-model-probe",
+  "status": 404,
+  "body": "{\"code\":\"not-found\",\"error\":\"The model voiceflow-nonexistent-model-probe does not exist or your team 00000000-0000-0000-0000-000000000000 does not have access to it. If you believe this is a mistake, please contact support and quote your team ID and the model name.\"}",
+  "note": "Team ID in the body replaced with a zero UUID; nothing else changed."
+}

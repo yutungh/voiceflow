@@ -1,0 +1,6 @@
+{
+  "provider": "openai",
+  "request": "GET /v1/models/voiceflow-nonexistent-model-probe",
+  "status": 404,
+  "body": "{\n  \"error\": {\n    \"message\": \"The model 'voiceflow-nonexistent-model-probe' does not exist\",\n    \"type\": \"invalid_request_error\",\n    \"param\": \"model\",\n    \"code\": \"model_not_found\"\n  }\n}"
+}

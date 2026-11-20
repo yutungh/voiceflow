@@ -1,0 +1,38 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "voiceflow-feedback.v1.schema.json",
+	"title": "VoiceFlow feedback answer (voiceflow-feedback v1)",
+	"description": "What a model must answer when the speaker gives feedback on one dictation: one JSON object, nothing else. Every field is present on every proposal (a field a type does not use is null or empty), so it works as strict structured output. The answer is untrusted: a client checks it as pack/feedback/README.md says before anyone sees it, and checks each proposal again against the word lists before it becomes an edit.",
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["diagnosis", "explanation", "corrected_text", "proposals"],
+	"properties": {
+		"diagnosis": {
+			"enum": ["mishearing", "tidy-up-rewrite", "style-mismatch", "delivery-privacy", "uncertain"],
+			"description": "mishearing: speech-to-text got a word wrong. tidy-up-rewrite: tidy-up changed, dropped or added meaning. style-mismatch: the words are right but the tone or level is wrong for this app. delivery-privacy: about where or whether the text went (diagnosis only, no proposals). uncertain: not enough to go on (no proposals)."
+		},
+		"explanation": { "type": "string", "maxLength": 400, "description": "One plain sentence for the speaker." },
+		"corrected_text": {
+			"type": "string",
+			"description": "The dictation as it should have been, for this one message. Empty: the delivered text stands."
+		},
+		"proposals": {
+			"type": "array",
+			"description": "Lasting fixes, at most three shown. spelling: always write these heard forms this way. style_adjust: for this app, a style and/or a step in expression. none: why no lasting fix is offered.",
+			"items": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["type", "from", "to", "scope", "expression_delta", "style_id", "reason"],
+				"properties": {
+					"type": { "enum": ["spelling", "style_adjust", "none"] },
+					"from": { "type": "array", "items": { "type": "string" }, "description": "spelling: 1 to 5 heard forms, as they appear in the dictation." },
+					"to": { "type": ["string", "null"], "description": "spelling: how to write them." },
+					"scope": { "enum": ["app", "everywhere", null], "description": "spelling: the model's suggestion; the speaker chooses. Anything else counts as app." },
+					"expression_delta": { "type": ["integer", "null"], "minimum": -4, "maximum": 4, "description": "style_adjust: levels to move (negative: more reserved). 0 or null: leave the level." },
+					"style_id": { "type": ["string", "null"], "description": "style_adjust: a style id from the request's list, raw, or null to keep the style." },
+					"reason": { "type": "string", "description": "One line: why this fix." }
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,140 @@
+name: Desktop
+
+# Builds VoiceFlow Desktop (desktop/) for Windows x64 and macOS universal.
+# Unsigned builds (macOS is ad-hoc signed), no updater artifacts, no release:
+# the installers are uploaded as workflow artifacts.
+
+on:
+  push:
+    paths:
+      - "desktop/**"
+      # The desktop tests read the word-list schema, fixtures and vectors.
+      - "pack/**"
+      # ...and the Android app's presets, which the built-in styles mirror.
+      - "app/src/main/java/com/voiceflowkeyboard/ime/Prefs.java"
+      - "app/src/main/java/com/voiceflowkeyboard/ime/OpenAiClient.java"
+      - ".github/workflows/desktop.yml"
+  pull_request:
+    paths:
+      - "desktop/**"
+      # The desktop tests read the word-list schema, fixtures and vectors.
+      - "pack/**"
+      # ...and the Android app's presets, which the built-in styles mirror.
+      - "app/src/main/java/com/voiceflowkeyboard/ime/Prefs.java"
+      - "app/src/main/java/com/voiceflowkeyboard/ime/OpenAiClient.java"
+      - ".github/workflows/desktop.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-latest
+            rust_targets: ""
+            tauri_args: "--bundles nsis"
+            bundle_glob: "release/bundle/nsis/*-setup.exe"
+            artifact: voiceflow-desktop-windows-x64
+          - name: macOS universal
+            os: macos-latest
+            rust_targets: "aarch64-apple-darwin x86_64-apple-darwin"
+            tauri_args: "--target universal-apple-darwin --bundles app,dmg"
+            bundle_glob: "universal-apple-darwin/release/bundle/dmg/*.dmg"
+            artifact: voiceflow-desktop-macos-universal
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # A short target path keeps Windows under its 260-character path limit.
+      - name: Set CARGO_TARGET_DIR
+        run: echo "CARGO_TARGET_DIR=$RUNNER_TEMP/t" >> "$GITHUB_ENV"
+
+      - name: Allow long paths (Windows)
+        if: runner.os == 'Windows'
+        run: git config --system core.longpaths true
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun (version from desktop/package.json)
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: desktop/package.json
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install the pinned Rust toolchain
+        run: |
+          TOOLCHAIN=$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml | tr -d '\r')
+          echo "Rust toolchain: $TOOLCHAIN"
+          rustup toolchain install "$TOOLCHAIN" --profile minimal
+          for t in ${{ matrix.rust_targets }}; do
+            rustup target add --toolchain "$TOOLCHAIN" "$t"
+          done
+          rustc --version
+        working-directory: desktop
+
+      - name: Install JavaScript dependencies
+        run: bun install --frozen-lockfile
+        working-directory: desktop
+
+      - name: Unit tests (bun)
+        run: bun test
+        working-directory: desktop/apps/whispering
+
+      # svelte-check reports 5 errors in code kept from upstream (packages/ui
+      # button, link and copy-button, and the upload drop zone on the home
+      # page). The step fails when that number grows.
+      - name: Typecheck (no new svelte-check errors)
+        run: |
+          bun run check --output machine > "$RUNNER_TEMP/svelte-check.log" 2>&1 || true
+          grep -E " (ERROR|COMPLETED) " "$RUNNER_TEMP/svelte-check.log" || true
+          ERRORS=$(sed -n 's/.* COMPLETED .* FILES \([0-9]*\) ERRORS .*/\1/p' "$RUNNER_TEMP/svelte-check.log" | tail -1)
+          echo "svelte-check errors: ${ERRORS:-none reported} (baseline 5)"
+          test -n "$ERRORS" && [ "$ERRORS" -le 5 ]
+        working-directory: desktop/apps/whispering
+
+      # ort-sys (ONNX Runtime, used by the local Parakeet model) copies
+      # DirectML.dll into <target>/release/build/{examples,deps} on Windows and
+      # panics when those folders do not exist yet.
+      - name: Prepare Cargo target folders (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir -p "$CARGO_TARGET_DIR/release/build/examples" "$CARGO_TARGET_DIR/release/build/deps"
+          mkdir -p "$CARGO_TARGET_DIR/debug/build/examples" "$CARGO_TARGET_DIR/debug/build/deps"
+
+      - name: Build
+        run: bun run tauri build ${{ matrix.tauri_args }}
+        working-directory: desktop/apps/whispering
+
+      # After the build, so the web assets that tauri embeds exist. --lib
+      # skips the doc examples in upstream's command.rs, which do not compile.
+      - name: Rust unit tests
+        run: cargo test --locked --lib
+        working-directory: desktop/apps/whispering/src-tauri
+
+      - name: List installers
+        run: ls -la "$CARGO_TARGET_DIR"/${{ matrix.bundle_glob }}
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ runner.temp }}/t/${{ matrix.bundle_glob }}
+          if-no-files-found: error
+          retention-days: 14

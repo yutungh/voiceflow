@@ -1,0 +1,29 @@
+{
+	"name": "@epicenter/constants",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"imports": {
+		"#*": [
+			"./src/*.ts",
+			"./src/*/index.ts"
+		]
+	},
+	"exports": {
+		"./vite": "./src/vite.ts",
+		"./node": "./src/node.ts",
+		"./cloudflare": "./src/cloudflare.ts",
+		"./versions": "./src/versions.ts"
+	},
+	"dependencies": {
+		"arktype": "catalog:"
+	},
+	"devDependencies": {
+		"@types/node": "catalog:",
+		"typescript": "catalog:",
+		"vite": "catalog:"
+	},
+	"scripts": {
+		"check": "tsc --noEmit"
+	}
+}

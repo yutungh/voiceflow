@@ -1,0 +1,438 @@
+{
+	"description": "More test vectors for word lists (VoiceFlow Android 0.8.2, plan phase 4). `merge`: cases in the same shape as merge.json (edits out of order and repeated, time offsets and ties, case and spacing, duplicates, undo chains, a fix that loses one heard form). `prompt`: the vocabulary prompt and keywords built from merged words: `terms` as in a snapshot (with the layer each came from), the budget, the app dictated into, and the exact result: the one-line `prompt`, the words `sent` (prompt order) and the request's `keywords`. `split` (VoiceFlow Desktop 0.9.15, Android 0.8.5): the transcription request and the tidy-up list from the same words. The request (`prompt`, `sent`, `keywords`) carries only the first 20 words chosen (`TRANSCRIBE_TERMS`, a code constant; the app's own words first, then priority), with hints fitted to that line within `promptChars`; `tidyWords` is every word chosen within `promptChars` and `promptTerms`, most important first, as the tidy-up lists them (3,000-character list budget). Synthetic words only. Every client that merges profiles or builds the prompt should pass them.",
+	"merge": [
+		{
+			"name": "edits in any order, one listed twice, give the same result",
+			"user": "sam",
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev2-c", "device": "dev2", "createdAt": "2026-11-17T10:02:00Z",
+					"type": "tombstone", "target": "dev1-a" },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-b", "device": "dev1", "createdAt": "2026-11-17T10:01:00Z",
+					"type": "term", "term": { "text": "Flumox" } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-a", "device": "dev1", "createdAt": "2026-11-17T10:00:00Z",
+					"type": "term", "term": { "text": "Quibbit" } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-b", "device": "dev1", "createdAt": "2026-11-17T10:01:00Z",
+					"type": "term", "term": { "text": "Flumox" } }
+			],
+			"expect": { "terms": { "dev1-b": "Flumox" }, "corrections": [], "issues": [], "rejected": [] }
+		},
+		{
+			"name": "an edit made offline arrives late: the newer createdAt wins, not the order received",
+			"user": "sam",
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev2-b", "device": "dev2", "createdAt": "2026-11-18T09:00:00Z",
+					"type": "correction", "from": ["Kwibbit"], "to": "Quibbit", "scope": { "apps": ["*"] } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev3-c", "device": "dev3", "createdAt": "2026-11-16T09:00:00Z",
+					"type": "correction", "from": ["Kwibbit"], "to": "Kwibit", "scope": { "apps": ["*"] } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-a", "device": "dev1", "createdAt": "2026-11-17T09:00:00Z",
+					"type": "correction", "from": ["Kwibbit"], "to": "Quibit", "scope": { "apps": ["*"] } }
+			],
+			"expect": { "terms": {}, "corrections": ["Kwibbit -> Quibbit"], "issues": ["correction-conflict", "correction-conflict"], "rejected": [] }
+		},
+		{
+			"name": "times with offsets are compared as instants",
+			"user": "sam",
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-a", "device": "dev1", "createdAt": "2026-11-17T10:30:00+02:00",
+					"type": "correction", "from": ["Glim"], "to": "Glimmer", "scope": { "apps": ["*"] } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev2-b", "device": "dev2", "createdAt": "2026-11-17T09:00:00Z",
+					"type": "correction", "from": ["Glim"], "to": "Glimm", "scope": { "apps": ["*"] } }
+			],
+			"expect": { "terms": {}, "corrections": ["Glim -> Glimm"], "issues": ["correction-conflict"], "rejected": [] }
+		},
+		{
+			"name": "the same time: the edit with the later id wins",
+			"user": "sam",
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev2-a", "device": "dev2", "createdAt": "2026-11-17T09:00:00Z",
+					"type": "correction", "from": ["Pinwood"], "to": "Pinewood", "scope": { "apps": ["*"] } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-a", "device": "dev1", "createdAt": "2026-11-17T09:00:00.000Z",
+					"type": "correction", "from": ["Pinwood"], "to": "Pine Wood", "scope": { "apps": ["*"] } }
+			],
+			"expect": { "terms": {}, "corrections": ["Pinwood -> Pinewood"], "issues": ["correction-conflict"], "rejected": [] }
+		},
+		{
+			"name": "times finer than a millisecond still order the edits",
+			"user": "sam",
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-z", "device": "dev1", "createdAt": "2026-11-17T09:00:00.000100Z",
+					"type": "correction", "from": ["Flumocks"], "to": "Flumox", "scope": { "apps": ["*"] } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-a", "device": "dev1", "createdAt": "2026-11-17T09:00:00.000200Z",
+					"type": "correction", "from": ["Flumocks"], "to": "FluMox", "scope": { "apps": ["*"] } }
+			],
+			"expect": { "terms": {}, "corrections": ["Flumocks -> FluMox"], "issues": ["correction-conflict"], "rejected": [] }
+		},
+		{
+			"name": "heard forms match ignoring case and runs of spaces",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"corrections": [{ "id": "qbr", "from": ["Q  B R"], "to": "QBR" }] },
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-a", "device": "dev1", "createdAt": "2026-11-17T09:00:00Z",
+					"type": "correction", "from": ["q b r"], "to": "Q.B.R.", "scope": { "apps": ["*"] } }
+			],
+			"expect": { "terms": {}, "corrections": ["q b r -> Q.B.R."], "issues": ["correction-conflict"], "rejected": [] }
+		},
+		{
+			"name": "the same word in two layers is listed once, from the higher layer, with no issue",
+			"user": "sam",
+			"household": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "household", "user": "household",
+				"terms": [{ "id": "milo", "text": "Milo" }, { "id": "febe", "text": "Febe" }] },
+			"generated": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "generated", "user": "sam",
+				"terms": [{ "id": "milo-cat", "text": "milo", "kind": "person" }] },
+			"expect": { "terms": { "milo-cat": "milo", "febe": "Febe" }, "corrections": [], "issues": [], "rejected": [] }
+		},
+		{
+			"name": "the same word twice in one file: the later entry is kept and reported",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"terms": [{ "id": "quibbit", "text": "Quibbit", "priority": 90 }, { "id": "quibbit-2", "text": "quibbit" }] },
+			"expect": { "terms": { "quibbit-2": "quibbit" }, "corrections": [], "issues": ["duplicate-word"], "rejected": [] }
+		},
+		{
+			"name": "words compare in lower case beyond ASCII",
+			"user": "sam",
+			"household": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "household", "user": "household",
+				"terms": [{ "id": "ozel", "text": "ÖZEL Ärger" }] },
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"terms": [{ "id": "ozel-2", "text": "özel  ärger" }] },
+			"expect": { "terms": { "ozel-2": "özel  ärger" }, "corrections": [], "issues": [], "rejected": [] }
+		},
+		{
+			"name": "a tombstone for an edit never seen changes nothing",
+			"user": "sam",
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-a", "device": "dev1", "createdAt": "2026-11-17T10:00:00Z",
+					"type": "term", "term": { "text": "Quibbit" } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-b", "device": "dev1", "createdAt": "2026-11-17T10:01:00Z",
+					"type": "tombstone", "target": "dev9-zzz" }
+			],
+			"expect": { "terms": { "dev1-a": "Quibbit" }, "corrections": [], "issues": ["orphan-tombstone"], "rejected": [] }
+		},
+		{
+			"name": "undo, redo, undo again: the edit is gone",
+			"user": "sam",
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-a", "device": "dev1", "createdAt": "2026-11-17T10:00:00Z",
+					"type": "correction", "from": ["Flu Mocks"], "to": "Flumox", "scope": { "apps": ["*"] } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-b", "device": "dev1", "createdAt": "2026-11-17T10:01:00Z",
+					"type": "tombstone", "target": "dev1-a" },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev2-c", "device": "dev2", "createdAt": "2026-11-17T10:02:00Z",
+					"type": "tombstone", "target": "dev1-b" },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-d", "device": "dev1", "createdAt": "2026-11-17T10:03:00Z",
+					"type": "tombstone", "target": "dev2-c" }
+			],
+			"expect": { "terms": {}, "corrections": [], "issues": [], "rejected": [] }
+		},
+		{
+			"name": "an edit that rewrites one of a fix's heard forms takes only that form",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"corrections": [{ "id": "zork", "from": ["Zork", "Zorkk"], "to": "Zorblax" }] },
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-a", "device": "dev1", "createdAt": "2026-11-17T10:00:00Z",
+					"type": "correction", "from": ["zork"], "to": "Zorkon", "scope": { "apps": ["*"] } }
+			],
+			"expect": { "terms": {}, "corrections": ["Zorkk -> Zorblax", "zork -> Zorkon"], "issues": ["correction-conflict"], "rejected": [] }
+		},
+		{
+			"name": "the same fix written again higher up is listed once, with no issue",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"corrections": [{ "id": "zork", "from": ["Zork"], "to": "Zorblax" }] },
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-a", "device": "dev1", "createdAt": "2026-11-17T10:00:00Z",
+					"type": "correction", "from": ["zork"], "to": "Zorblax", "scope": { "apps": ["*"] } }
+			],
+			"expect": { "terms": {}, "corrections": ["zork -> Zorblax"], "issues": [], "rejected": [] }
+		},
+		{
+			"name": "a fix that only re-spells its own result is not a chain",
+			"user": "sam",
+			"household": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "household", "user": "household",
+				"corrections": [{ "id": "a", "from": ["Zork"], "to": "Zorblax" }, { "id": "b", "from": ["Zorblax", "Zorbalx"], "to": "Zorblax" }] },
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"corrections": [{ "id": "c", "from": ["Glim"], "to": "Glimmer" }] },
+			"generated": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "generated", "user": "sam",
+				"corrections": [{ "id": "d", "from": ["Glimmer", "Glimer"], "to": "Glimmer" }] },
+			"expect": { "terms": {}, "corrections": ["Zork -> Zorblax", "Zorblax/Zorbalx -> Zorblax", "Glimmer/Glimer -> Glimmer", "Glim -> Glimmer"], "issues": [], "rejected": [] }
+		},
+		{
+			"name": "a word for one app and a fix for another app don't touch",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"terms": [{ "id": "phoebus", "text": "Phoebus", "apps": ["teamchat.exe"] }],
+				"corrections": [{ "id": "a", "from": ["Phoebus"], "to": "Pip", "scope": { "apps": ["notes.exe"] } }] },
+			"expect": { "terms": { "phoebus": "Phoebus" }, "corrections": ["Phoebus -> Pip"], "issues": [], "rejected": [] }
+		}
+	],
+	"prompt": [
+		{
+			"name": "words by priority within the budget, most relevant last",
+			"promptChars": 600, "promptTerms": 40, "app": null,
+			"terms": [
+				{"id": "a", "text": "Milo", "priority": 50, "apps": ["*"], "layer": "household"},
+				{"id": "b", "text": "Pinewood", "priority": 80, "apps": ["*"], "layer": "generated"},
+				{"id": "c", "text": "Febe", "priority": 80, "apps": ["*"], "layer": "personal"},
+				{"id": "d", "text": "QBR", "priority": 10, "apps": ["*"], "layer": "personal"}
+			],
+			"expect": {
+				"prompt": "Vocabulary: QBR, Milo, Pinewood, Febe",
+				"sent": ["QBR", "Milo", "Pinewood", "Febe"],
+				"keywords": ["QBR", "Milo", "Pinewood", "Febe"]
+			}
+		},
+		{
+			"name": "a word that doesn't fit is skipped and the next one tried",
+			"promptChars": 40, "promptTerms": 40, "app": null,
+			"terms": [
+				{"id": "a", "text": "Zorblax", "priority": 90, "apps": ["*"], "layer": "personal"},
+				{"id": "b", "text": "Flumoxicated Quibbitry", "priority": 80, "apps": ["*"], "layer": "personal"},
+				{"id": "c", "text": "Pip", "priority": 70, "apps": ["*"], "layer": "personal"},
+				{"id": "d", "text": "Glim", "priority": 60, "apps": ["*"], "layer": "personal"}
+			],
+			"expect": {
+				"prompt": "Vocabulary: Glim, Pip, Zorblax",
+				"sent": ["Glim", "Pip", "Zorblax"],
+				"keywords": ["Glim", "Pip", "Zorblax"]
+			}
+		},
+		{
+			"name": "promptTerms caps the number of words",
+			"promptChars": 600, "promptTerms": 2, "app": null,
+			"terms": [
+				{"id": "a", "text": "Milo", "priority": 30, "apps": ["*"], "layer": "personal"},
+				{"id": "b", "text": "Febe", "priority": 20, "apps": ["*"], "layer": "personal"},
+				{"id": "c", "text": "Pinewood", "priority": 10, "apps": ["*"], "layer": "personal"}
+			],
+			"expect": {
+				"prompt": "Vocabulary: Febe, Milo",
+				"sent": ["Febe", "Milo"],
+				"keywords": ["Febe", "Milo"]
+			}
+		},
+		{
+			"name": "the app's own words go first into the budget and last in the line; other apps' words never",
+			"promptChars": 600, "promptTerms": 40, "app": "teamchat.exe",
+			"terms": [
+				{"id": "a", "text": "Milo", "priority": 90, "apps": ["*"], "layer": "personal"},
+				{"id": "b", "text": "Kestrel", "priority": 10, "apps": ["teamchat.exe"], "layer": "personal"},
+				{"id": "c", "text": "Glim", "priority": 99, "apps": ["notes.exe"], "layer": "personal"}
+			],
+			"expect": {
+				"prompt": "Vocabulary: Milo, Kestrel",
+				"sent": ["Milo", "Kestrel"],
+				"keywords": ["Milo", "Kestrel"]
+			}
+		},
+		{
+			"name": "hints: the own gloss, a generated gloss only when it says how the word sounds, heard-as forms",
+			"promptChars": 600, "promptTerms": 40, "app": null,
+			"terms": [
+				{"id": "a", "text": "ZDRL", "heardAs": ["Z-drill", "zee drill"], "gloss": "said \"zee-drul\"", "priority": 90, "apps": ["*"], "layer": "generated"},
+				{"id": "b", "text": "Febe", "heardAs": ["Phoebe"], "gloss": "the household bot", "priority": 80, "apps": ["*"], "layer": "personal"},
+				{"id": "c", "text": "Milo", "heardAs": [], "gloss": "the cat", "priority": 70, "apps": ["*"], "layer": "generated"},
+				{"id": "d", "text": "Pinewood", "heardAs": ["pinewood", "Pine Wood"], "priority": 60, "apps": ["*"], "layer": "household"}
+			],
+			"expect": {
+				"prompt": "Vocabulary: Pinewood (not \"Pine Wood\"), Milo, Febe (the household bot; not \"Phoebe\"), ZDRL (said 'zee-drul'; not \"Z-drill\" or \"zee drill\")",
+				"sent": ["Pinewood", "Milo", "Febe", "ZDRL"],
+				"keywords": ["Pinewood", "Milo", "Febe", "ZDRL"]
+			}
+		},
+		{
+			"name": "a hint that doesn't fit leaves its word plain",
+			"promptChars": 60, "promptTerms": 40, "app": null,
+			"terms": [
+				{"id": "a", "text": "Kestrel", "heardAs": ["Castrel"], "priority": 90, "apps": ["*"], "layer": "personal"},
+				{"id": "b", "text": "Quibbit", "heardAs": ["Kwibbit", "Quibit", "Kwib it"], "priority": 80, "apps": ["*"], "layer": "personal"}
+			],
+			"expect": {
+				"prompt": "Vocabulary: Quibbit, Kestrel (not \"Castrel\")",
+				"sent": ["Quibbit", "Kestrel"],
+				"keywords": ["Quibbit", "Kestrel"]
+			}
+		},
+		{
+			"name": "a hint is at most 120 characters: heard-as forms that don't fit are left out whole",
+			"promptChars": 600, "promptTerms": 40, "app": null,
+			"terms": [
+				{"id": "a", "text": "Flumox", "gloss": "our project, pronounced flu-mocks, never the medicine", "heardAs": ["Flu Mocks", "Flew Mox", "Flume Ox", "Floo Mocks", "Flu Mox Ltd"], "priority": 90, "apps": ["*"], "layer": "edit"}
+			],
+			"expect": {
+				"prompt": "Vocabulary: Flumox (our project, pronounced flu-mocks, never the medicine; not \"Flu Mocks\" or \"Flew Mox\" or \"Flume Ox\" or \"Floo Mocks\")",
+				"sent": ["Flumox"],
+				"keywords": ["Flumox"]
+			}
+		},
+		{
+			"name": "control characters become spaces, brackets and double quotes leave hints, a word differing only in case is sent once",
+			"promptChars": 600, "promptTerms": 40, "app": null,
+			"terms": [
+				{"id": "a", "text": "Pip\tSqueak", "heardAs": ["pip (squeak)"], "gloss": "the \"small\" one", "priority": 90, "apps": ["*"], "layer": "personal"},
+				{"id": "b", "text": "pip squeak", "priority": 10, "apps": ["*"], "layer": "household"}
+			],
+			"expect": {
+				"prompt": "Vocabulary: Pip Squeak (the 'small' one)",
+				"sent": ["Pip Squeak"],
+				"keywords": ["Pip Squeak"]
+			}
+		}
+	],
+	"split": [
+		{
+			"name": "the request carries the first 20 words chosen (the app's own first, then priority); the tidy-up gets every word chosen",
+			"promptChars": 1200,
+			"promptTerms": 80,
+			"app": "com.example.notes",
+			"terms": [
+				{"id": "w00", "text": "Milo", "gloss": "the cat", "priority": 90, "apps": ["*"], "layer": "generated"},
+				{"id": "w01", "text": "Febe", "heardAs": ["Phoebe"], "kind": "bot", "gloss": "the household bot", "priority": 89, "apps": ["*"], "layer": "personal"},
+				{"id": "w02", "text": "Pinewood", "priority": 88, "apps": ["*"], "layer": "personal"},
+				{"id": "w03", "text": "QBR", "priority": 87, "apps": ["*"], "layer": "household"},
+				{"id": "w04", "text": "ZDRL", "heardAs": ["Z-drill", "zee drill"], "kind": "acronym", "gloss": "said \"zee-drul\", one word", "priority": 86, "apps": ["*"], "layer": "generated"},
+				{"id": "w05", "text": "Zorblax", "priority": 85, "apps": ["*"], "layer": "personal"},
+				{"id": "w06", "text": "Quibbit", "priority": 84, "apps": ["*"], "layer": "household"},
+				{"id": "w07", "text": "Flumox", "priority": 83, "apps": ["*"], "layer": "generated"},
+				{"id": "w08", "text": "Glimmer", "priority": 82, "apps": ["*"], "layer": "personal"},
+				{"id": "w09", "text": "Kestrova", "priority": 81, "apps": ["*"], "layer": "household"},
+				{"id": "w10", "text": "Brindle Row", "priority": 80, "apps": ["*"], "layer": "generated"},
+				{"id": "w11", "text": "Tamsin Vale", "priority": 79, "apps": ["*"], "layer": "personal"},
+				{"id": "w12", "text": "Orrin Peck", "priority": 78, "apps": ["*"], "layer": "household"},
+				{"id": "w13", "text": "Vexley", "priority": 77, "apps": ["*"], "layer": "generated"},
+				{"id": "w14", "text": "Pellucid Labs", "priority": 76, "apps": ["*"], "layer": "personal"},
+				{"id": "w15", "text": "Nimbrel", "priority": 75, "apps": ["*"], "layer": "household"},
+				{"id": "w16", "text": "Corvane", "priority": 74, "apps": ["*"], "layer": "generated"},
+				{"id": "w17", "text": "Lutefisk Club", "priority": 73, "apps": ["*"], "layer": "personal"},
+				{"id": "w18", "text": "Marrowby", "priority": 72, "apps": ["*"], "layer": "household"},
+				{"id": "w19", "text": "Quillon", "priority": 71, "apps": ["*"], "layer": "generated"},
+				{"id": "w20", "text": "Sorrel Hatch", "priority": 70, "apps": ["*"], "layer": "personal"},
+				{"id": "w21", "text": "Dunmere", "priority": 69, "apps": ["*"], "layer": "household"},
+				{"id": "w22", "text": "Plinkett", "priority": 68, "apps": ["*"], "layer": "generated"},
+				{"id": "w23", "text": "Yarrowfield", "priority": 67, "apps": ["*"], "layer": "personal"},
+				{"id": "w24", "text": "Hobnail Studio", "priority": 66, "apps": ["*"], "layer": "household"},
+				{"id": "w25", "text": "Trevanne", "priority": 65, "apps": ["*"], "layer": "generated"},
+				{"id": "w90", "text": "Wexford Ellery", "heardAs": ["Wexford Allery"], "priority": 12, "apps": ["*"], "layer": "personal"},
+				{"id": "a1", "text": "Notewell", "priority": 5, "apps": ["com.example.notes"], "layer": "personal"},
+				{"id": "a2", "text": "Inkpot", "heardAs": ["ink pot"], "priority": 1, "apps": ["com.example.notes"], "layer": "personal"},
+				{"id": "o1", "text": "Chatterly", "priority": 99, "apps": ["com.example.chat"], "layer": "personal"}
+			],
+			"expect": {
+				"prompt": "Vocabulary: Lutefisk Club, Corvane, Nimbrel, Pellucid Labs, Vexley, Orrin Peck, Tamsin Vale, Brindle Row, Kestrova, Glimmer, Flumox, Quibbit, Zorblax, ZDRL (said 'zee-drul', one word; not \"Z-drill\" or \"zee drill\"), QBR, Pinewood, Febe (the household bot; not \"Phoebe\"), Milo, Inkpot (not \"ink pot\"), Notewell",
+				"sent": ["Lutefisk Club", "Corvane", "Nimbrel", "Pellucid Labs", "Vexley", "Orrin Peck", "Tamsin Vale", "Brindle Row", "Kestrova", "Glimmer", "Flumox", "Quibbit", "Zorblax", "ZDRL", "QBR", "Pinewood", "Febe", "Milo", "Inkpot", "Notewell"],
+				"keywords": ["Lutefisk Club", "Corvane", "Nimbrel", "Pellucid Labs", "Vexley", "Orrin Peck", "Tamsin Vale", "Brindle Row", "Kestrova", "Glimmer", "Flumox", "Quibbit", "Zorblax", "ZDRL", "QBR", "Pinewood", "Febe", "Milo", "Inkpot", "Notewell"],
+				"tidyWords": ["Notewell", "Inkpot", "Milo", "Febe", "Pinewood", "QBR", "ZDRL", "Zorblax", "Quibbit", "Flumox", "Glimmer", "Kestrova", "Brindle Row", "Tamsin Vale", "Orrin Peck", "Vexley", "Pellucid Labs", "Nimbrel", "Corvane", "Lutefisk Club", "Marrowby", "Quillon", "Sorrel Hatch", "Dunmere", "Plinkett", "Yarrowfield", "Hobnail Studio", "Trevanne", "Wexford Ellery"]
+			}
+		},
+		{
+			"name": "promptTerms below 20 caps the request and the tidy-up list alike",
+			"promptChars": 600,
+			"promptTerms": 12,
+			"app": null,
+			"terms": [
+				{"id": "w0", "text": "Milo", "priority": 80, "apps": ["*"], "layer": "personal"},
+				{"id": "w1", "text": "Febe", "priority": 79, "apps": ["*"], "layer": "personal"},
+				{"id": "w2", "text": "Pinewood", "priority": 78, "apps": ["*"], "layer": "personal"},
+				{"id": "w3", "text": "QBR", "priority": 77, "apps": ["*"], "layer": "personal"},
+				{"id": "w4", "text": "ZDRL", "priority": 76, "apps": ["*"], "layer": "personal"},
+				{"id": "w5", "text": "Zorblax", "priority": 75, "apps": ["*"], "layer": "personal"},
+				{"id": "w6", "text": "Quibbit", "priority": 74, "apps": ["*"], "layer": "personal"},
+				{"id": "w7", "text": "Flumox", "priority": 73, "apps": ["*"], "layer": "personal"},
+				{"id": "w8", "text": "Glimmer", "priority": 72, "apps": ["*"], "layer": "personal"},
+				{"id": "w9", "text": "Kestrova", "priority": 71, "apps": ["*"], "layer": "personal"},
+				{"id": "w10", "text": "Brindle Row", "priority": 70, "apps": ["*"], "layer": "personal"},
+				{"id": "w11", "text": "Tamsin Vale", "priority": 69, "apps": ["*"], "layer": "personal"},
+				{"id": "w12", "text": "Orrin Peck", "priority": 68, "apps": ["*"], "layer": "personal"},
+				{"id": "w13", "text": "Vexley", "priority": 67, "apps": ["*"], "layer": "personal"},
+				{"id": "w14", "text": "Pellucid Labs", "priority": 66, "apps": ["*"], "layer": "personal"}
+			],
+			"expect": {
+				"prompt": "Vocabulary: Tamsin Vale, Brindle Row, Kestrova, Glimmer, Flumox, Quibbit, Zorblax, ZDRL, QBR, Pinewood, Febe, Milo",
+				"sent": ["Tamsin Vale", "Brindle Row", "Kestrova", "Glimmer", "Flumox", "Quibbit", "Zorblax", "ZDRL", "QBR", "Pinewood", "Febe", "Milo"],
+				"keywords": ["Tamsin Vale", "Brindle Row", "Kestrova", "Glimmer", "Flumox", "Quibbit", "Zorblax", "ZDRL", "QBR", "Pinewood", "Febe", "Milo"],
+				"tidyWords": ["Milo", "Febe", "Pinewood", "QBR", "ZDRL", "Zorblax", "Quibbit", "Flumox", "Glimmer", "Kestrova", "Brindle Row", "Tamsin Vale"]
+			}
+		},
+		{
+			"name": "hints are fitted to the 20-word line, not to the whole budget",
+			"promptChars": 210,
+			"promptTerms": 80,
+			"app": null,
+			"terms": [
+				{"id": "h", "text": "Zdrl", "heardAs": ["zee drill"], "priority": 95, "apps": ["*"], "layer": "personal"},
+				{"id": "s0", "text": "Wd00", "priority": 90, "apps": ["*"], "layer": "household"},
+				{"id": "s1", "text": "Wd01", "priority": 89, "apps": ["*"], "layer": "household"},
+				{"id": "s2", "text": "Wd02", "priority": 88, "apps": ["*"], "layer": "household"},
+				{"id": "s3", "text": "Wd03", "priority": 87, "apps": ["*"], "layer": "household"},
+				{"id": "s4", "text": "Wd04", "priority": 86, "apps": ["*"], "layer": "household"},
+				{"id": "s5", "text": "Wd05", "priority": 85, "apps": ["*"], "layer": "household"},
+				{"id": "s6", "text": "Wd06", "priority": 84, "apps": ["*"], "layer": "household"},
+				{"id": "s7", "text": "Wd07", "priority": 83, "apps": ["*"], "layer": "household"},
+				{"id": "s8", "text": "Wd08", "priority": 82, "apps": ["*"], "layer": "household"},
+				{"id": "s9", "text": "Wd09", "priority": 81, "apps": ["*"], "layer": "household"},
+				{"id": "s10", "text": "Wd10", "priority": 80, "apps": ["*"], "layer": "household"},
+				{"id": "s11", "text": "Wd11", "priority": 79, "apps": ["*"], "layer": "household"},
+				{"id": "s12", "text": "Wd12", "priority": 78, "apps": ["*"], "layer": "household"},
+				{"id": "s13", "text": "Wd13", "priority": 77, "apps": ["*"], "layer": "household"},
+				{"id": "s14", "text": "Wd14", "priority": 76, "apps": ["*"], "layer": "household"},
+				{"id": "s15", "text": "Wd15", "priority": 75, "apps": ["*"], "layer": "household"},
+				{"id": "s16", "text": "Wd16", "priority": 74, "apps": ["*"], "layer": "household"},
+				{"id": "s17", "text": "Wd17", "priority": 73, "apps": ["*"], "layer": "household"},
+				{"id": "s18", "text": "Wd18", "priority": 72, "apps": ["*"], "layer": "household"},
+				{"id": "s19", "text": "Wd19", "priority": 71, "apps": ["*"], "layer": "household"},
+				{"id": "s20", "text": "Wd20", "priority": 70, "apps": ["*"], "layer": "household"},
+				{"id": "s21", "text": "Wd21", "priority": 69, "apps": ["*"], "layer": "household"},
+				{"id": "s22", "text": "Wd22", "priority": 68, "apps": ["*"], "layer": "household"},
+				{"id": "s23", "text": "Wd23", "priority": 67, "apps": ["*"], "layer": "household"},
+				{"id": "s24", "text": "Wd24", "priority": 66, "apps": ["*"], "layer": "household"},
+				{"id": "s25", "text": "Wd25", "priority": 65, "apps": ["*"], "layer": "household"},
+				{"id": "s26", "text": "Wd26", "priority": 64, "apps": ["*"], "layer": "household"},
+				{"id": "s27", "text": "Wd27", "priority": 63, "apps": ["*"], "layer": "household"},
+				{"id": "s28", "text": "Wd28", "priority": 62, "apps": ["*"], "layer": "household"},
+				{"id": "s29", "text": "Wd29", "priority": 61, "apps": ["*"], "layer": "household"}
+			],
+			"expect": {
+				"prompt": "Vocabulary: Wd18, Wd17, Wd16, Wd15, Wd14, Wd13, Wd12, Wd11, Wd10, Wd09, Wd08, Wd07, Wd06, Wd05, Wd04, Wd03, Wd02, Wd01, Wd00, Zdrl (not \"zee drill\")",
+				"sent": ["Wd18", "Wd17", "Wd16", "Wd15", "Wd14", "Wd13", "Wd12", "Wd11", "Wd10", "Wd09", "Wd08", "Wd07", "Wd06", "Wd05", "Wd04", "Wd03", "Wd02", "Wd01", "Wd00", "Zdrl"],
+				"keywords": ["Wd18", "Wd17", "Wd16", "Wd15", "Wd14", "Wd13", "Wd12", "Wd11", "Wd10", "Wd09", "Wd08", "Wd07", "Wd06", "Wd05", "Wd04", "Wd03", "Wd02", "Wd01", "Wd00", "Zdrl"],
+				"tidyWords": ["Zdrl", "Wd00", "Wd01", "Wd02", "Wd03", "Wd04", "Wd05", "Wd06", "Wd07", "Wd08", "Wd09", "Wd10", "Wd11", "Wd12", "Wd13", "Wd14", "Wd15", "Wd16", "Wd17", "Wd18", "Wd19", "Wd20", "Wd21", "Wd22", "Wd23", "Wd24", "Wd25", "Wd26", "Wd27", "Wd28", "Wd29"]
+			}
+		},
+		{
+			"name": "a tie at the 20th word goes in English alphabetical order, ignoring case and accents",
+			"promptChars": 600,
+			"promptTerms": 40,
+			"app": null,
+			"terms": [
+				{"id": "p0", "text": "Milo", "priority": 90, "apps": ["*"], "layer": "personal"},
+				{"id": "p1", "text": "Febe", "priority": 89, "apps": ["*"], "layer": "personal"},
+				{"id": "p2", "text": "Pinewood", "priority": 88, "apps": ["*"], "layer": "personal"},
+				{"id": "p3", "text": "QBR", "priority": 87, "apps": ["*"], "layer": "personal"},
+				{"id": "p4", "text": "ZDRL", "priority": 86, "apps": ["*"], "layer": "personal"},
+				{"id": "p5", "text": "Zorblax", "priority": 85, "apps": ["*"], "layer": "personal"},
+				{"id": "p6", "text": "Quibbit", "priority": 84, "apps": ["*"], "layer": "personal"},
+				{"id": "p7", "text": "Flumox", "priority": 83, "apps": ["*"], "layer": "personal"},
+				{"id": "p8", "text": "Glimmer", "priority": 82, "apps": ["*"], "layer": "personal"},
+				{"id": "p9", "text": "Kestrova", "priority": 81, "apps": ["*"], "layer": "personal"},
+				{"id": "p10", "text": "Brindle Row", "priority": 80, "apps": ["*"], "layer": "personal"},
+				{"id": "p11", "text": "Tamsin Vale", "priority": 79, "apps": ["*"], "layer": "personal"},
+				{"id": "p12", "text": "Orrin Peck", "priority": 78, "apps": ["*"], "layer": "personal"},
+				{"id": "p13", "text": "Vexley", "priority": 77, "apps": ["*"], "layer": "personal"},
+				{"id": "p14", "text": "Pellucid Labs", "priority": 76, "apps": ["*"], "layer": "personal"},
+				{"id": "p15", "text": "Nimbrel", "priority": 75, "apps": ["*"], "layer": "personal"},
+				{"id": "p16", "text": "Corvane", "priority": 74, "apps": ["*"], "layer": "personal"},
+				{"id": "p17", "text": "Lutefisk Club", "priority": 73, "apps": ["*"], "layer": "personal"},
+				{"id": "p18", "text": "Marrowby", "priority": 72, "apps": ["*"], "layer": "personal"},
+				{"id": "t1", "text": "Zephyrine", "priority": 50, "apps": ["*"], "layer": "personal"},
+				{"id": "t2", "text": "Ångstrom", "priority": 50, "apps": ["*"], "layer": "personal"},
+				{"id": "t3", "text": "beryl", "priority": 50, "apps": ["*"], "layer": "personal"}
+			],
+			"expect": {
+				"prompt": "Vocabulary: Ångstrom, Marrowby, Lutefisk Club, Corvane, Nimbrel, Pellucid Labs, Vexley, Orrin Peck, Tamsin Vale, Brindle Row, Kestrova, Glimmer, Flumox, Quibbit, Zorblax, ZDRL, QBR, Pinewood, Febe, Milo",
+				"sent": ["Ångstrom", "Marrowby", "Lutefisk Club", "Corvane", "Nimbrel", "Pellucid Labs", "Vexley", "Orrin Peck", "Tamsin Vale", "Brindle Row", "Kestrova", "Glimmer", "Flumox", "Quibbit", "Zorblax", "ZDRL", "QBR", "Pinewood", "Febe", "Milo"],
+				"keywords": ["Ångstrom", "Marrowby", "Lutefisk Club", "Corvane", "Nimbrel", "Pellucid Labs", "Vexley", "Orrin Peck", "Tamsin Vale", "Brindle Row", "Kestrova", "Glimmer", "Flumox", "Quibbit", "Zorblax", "ZDRL", "QBR", "Pinewood", "Febe", "Milo"],
+				"tidyWords": ["Milo", "Febe", "Pinewood", "QBR", "ZDRL", "Zorblax", "Quibbit", "Flumox", "Glimmer", "Kestrova", "Brindle Row", "Tamsin Vale", "Orrin Peck", "Vexley", "Pellucid Labs", "Nimbrel", "Corvane", "Lutefisk Club", "Marrowby", "Ångstrom", "beryl", "Zephyrine"]
+			}
+		}
+	]
+}

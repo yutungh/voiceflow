@@ -1,0 +1,78 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "com.voiceflowkeyboard.ime"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.voiceflowkeyboard.ime"
+        minSdk 26
+        targetSdk 35
+        versionCode 51
+        versionName "0.8.5"
+    }
+
+    // The phones' certificate. Release builds are signed with the same key as every
+    // earlier install, so they update in place. CI builds only the debug variant.
+    signingConfigs {
+        phones {
+            def path = project.findProperty("vfKeystore") ?: System.getenv("VF_KEYSTORE") ?:
+                    "${System.getProperty('user.home')}/.android/debug.keystore"
+            storeFile file(path)
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.phones
+            // Both phones are arm64; dropping the other ABIs' offline-speech libraries
+            // keeps the over-the-air download small.
+            ndk {
+                abiFilters "arm64-v8a"
+            }
+        }
+    }
+
+    lint {
+        checkReleaseBuilds false
+    }
+
+    // The built-in styles both apps ship (pack/builtin/styles.json, MIT), read as a
+    // Java resource by BuiltinStyles in the APK and in the unit tests alike.
+    sourceSets {
+        main {
+            resources.srcDirs += ["${rootDir}/pack/builtin"]
+        }
+    }
+
+    testOptions {
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            // Screenshots of every keyboard state and screen: ./gradlew testDebugUnitTest -PvfShots=<dir>
+            systemProperty "vf.shots", project.findProperty("vfShots") ?: ""
+            jvmArgs "--add-opens=java.base/java.lang=ALL-UNNAMED",
+                    "--add-opens=java.base/java.util=ALL-UNNAMED",
+                    "--add-opens=java.base/java.io=ALL-UNNAMED",
+                    "--add-opens=java.base/java.net=ALL-UNNAMED",
+                    "--add-opens=java.base/java.security=ALL-UNNAMED",
+                    "--add-opens=java.base/java.text=ALL-UNNAMED",
+                    "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
+                    "--add-opens=java.desktop/java.awt.font=ALL-UNNAMED",
+                    "--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED"
+        }
+    }
+}
+
+dependencies {
+    implementation "com.alphacephei:vosk-android:0.3.75"
+    implementation "com.bihe0832.android:lib-sherpa-onnx:8.5.4"
+    implementation "org.apache.commons:commons-compress:1.27.1"
+    testImplementation "junit:junit:4.13.2"
+    testImplementation "org.robolectric:robolectric:4.16"
+}

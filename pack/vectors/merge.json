@@ -1,0 +1,150 @@
+{
+	"description": "Test vectors for merging voiceflow-profile layers and voiceflow-op edits. Each case gives up to three layer files (household, generated, personal) and a list of edits, and what the merged result must hold: words as {id: text}, corrections as \"heard/forms -> written\" in precedence order (lowest first), issue codes (sorted), and which layer files are rejected outright. Synthetic words only. Any client that merges profiles should pass all of them; VoiceFlow Desktop runs them in `cargo test` (src-tauri/src/profile/merge.rs).",
+	"cases": [
+		{
+			"name": "higher layer wins by stable id",
+			"user": "sam",
+			"household": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "household", "user": "household",
+				"terms": [{ "id": "pip", "text": "Pip" }, { "id": "ada", "text": "Ada" }] },
+			"generated": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "generated", "user": "sam",
+				"terms": [{ "id": "pip", "text": "Pipp" }] },
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"terms": [{ "id": "pip", "text": "PIP" }] },
+			"expect": { "terms": { "pip": "PIP", "ada": "Ada" }, "corrections": [], "issues": [], "rejected": [] }
+		},
+		{
+			"name": "an app edit beats the personal file; the conflict is reported",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"corrections": [{ "id": "zork", "from": ["Zork"], "to": "Zorblax" }] },
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-a", "device": "dev1", "createdAt": "2026-11-17T10:00:00Z",
+					"type": "correction", "from": ["zork"], "to": "Zorkon", "scope": { "apps": ["*"] } }
+			],
+			"expect": { "terms": {}, "corrections": ["zork -> Zorkon"], "issues": ["correction-conflict"], "rejected": [] }
+		},
+		{
+			"name": "undo (tombstone) removes an edit; undoing the undo brings it back",
+			"user": "sam",
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-a", "device": "dev1", "createdAt": "2026-11-17T10:00:00Z",
+					"type": "term", "term": { "text": "Quibbit" } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-b", "device": "dev1", "createdAt": "2026-11-17T10:01:00Z",
+					"type": "term", "term": { "text": "Flumox" } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-c", "device": "dev1", "createdAt": "2026-11-17T10:02:00Z",
+					"type": "tombstone", "target": "dev1-a" },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev2-d", "device": "dev2", "createdAt": "2026-11-17T10:03:00Z",
+					"type": "tombstone", "target": "dev1-b" },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev2-e", "device": "dev2", "createdAt": "2026-11-17T10:04:00Z",
+					"type": "tombstone", "target": "dev2-d" }
+			],
+			"expect": { "terms": { "dev1-b": "Flumox" }, "corrections": [], "issues": [], "rejected": [] }
+		},
+		{
+			"name": "two devices write one heard form two ways: the newer edit wins",
+			"user": "sam",
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev2-b", "device": "dev2", "createdAt": "2026-11-17T11:00:00Z",
+					"type": "correction", "from": ["Kwibbit"], "to": "Quibbit", "scope": { "apps": ["*"] } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-a", "device": "dev1", "createdAt": "2026-11-17T10:00:00Z",
+					"type": "correction", "from": ["Kwibbit"], "to": "Quibit", "scope": { "apps": ["*"] } }
+			],
+			"expect": { "terms": {}, "corrections": ["Kwibbit -> Quibbit"], "issues": ["correction-conflict"], "rejected": [] }
+		},
+		{
+			"name": "chain across layers: the lower one is set aside",
+			"user": "sam",
+			"household": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "household", "user": "household",
+				"corrections": [{ "id": "a", "from": ["Zork"], "to": "Zorblax" }] },
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"corrections": [{ "id": "b", "from": ["Zorblax"], "to": "Zorkon" }] },
+			"expect": { "terms": {}, "corrections": ["Zorblax -> Zorkon"], "issues": ["correction-chain"], "rejected": [] }
+		},
+		{
+			"name": "cycle across layers: the lower one is set aside",
+			"user": "sam",
+			"household": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "household", "user": "household",
+				"corrections": [{ "id": "a", "from": ["Glim"], "to": "Glom" }] },
+			"generated": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "generated", "user": "sam",
+				"corrections": [{ "id": "b", "from": ["Glom"], "to": "Glim" }] },
+			"expect": { "terms": {}, "corrections": ["Glom -> Glim"], "issues": ["correction-chain"], "rejected": [] }
+		},
+		{
+			"name": "a scoped personal fix overrides the household one only in its app",
+			"user": "sam",
+			"household": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "household", "user": "household",
+				"corrections": [{ "id": "a", "from": ["Pipp"], "to": "Pip" }] },
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"corrections": [{ "id": "b", "from": ["Pipp"], "to": "Pippa", "scope": { "apps": ["teamchat.exe"] } }] },
+			"expect": { "terms": {}, "corrections": ["Pipp -> Pip", "Pipp -> Pippa"], "issues": ["correction-conflict"], "rejected": [] }
+		},
+		{
+			"name": "a word that a fix would rewrite is reported, both kept",
+			"user": "sam",
+			"household": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "household", "user": "household",
+				"terms": [{ "id": "phoebus", "text": "Phoebus", "kind": "person" }] },
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"corrections": [{ "id": "a", "from": ["Phoebus"], "to": "Pip" }] },
+			"expect": { "terms": { "phoebus": "Phoebus" }, "corrections": ["Phoebus -> Pip"], "issues": ["word-corrected"], "rejected": [] }
+		},
+		{
+			"name": "a default style that no layer defines is ignored",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"defaults": { "cleanupStyle": "formal" } },
+			"expect": { "terms": {}, "corrections": [], "issues": ["missing-style"], "rejected": [] }
+		},
+		{
+			"name": "another user's file in this user's place is rejected",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "alex",
+				"terms": [{ "id": "x", "text": "Secret" }] },
+			"expect": { "terms": {}, "corrections": [], "issues": [], "rejected": ["personal"] }
+		},
+		{
+			"name": "a file that names the wrong layer is rejected",
+			"user": "sam",
+			"household": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "household",
+				"terms": [{ "id": "x", "text": "X" }] },
+			"expect": { "terms": {}, "corrections": [], "issues": [], "rejected": ["household"] }
+		},
+		{
+			"name": "a newer schema version is rejected (last good copy stays)",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 3, "layer": "personal", "user": "sam",
+				"terms": [{ "id": "x", "text": "X" }] },
+			"expect": { "terms": {}, "corrections": [], "issues": [], "rejected": ["personal"] }
+		},
+		{
+			"name": "conflicts, chains and duplicate ids inside one file reject that file",
+			"user": "sam",
+			"household": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "household", "user": "household",
+				"corrections": [{ "id": "a", "from": ["Zork"], "to": "Zorblax" }, { "id": "b", "from": ["Zorblax"], "to": "Zorkon" }] },
+			"generated": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "generated", "user": "sam",
+				"terms": [{ "id": "a", "text": "A" }, { "id": "a", "text": "B" }] },
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"corrections": [{ "id": "a", "from": ["Zork"], "to": "Zorblax" }, { "id": "b", "from": ["zork"], "to": "Zorkon" }] },
+			"expect": { "terms": {}, "corrections": [], "issues": [], "rejected": ["household", "generated", "personal"] }
+		},
+		{
+			"name": "unknown fields (typos) and unsafe words reject the file",
+			"user": "sam",
+			"household": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "household", "user": "household",
+				"terms": [{ "id": "a", "text": "A", "heardas": ["a"] }] },
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"terms": [{ "id": "a", "text": "<script>" }] },
+			"expect": { "terms": {}, "corrections": [], "issues": [], "rejected": ["household", "personal"] }
+		},
+		{
+			"name": "the same word under two ids in one layer is listed once",
+			"user": "sam",
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev1-a", "device": "dev1", "createdAt": "2026-11-17T10:00:00Z",
+					"type": "term", "term": { "text": "Quibbit" } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "dev2-b", "device": "dev2", "createdAt": "2026-11-17T10:05:00Z",
+					"type": "term", "term": { "text": "quibbit" } }
+			],
+			"expect": { "terms": { "dev2-b": "quibbit" }, "corrections": [], "issues": ["duplicate-word"], "rejected": [] }
+		}
+	]
+}

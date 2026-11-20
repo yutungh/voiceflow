@@ -1,0 +1,247 @@
+{
+	"description": "Test vectors for styles, defaults and app rules: voiceflow-profile v2 fields, the style-set and default-set edits, pins and per-app expression. Each case gives up to three layer files and a list of edits (in the order a client might receive them: shuffled, sometimes twice). expect.styles holds every merged style in full (id -> fields; a field that is not set is absent, hidden is absent unless true); expect.defaults holds cleanupStyle and pinnedStyles (absent when unset); expect.apps holds each app rule's style and expression; expect.issues the issue codes, sorted; expect.rejected the layer files refused outright; expect.skippedOps the edits refused when read. Synthetic names only. Every client that merges profiles must pass all of them: VoiceFlow Desktop runs them in cargo test (src-tauri/src/profile/merge.rs).",
+	"cases": [
+		{
+			"name": "a version 2 layer carries every new style field",
+			"user": "sam",
+			"household": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "household", "user": "household",
+				"styles": [{ "id": "work", "label": "Work", "prompt": "Write for work.", "model": "gpt-5.4-mini", "expression": 1 }] },
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 2, "layer": "personal", "user": "sam",
+				"styles": [{ "id": "clean", "label": "Clean", "prompt": "Clean it.", "icon": "🧹", "kind": "casual", "expression": 2,
+					"guidance": "Tight, in their own voice.", "expressionOverride": "No emoji.", "models": { "openai": "gpt-5.4-mini", "anthropic": "claude-haiku-4-5" },
+					"hidden": false }] },
+			"expect": {
+				"styles": {
+					"clean": { "label": "Clean", "prompt": "Clean it.", "icon": "🧹", "kind": "casual", "expression": 2, "guidance": "Tight, in their own voice.",
+						"expressionOverride": "No emoji.", "models": { "anthropic": "claude-haiku-4-5", "openai": "gpt-5.4-mini" }, "layer": "personal" },
+					"work": { "label": "Work", "prompt": "Write for work.", "model": "gpt-5.4-mini", "expression": 1, "layer": "household" }
+				},
+				"defaults": {}, "apps": {}, "issues": [], "rejected": [], "skippedOps": []
+			}
+		},
+		{
+			"name": "a version 1 file that uses a version 2 field is refused whole",
+			"user": "sam",
+			"household": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "household", "user": "household",
+				"styles": [{ "id": "work", "label": "Work", "prompt": "Write for work." }] },
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"styles": [{ "id": "clean", "label": "Clean", "prompt": "Clean it.", "icon": "🧹" }] },
+			"expect": {
+				"styles": { "work": { "label": "Work", "prompt": "Write for work.", "layer": "household" } },
+				"defaults": {}, "apps": {}, "issues": [], "rejected": ["personal"], "skippedOps": []
+			}
+		},
+		{
+			"name": "a version 2 field set to null in a version 1 file is refused too (older apps refuse the key)",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"styles": [{ "id": "clean", "label": "Clean", "prompt": "Clean it.", "hidden": null }] },
+			"expect": { "styles": {}, "defaults": {}, "apps": {}, "issues": [], "rejected": ["personal"], "skippedOps": [] }
+		},
+		{
+			"name": "a version newer than the client knows is refused whole",
+			"user": "sam",
+			"household": { "schema": "voiceflow-profile", "schemaVersion": 3, "layer": "household", "user": "household",
+				"styles": [{ "id": "work", "label": "Work", "prompt": "Write for work." }] },
+			"expect": { "styles": {}, "defaults": {}, "apps": {}, "issues": [], "rejected": ["household"], "skippedOps": [] }
+		},
+		{
+			"name": "a higher layer replaces a style whole, new fields included",
+			"user": "sam",
+			"household": { "schema": "voiceflow-profile", "schemaVersion": 2, "layer": "household", "user": "household",
+				"styles": [{ "id": "casual", "label": "Casual", "prompt": "Household casual.", "icon": "💬", "kind": "casual", "hidden": true }] },
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"styles": [{ "id": "casual", "label": "My casual", "prompt": "Mine." }] },
+			"expect": {
+				"styles": { "casual": { "label": "My casual", "prompt": "Mine.", "layer": "personal" } },
+				"defaults": {}, "apps": {}, "issues": [], "rejected": [], "skippedOps": []
+			}
+		},
+		{
+			"name": "style edits merge field by field; the newest edit wins each field, whatever order they arrive in",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"styles": [{ "id": "clean", "label": "Clean", "prompt": "P1", "expression": 2 }] },
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "pc1-b", "device": "pc1", "createdAt": "2026-11-19T10:01:00Z",
+					"type": "style-set", "style": "clean", "set": { "prompt": "P2" } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "ph1-c", "device": "ph1", "createdAt": "2026-11-19T09:00:00Z",
+					"type": "style-set", "style": "clean", "set": { "prompt": "P0", "expression": 0 } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "ph1-a", "device": "ph1", "createdAt": "2026-11-19T10:00:00Z",
+					"type": "style-set", "style": "clean", "set": { "expression": 3 } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "pc1-b", "device": "pc1", "createdAt": "2026-11-19T10:01:00Z",
+					"type": "style-set", "style": "clean", "set": { "prompt": "P2" } }
+			],
+			"expect": {
+				"styles": { "clean": { "label": "Clean", "prompt": "P2", "expression": 3, "layer": "personal" } },
+				"defaults": {}, "apps": {}, "issues": [], "rejected": [], "skippedOps": []
+			}
+		},
+		{
+			"name": "edits made at the same moment: the larger id is applied last and wins; a time offset is real time",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"styles": [{ "id": "clean", "label": "Clean", "prompt": "P" }] },
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "ph1-a", "device": "ph1", "createdAt": "2026-11-19T10:00:00Z",
+					"type": "style-set", "style": "clean", "set": { "expression": 4 } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "pc1-a", "device": "pc1", "createdAt": "2026-11-19T10:00:00.000Z",
+					"type": "style-set", "style": "clean", "set": { "expression": 1 } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "pc1-b", "device": "pc1", "createdAt": "2026-11-19T11:30:00+02:00",
+					"type": "style-set", "style": "clean", "set": { "label": "Clean up" } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "ph1-b", "device": "ph1", "createdAt": "2026-11-19T09:45:00Z",
+					"type": "style-set", "style": "clean", "set": { "label": "Tidy" } }
+			],
+			"expect": {
+				"styles": { "clean": { "label": "Tidy", "prompt": "P", "expression": 4, "layer": "personal" } },
+				"defaults": {}, "apps": {}, "issues": [], "rejected": [], "skippedOps": []
+			}
+		},
+		{
+			"name": "null clears a field; undo brings it back; undoing the undo clears it again",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 2, "layer": "personal", "user": "sam",
+				"styles": [{ "id": "work", "label": "Work", "prompt": "W", "model": "m1", "icon": "💼" }] },
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "pc1-a", "device": "pc1", "createdAt": "2026-11-19T10:00:00Z",
+					"type": "style-set", "style": "work", "set": { "model": null, "icon": null } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "pc1-b", "device": "pc1", "createdAt": "2026-11-19T10:01:00Z",
+					"type": "tombstone", "target": "pc1-a" },
+				{ "schema": "voiceflow-op", "version": 1, "id": "ph1-c", "device": "ph1", "createdAt": "2026-11-19T10:02:00Z",
+					"type": "tombstone", "target": "pc1-b" }
+			],
+			"expect": {
+				"styles": { "work": { "label": "Work", "prompt": "W", "layer": "personal" } },
+				"defaults": {}, "apps": {}, "issues": [], "rejected": [], "skippedOps": []
+			}
+		},
+		{
+			"name": "undo of a style edit gives the layer's value back",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 2, "layer": "personal", "user": "sam",
+				"styles": [{ "id": "work", "label": "Work", "prompt": "W", "model": "m1", "icon": "💼" }] },
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "pc1-a", "device": "pc1", "createdAt": "2026-11-19T10:00:00Z",
+					"type": "style-set", "style": "work", "set": { "model": null, "icon": null, "hidden": true } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "pc1-b", "device": "pc1", "createdAt": "2026-11-19T10:01:00Z",
+					"type": "tombstone", "target": "pc1-a" }
+			],
+			"expect": {
+				"styles": { "work": { "label": "Work", "prompt": "W", "model": "m1", "icon": "💼", "layer": "personal" } },
+				"defaults": {}, "apps": {}, "issues": [], "rejected": [], "skippedOps": []
+			}
+		},
+		{
+			"name": "a style made by edits exists once it has a label and a prompt",
+			"user": "sam",
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "pc1-a", "device": "pc1", "createdAt": "2026-11-19T10:00:00Z",
+					"type": "style-set", "style": "custom-trip", "set": { "label": "Trip notes", "kind": "custom" } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "ph1-b", "device": "ph1", "createdAt": "2026-11-19T10:05:00Z",
+					"type": "style-set", "style": "custom-trip", "set": { "prompt": "Short notes.", "models": { "xai": "grok-4-fast" } } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "ph1-c", "device": "ph1", "createdAt": "2026-11-19T10:06:00Z",
+					"type": "style-set", "style": "half-made", "set": { "expression": 1 } }
+			],
+			"expect": {
+				"styles": { "custom-trip": { "label": "Trip notes", "prompt": "Short notes.", "kind": "custom", "models": { "xai": "grok-4-fast" }, "layer": "edit" } },
+				"defaults": {}, "apps": {}, "issues": ["style-incomplete"], "rejected": [], "skippedOps": []
+			}
+		},
+		{
+			"name": "default edits beat the layers; null gives the layers' value back; pins keep order, drop unknown ids and repeats",
+			"user": "sam",
+			"household": { "schema": "voiceflow-profile", "schemaVersion": 2, "layer": "household", "user": "household",
+				"styles": [{ "id": "work", "label": "Work", "prompt": "W" }, { "id": "clean", "label": "Clean", "prompt": "C" }],
+				"defaults": { "pinnedStyles": ["work", "ghost", "clean"] } },
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"defaults": { "cleanupStyle": "clean" } },
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "pc1-b", "device": "pc1", "createdAt": "2026-11-19T10:01:00Z",
+					"type": "default-set", "set": { "cleanupStyle": null } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "pc1-a", "device": "pc1", "createdAt": "2026-11-19T10:00:00Z",
+					"type": "default-set", "set": { "cleanupStyle": "work", "pinnedStyles": ["clean", "clean", "work"] } }
+			],
+			"expect": {
+				"styles": { "clean": { "label": "Clean", "prompt": "C", "layer": "household" }, "work": { "label": "Work", "prompt": "W", "layer": "household" } },
+				"defaults": { "cleanupStyle": "clean", "pinnedStyles": ["clean", "work"] },
+				"apps": {}, "issues": [], "rejected": [], "skippedOps": []
+			}
+		},
+		{
+			"name": "the highest layer's pins are taken whole; a pin to a missing style is reported",
+			"user": "sam",
+			"household": { "schema": "voiceflow-profile", "schemaVersion": 2, "layer": "household", "user": "household",
+				"styles": [{ "id": "work", "label": "Work", "prompt": "W" }, { "id": "clean", "label": "Clean", "prompt": "C" }],
+				"defaults": { "pinnedStyles": ["work", "clean"] } },
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 2, "layer": "personal", "user": "sam",
+				"defaults": { "pinnedStyles": ["ghost", "clean"] } },
+			"expect": {
+				"styles": { "clean": { "label": "Clean", "prompt": "C", "layer": "household" }, "work": { "label": "Work", "prompt": "W", "layer": "household" } },
+				"defaults": { "pinnedStyles": ["clean"] },
+				"apps": {}, "issues": ["missing-style"], "rejected": [], "skippedOps": []
+			}
+		},
+		{
+			"name": "a hidden style still works as the default",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 2, "layer": "personal", "user": "sam",
+				"styles": [{ "id": "clean", "label": "Clean", "prompt": "C", "hidden": true }],
+				"defaults": { "cleanupStyle": "clean" } },
+			"expect": {
+				"styles": { "clean": { "label": "Clean", "prompt": "C", "hidden": true, "layer": "personal" } },
+				"defaults": { "cleanupStyle": "clean" }, "apps": {}, "issues": [], "rejected": [], "skippedOps": []
+			}
+		},
+		{
+			"name": "app rules: a layer's level, then app-style edits field by field; app ids are native per platform",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"styles": [{ "id": "work", "label": "Work", "prompt": "W" }, { "id": "clean", "label": "Clean", "prompt": "C" }],
+				"apps": [{ "id": "kite.exe", "style": "work", "expression": 1 }] },
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "pc1-a", "device": "pc1", "createdAt": "2026-11-19T10:00:00Z",
+					"type": "app-style", "app": "kite.exe", "expression": 3 },
+				{ "schema": "voiceflow-op", "version": 1, "id": "ph1-b", "device": "ph1", "createdAt": "2026-11-19T10:01:00Z",
+					"type": "app-style", "app": "org.example.chat", "style": "clean" }
+			],
+			"expect": {
+				"styles": { "clean": { "label": "Clean", "prompt": "C", "layer": "personal" }, "work": { "label": "Work", "prompt": "W", "layer": "personal" } },
+				"defaults": {},
+				"apps": { "kite.exe": { "style": "work", "expression": 3 }, "org.example.chat": { "style": "clean" } },
+				"issues": [], "rejected": [], "skippedOps": []
+			}
+		},
+		{
+			"name": "Unicode and whitespace: a label is trimmed, a prompt is kept exactly",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 2, "layer": "personal", "user": "sam",
+				"styles": [{ "id": "cafe", "label": "  Café 清理 ", "prompt": "Keep 中文 and English.\n\n  Two spaces.  ", "icon": "🧑‍💻" }] },
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "ph1-a", "device": "ph1", "createdAt": "2026-11-19T10:00:00Z",
+					"type": "style-set", "style": "cafe", "set": { "guidance": "  Spaces kept.  " } }
+			],
+			"expect": {
+				"styles": { "cafe": { "label": "Café 清理", "prompt": "Keep 中文 and English.\n\n  Two spaces.  ", "icon": "🧑‍💻", "guidance": "  Spaces kept.  ", "layer": "personal" } },
+				"defaults": {}, "apps": {}, "issues": [], "rejected": [], "skippedOps": []
+			}
+		},
+		{
+			"name": "an edit with an unknown field is skipped; the others still apply",
+			"user": "sam",
+			"personal": { "schema": "voiceflow-profile", "schemaVersion": 1, "layer": "personal", "user": "sam",
+				"styles": [{ "id": "clean", "label": "Clean", "prompt": "C" }] },
+			"ops": [
+				{ "schema": "voiceflow-op", "version": 1, "id": "ph1-a", "device": "ph1", "createdAt": "2026-11-19T10:00:00Z",
+					"type": "style-set", "style": "clean", "set": { "colour": "red" } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "ph1-b", "device": "ph1", "createdAt": "2026-11-19T10:01:00Z",
+					"type": "style-set", "style": "clean", "set": { "expression": 5 } },
+				{ "schema": "voiceflow-op", "version": 1, "id": "ph1-c", "device": "ph1", "createdAt": "2026-11-19T10:02:00Z",
+					"type": "style-set", "style": "clean", "set": { "hidden": true } }
+			],
+			"expect": {
+				"styles": { "clean": { "label": "Clean", "prompt": "C", "hidden": true, "layer": "personal" } },
+				"defaults": {}, "apps": {}, "issues": [], "rejected": [], "skippedOps": ["ph1-a", "ph1-b"]
+			}
+		}
+	]
+}

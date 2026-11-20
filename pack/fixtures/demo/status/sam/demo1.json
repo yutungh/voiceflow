@@ -1,0 +1,27 @@
+{
+  "schema": "voiceflow-status",
+  "schemaVersion": 1,
+  "app": "VoiceFlow",
+  "version": "0.9.0",
+  "os": "windows",
+  "device": "demo1",
+  "user": "sam",
+  "writtenAt": "2026-11-17T09:10:00Z",
+  "profile": {
+    "snapshotId": "3f1c9a7e5d2b8c40",
+    "words": 8,
+    "corrections": 4,
+    "styles": 1,
+    "lastSyncAt": "2026-11-17T09:10:00Z",
+    "sourceReachable": true,
+    "usingCache": false,
+    "pendingEdits": 0,
+    "layers": [
+      { "layer": "household", "state": "ok", "updatedAt": "2026-11-17T08:00:00Z", "words": 3, "corrections": 1 },
+      { "layer": "generated", "state": "ok", "updatedAt": "2026-11-17T03:30:00Z", "words": 2, "corrections": 0 },
+      { "layer": "personal", "state": "ok", "updatedAt": "2026-11-17T08:30:00Z", "words": 4, "corrections": 2 }
+    ],
+    "issues": [],
+    "errors": []
+  }
+}

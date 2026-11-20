@@ -1,0 +1,23 @@
+{
+	"$schema": "../../../../schema/voiceflow-profile.v1.schema.json",
+	"schema": "voiceflow-profile",
+	"schemaVersion": 1,
+	"layer": "personal",
+	"user": "sam",
+	"updatedAt": "2026-11-17T08:30:00Z",
+	"updatedBy": "sam",
+	"terms": [
+		{ "id": "zorblax", "text": "Zorblax", "heardAs": ["Zork Blacks"], "kind": "project", "priority": 80 },
+		{ "id": "quibbit", "text": "Quibbit", "heardAs": ["Kwibbit"], "kind": "product", "priority": 60 },
+		{ "id": "pip", "text": "Pip", "kind": "bot", "gloss": "Sam's helper bot", "priority": 95 },
+		{ "id": "teamchat-only", "text": "Glorp", "apps": ["teamchat.exe"], "priority": 50 }
+	],
+	"corrections": [
+		{ "id": "zorblax-zork", "from": ["Zork Blacks", "Zorkblax"], "to": "Zorblax" },
+		{ "id": "quibbit-kwibbit", "from": ["Kwibbit"], "to": "Quibbit", "scope": { "apps": ["teamchat.exe", "com.example.teamchat"] } }
+	],
+	"styles": [
+		{ "id": "casual", "label": "Casual", "prompt": "Tidy up this dictation: fix punctuation and capitals, drop filler words, keep the speaker's words. Reply with the text only.", "model": "gpt-5.4-mini", "expression": 1 }
+	],
+	"privacy": { "blockApps": ["vault-demo.exe"], "titleDenyRe": ["demo bank"] }
+}

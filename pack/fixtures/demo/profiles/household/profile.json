@@ -1,0 +1,18 @@
+{
+	"$schema": "../../../../schema/voiceflow-profile.v1.schema.json",
+	"schema": "voiceflow-profile",
+	"schemaVersion": 1,
+	"layer": "household",
+	"user": "household",
+	"updatedAt": "2026-11-17T08:00:00Z",
+	"updatedBy": "demo",
+	"terms": [
+		{ "id": "ada", "text": "Ada", "heardAs": ["Aida"], "kind": "bot", "gloss": "the household assistant bot", "priority": 90 },
+		{ "id": "pip", "text": "Pip", "kind": "bot", "gloss": "the second household bot", "priority": 85 },
+		{ "id": "maple-lane", "text": "Maple Lane", "kind": "place", "priority": 40 }
+	],
+	"corrections": [
+		{ "id": "ada-aida", "from": ["Aida"], "to": "Ada", "note": "The bot, not the opera." }
+	],
+	"defaults": { "language": "en", "promptChars": 600, "promptTerms": 40 }
+}

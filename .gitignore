@@ -1,0 +1,22 @@
+.gradle/
+.tooling/
+app/build/
+local.properties
+.env.local
+.voiceflow-private.json
+.voiceflow-devices.json
+voice_keyboard_*.png
+window.xml
+.idea/
+*.iml
+*.jks
+*.keystore
+*.apk
+*.aab
+captures/
+.DS_Store
+Thumbs.db
+
+# Evaluation-only spelling corpora. Fetched by scripts/fetch-corpora.sh,
+# never committed: their licence terms are unstated upstream.
+.corpora/
