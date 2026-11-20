@@ -71,7 +71,6 @@ import java.util.regex.Pattern;
 public class VoiceFlowKeyboardService extends InputMethodService {
     private static final int KEY_VISUAL_GAP_DP = 3;
     private static final int CORRECTION_DELAY_MS = 120;
-    private static final int SHIFT_DOUBLE_TAP_MS = 350;
     private static final int SPACE_CURSOR_HOLD_MS = 280;
     // Holding delete removes characters, then whole words from 3 s, then
     // everything before the cursor from 6 s.
@@ -199,6 +198,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     private String lastVoiceHeldBackReason = HELD_BACK_MIXED;
     // The bar above the keys (VoiceBar decides which one shows).
     private static final int BAR_HEIGHT_DP = 52;
+    /** The recording panel's content stays this wide at most (a Fold's inner screen). */
+    private static final int PANEL_MAX_WIDTH_DP = 600;
     private static final String HELD_BACK_MIXED = "mixed";
     private static final String HELD_BACK_ORIGINAL = "original";
     private static final int MENU_TRANSLATE = 1;
@@ -233,9 +234,22 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     private LinearLayout doneActions;
     private TextView headerTitle;
     private TextView headerAction;
-    private LinearLayout recordingHint;
-    private TextView recordingStyleChip;
+    /** 0.8.6: the recording panel, in the keys' place while a dictation records and is processed. */
+    private FrameLayout recordingPanel;
+    /** The panel's first line: what the chips are for, or what to say for a voice edit. */
     private TextView recordingHintText;
+    /** The panel's expression slider (the sheet's is {@link #expressionSlider}). */
+    private SeekBar panelSlider;
+    /** True from a capture's start until its text is inserted, or it is cancelled or fails. */
+    private boolean capturePanel;
+    /** A style picked from More in this recording keeps the fifth chip (desktop's "kept"). */
+    private String panelKeptStyle;
+    /** The next opening of the style sheet starts with All styles open (the panel's More). */
+    private boolean openAllStylesNext;
+    /** The current input start was a restart of the same editor (caps lock may stay). */
+    private boolean inputRestarting;
+    /** While caps lock is on: the text before the cursor after his last edit, to recognise his field. */
+    private String capsLockTail = "";
     private boolean suggestionsShowing;
     /** The last insertion's Inserted bar is still inside its {@link VoiceBar#INSERTED_MS} window. */
     private boolean insertedFresh;
@@ -331,10 +345,11 @@ public class VoiceFlowKeyboardService extends InputMethodService {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
         ));
-        keyboardSurface.addView(buildRecordingHint(), new FrameLayout.LayoutParams(
+        // 0.8.6: while a dictation records and is processed, the recording panel
+        // (style chips and the expression slider) takes the keys' place, at their height.
+        keyboardSurface.addView(buildRecordingPanel(), new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                dp(48),
-                Gravity.TOP
+                FrameLayout.LayoutParams.MATCH_PARENT
         ));
         column.addView(keyboardSurface, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -374,6 +389,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     @Override
     public void onStartInput(EditorInfo attribute, boolean restarting) {
         super.onStartInput(attribute, restarting);
+        inputRestarting = restarting;
         // Every start is a new session, restarts included: a WebView moves between
         // its fields by restarting input on the same view.
         editorSession++;
@@ -404,6 +420,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     @Override
     public void onStartInputView(EditorInfo info, boolean restarting) {
         super.onStartInputView(info, restarting);
+        // A fresh start in onStartInput is never turned into a restart here.
+        inputRestarting = inputRestarting && restarting;
         activeInputType = info == null ? activeInputType : info.inputType;
         // Now that the field is known, start the 1.3 MB spelling lexicon parse
         // if this one can use suggestions. Waiting for the first keystroke
@@ -461,7 +479,22 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             String fieldKey = fieldKey(getCurrentInputEditorInfo());
             boolean sameField = fieldKey.equals(layerFieldKey);
             layerFieldKey = fieldKey;
-            resetToRegularKeyboard(KeyboardLayerRules.layerFor(activeInputType, sameField, currentLayer()));
+            KeyboardLayerRules.Layer layer = KeyboardLayerRules.layerFor(activeInputType, sameField, currentLayer());
+            // Some apps restart their field after every change; caps lock stays on
+            // for the same field, as it did before the restart.
+            // Only a restart the system calls a restart, and only when the text before
+            // the cursor is what he just typed there: two fields of one WebView can share
+            // package, id and type and restart between each other (Codex review).
+            boolean keepCapsLock = sameField && inputRestarting && capsLock
+                    && layer == KeyboardLayerRules.Layer.LETTERS
+                    && !capsLockTail.isEmpty() && capsLockTail.equals(textBeforeCursorTail());
+            resetToRegularKeyboard(layer);
+            if (keepCapsLock) {
+                capsLock = true;
+                shift = true;
+                autoShift = false;
+                updateShiftVisuals();
+            }
         }
     }
 
@@ -614,6 +647,16 @@ public class VoiceFlowKeyboardService extends InputMethodService {
                 && (newSelStart != phraseUndoCursor || newSelEnd != phraseUndoCursor)) {
             clearPhraseUndo();
         }
+        if (capsLock) {
+            capsLockTail = textBeforeCursorTail();
+        }
+    }
+
+    /** The last few characters before the cursor, or "" when the editor cannot say. */
+    private String textBeforeCursorTail() {
+        InputConnection connection = getCurrentInputConnection();
+        CharSequence before = connection == null ? null : connection.getTextBeforeCursor(32, 0);
+        return before == null ? "" : before.toString();
     }
 
     private boolean handleSwipe(View view, MotionEvent event) {
@@ -663,7 +706,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             rootSwipeConsumed = false;
             rootSwipeTracking = false;
             rootSwipeStartedOnSpace = isRawPointInsideAny(spaceButtons, rootDownX, rootDownY);
-            rootSwipeStartedOnExpressionSlider = isRawPointInside(expressionSlider, rootDownX, rootDownY);
+            rootSwipeStartedOnExpressionSlider = isRawPointInside(expressionSlider, rootDownX, rootDownY)
+                    || isRawPointInside(panelSlider, rootDownX, rootDownY);
             rootSwipeStartedOnVoiceStyleScroller = isRawPointInside(
                     voiceStyleScroller,
                     rootDownX,
@@ -1151,11 +1195,9 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         CharSequence text = styleChipText(choice.preset, choice.expression);
         String description = "Style: " + VoiceBar.styleLabel(labelForPreset(choice.preset), choice.expression)
                 + ". Change for this message";
-        for (TextView chip : new TextView[]{styleChip, recordingStyleChip}) {
-            if (chip != null) {
-                chip.setText(text);
-                chip.setContentDescription(description);
-            }
+        if (styleChip != null) {
+            styleChip.setText(text);
+            styleChip.setContentDescription(description);
         }
     }
 
@@ -1220,7 +1262,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
 
         LinearLayout third = new LinearLayout(this);
         third.setOrientation(LinearLayout.HORIZONTAL);
-        shiftButton = keyButton("", 1.35f, v -> toggleShift(), true);
+        shiftButton = shiftKey();
         third.addView(shiftButton);
         String bottomLetters = "zxcvbnm";
         int bottomSplit = splitIndexFor(KeyboardGeometry.Row.BOTTOM_LETTERS, bottomLetters.length());
@@ -1859,6 +1901,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         if (recording || processing) {
             return;
         }
+        lastShiftTapMs = 0;
         clearPhraseUndo();
         retirePasteOffer();
         clearLastAutoCorrection();
@@ -2021,10 +2064,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         doneBar.setVisibility(done ? View.VISIBLE : View.GONE);
         boolean header = mode == VoiceBar.Mode.HISTORY || mode == VoiceBar.Mode.RETONE;
         headerBar.setVisibility(header ? View.VISIBLE : View.GONE);
-        if (recordingHint != null) {
-            boolean sheetOpen = voiceStyleOverlay != null && voiceStyleOverlay.getVisibility() == View.VISIBLE;
-            recordingHint.setVisibility(mode == VoiceBar.Mode.LISTENING && !sheetOpen ? View.VISIBLE : View.GONE);
-        }
+        syncRecordingPanel(mode);
 
         switch (mode) {
             case IDLE:
@@ -2037,9 +2077,6 @@ public class VoiceFlowKeyboardService extends InputMethodService {
                 break;
             case LISTENING:
                 listeningLabel.setText(VoiceBar.listeningLabel(translationCapture, creationCapture, instructionCapture));
-                if (recordingStyleChip != null) {
-                    recordingStyleChip.setVisibility(instructionCapture ? View.GONE : View.VISIBLE);
-                }
                 refreshStyleChips();
                 break;
             case INSERTED:
@@ -2099,6 +2136,15 @@ public class VoiceFlowKeyboardService extends InputMethodService {
                     : lastVoiceOperation.equals(VoiceHistoryItem.OPERATION_CREATION) ? "Created" : "Inserted");
             doneSubtitle.setText(style);
         }
+        // 0.8.6: the caret says what 0.7.x's Retone chip said: tap to retone in another style.
+        Drawable caret = kept ? null : getDrawable(R.drawable.ph_caret_down);
+        if (caret != null) {
+            caret = caret.mutate();
+            caret.setBounds(0, 0, dp(12), dp(12));
+            caret.setTint(ui.subtle);
+        }
+        doneSubtitle.setCompoundDrawables(null, null, caret, null);
+        doneSubtitle.setCompoundDrawablePadding(dp(3));
         doneLabels.setContentDescription(doneTitle.getText() + ", " + doneSubtitle.getText()
                 + ". Double-tap to retone in another style");
         doneLabels.setClickable(true);
@@ -2543,6 +2589,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         String operation = lastVoiceOperation;
         String replacement = replaceLastVoiceInsertion(lastVoiceInsertedText, cleaned);
         Prefs.updateTranscriptHistory(this, historyId, raw, cleaned, preset, expression);
+        Prefs.clearHeldBackCleanup(this, historyId);
         if (replacement.isEmpty()) {
             clearLastVoiceInsertion();
             setStatus("Field changed - tidied text saved in History");
@@ -2630,8 +2677,10 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         }
         boolean entering = voiceStyleOverlay.getVisibility() != View.VISIBLE;
         if (entering) {
-            allStylesOpen = false;
+            // The recording panel's More opens straight onto every style.
+            allStylesOpen = openAllStylesNext;
         }
+        openAllStylesNext = false;
         int keptScrollY = !entering && voiceStyleScroller != null ? voiceStyleScroller.getScrollY() : 0;
         voiceStyleOverlay.animate().cancel();
         voiceStyleOverlay.removeAllViews();
@@ -2744,7 +2793,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         }
 
         if (!instructionCapture) {
-            body.addView(expressionControl());
+            // The sheet's body: the keyboard's width less its own and the sheet's padding.
+            body.addView(expressionControl(false, getResources().getConfiguration().screenWidthDp - 40));
         }
         voiceStyleOverlay.addView(scroll, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -2902,7 +2952,18 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         haptic(view);
         choice.pick(preset, Prefs.expressionForPreset(this, preset));
         refreshStyleChips();
-        showVoiceStyleOverlay();
+        if (recording && capturePanel) {
+            // From a chip or from More: back to the panel, a style from More keeping
+            // the fifth chip for the rest of this recording.
+            List<String> ids = panelStyleIds();
+            panelKeptStyle = RecordingChips.nextKept(ids, panelPins(ids), choice.preset, panelKeptStyle);
+            if (styleSheetOpen()) {
+                hideVoiceStyleOverlay();
+            }
+            renderRecordingPanel();
+        } else {
+            showVoiceStyleOverlay();
+        }
         announce("Style " + VoiceBar.styleLabel(labelForPreset(choice.preset), choice.expression) + " for this message");
     }
 
@@ -2919,16 +2980,25 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         announce("Default is now " + VoiceBar.styleLabel(labelForPreset(choice.preset), choice.expression));
     }
 
-    private View expressionControl() {
+    /**
+     * The expression slider: five snapping stops, Reserved to Expressive, the
+     * level's name beside the title. Off for Raw, which keeps his words as said.
+     * {@code inPanel}: the recording panel's (a choice there never redraws the
+     * panel mid-drag); otherwise the style sheet's.
+     */
+    private View expressionControl(boolean inPanel, int widthDp) {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(0, 0, 0, 0);
+        boolean raw = Prefs.PRESET_RAW.equals(choice.preset);
+        boolean frozen = inPanel && (processing || !recording);
 
         LinearLayout titleRow = new LinearLayout(this);
         titleRow.setOrientation(LinearLayout.HORIZONTAL);
         titleRow.setGravity(Gravity.CENTER_VERTICAL);
         titleRow.addView(sheetLabel("Expression"), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        TextView current = barText(Prefs.expressionLabel(choice.expression), 12.5f, true, ui.accentInk);
+        TextView current = barText(raw ? "Off for Raw" : Prefs.expressionLabel(choice.expression), 12.5f, true,
+                raw ? ui.subtle : ui.accentInk);
         titleRow.addView(current);
         panel.addView(titleRow);
 
@@ -2946,15 +3016,20 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         }
 
         SeekBar slider = new SeekBar(this);
-        expressionSlider = slider;
+        if (inPanel) {
+            panelSlider = slider;
+        } else {
+            expressionSlider = slider;
+        }
         slider.setMax(Prefs.EXPRESSION_EXPRESSIVE);
         slider.setProgress(choice.expression);
         slider.setProgressTintList(android.content.res.ColorStateList.valueOf(ui.accentTintBorder));
         slider.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(ui.borderStrong));
         slider.setThumbTintList(android.content.res.ColorStateList.valueOf(ui.accent));
         slider.setTickMark(sliderTick());
-        // Padding so the thumb at either end lines up with the first and last word.
-        int side = dp(26);
+        // Each word is centred in a fifth of the width; a tenth on each side puts
+        // every stop right over its word, at any width (0.8.6; it was a fixed 26 dp).
+        int side = dp(Math.max(16, widthDp / 10));
         slider.setPadding(side, 0, side, 0);
         stateDescription(slider, Prefs.expressionLabel(choice.expression));
         slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -2962,6 +3037,11 @@ public class VoiceFlowKeyboardService extends InputMethodService {
 
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (fromUser && (processing || (inPanel && !recording))) {
+                    // Fixed after Stop: put it back.
+                    seekBar.setProgress(choice.expression);
+                    return;
+                }
                 if (fromUser) {
                     choice.setExpression(progress);
                     refreshStyleChips();
@@ -2986,12 +3066,26 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             public void onStopTrackingTouch(SeekBar seekBar) {
                 // One message only: nothing is saved here. Make default saves it.
                 refreshStyleChips();
-                showVoiceStyleOverlay();
+                if (!inPanel && styleSheetOpen()) {
+                    showVoiceStyleOverlay();
+                }
             }
         });
+        if (raw || frozen) {
+            slider.setEnabled(false);
+        }
+        if (raw) {
+            slider.setAlpha(0.4f);
+            labels.setAlpha(0.4f);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                slider.setStateDescription("Off for Raw");
+            }
+        } else if (frozen) {
+            panel.setAlpha(0.5f);
+        }
         panel.addView(slider, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(48)
+                dp(inPanel ? 40 : 48)
         ));
         panel.addView(labels);
         return panel;
@@ -3020,6 +3114,10 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         voiceStyleOverlay.setAlpha(1f);
         voiceStyleScroller = null;
         expressionSlider = null;
+        if (capturePanel && recordingPanel != null && recordingPanel.getChildCount() > 0) {
+            // Back from the sheet: the panel shows what was chosen there (Codex review).
+            renderRecordingPanel();
+        }
         renderBar();
     }
 
@@ -3187,31 +3285,39 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         chip.setBackground(keyBackground(selected ? colors.accent : colors.key, selected));
     }
 
-    private void toggleShift() {
+    /**
+     * A tap on Shift at {@code now} (uptime): the touch-down, so a quick double
+     * tap is measured between the two presses, or a click from TalkBack.
+     */
+    private void toggleShift(long now) {
         if (recording || processing) {
             return;
         }
-        long now = System.currentTimeMillis();
-        if (capsLock) {
-            capsLock = false;
-            shift = false;
-            autoShift = false;
-            lastShiftTapMs = 0;
-        } else if (autoShift && !shift) {
-            autoShift = false;
-            lastShiftTapMs = 0;
-        } else if (shift && lastShiftTapMs > 0 && now - lastShiftTapMs <= SHIFT_DOUBLE_TAP_MS) {
-            capsLock = true;
-            shift = true;
-            autoShift = false;
-            lastShiftTapMs = 0;
-        } else {
-            shift = !shift;
-            autoShift = false;
-            lastShiftTapMs = shift ? now : 0;
-        }
+        boolean wasLocked = capsLock;
+        ShiftRules.State next = ShiftRules.tap(shift, autoShift, capsLock, lastShiftTapMs, now);
+        shift = next.shift;
+        autoShift = next.autoShift;
+        capsLock = next.capsLock;
+        lastShiftTapMs = next.lastTapAt;
         updateShiftVisuals();
+        if (capsLock != wasLocked) {
+            capsLockTail = capsLock ? textBeforeCursorTail() : "";
+            announce(capsLock ? "Caps lock on" : "Caps lock off");
+        }
         setStatus(capsLock ? "Caps lock" : shift ? "Shift on" : "Ready");
+    }
+
+    /** The shift key: acts on touch-down, so two quick taps lock caps; a click (TalkBack) still works. */
+    private TextView shiftKey() {
+        TextView key = keyButton("", 1.35f, v -> toggleShift(android.os.SystemClock.uptimeMillis()), true);
+        key.setOnTouchListener((view, event) -> {
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                haptic(view);
+                toggleShift(event.getEventTime());
+            }
+            return true;
+        });
+        return key;
     }
 
     private boolean isShiftActive() {
@@ -3370,6 +3476,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         }
         clearPhraseUndo();
         retirePasteOffer();
+        // A key between two Shift taps makes them two single taps, not a double tap.
+        lastShiftTapMs = 0;
         boolean letterKey = !symbolsMode && value.length() == 1 && Character.isLetter(value.charAt(0));
         String text = symbolsMode
                 ? value
@@ -3932,6 +4040,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         if (recording || processing) {
             return;
         }
+        lastShiftTapMs = 0;
         // While composing, backspace shortens the pinyin buffer rather than
         // deleting text the user has already committed.
         if (composingPinyin()) {
@@ -4643,6 +4752,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         if (recording || processing) {
             return;
         }
+        // Any key between two Shift taps makes them two single taps.
+        lastShiftTapMs = 0;
         // A half-typed reading must be resolved before the editor action fires,
         // or the composing span can be submitted as raw latin.
         if (composingPinyin()) {
@@ -5600,6 +5711,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         recordingWords = WordLists.forRecordStart(this, recordingTarget.packageName);
         recordingCorrections = new ArrayList<>(recordingWords.corrections);
         recordingStartedAt = System.currentTimeMillis();
+        panelKeptStyle = null;
         offlineLevel = 0f;
         if (waveform != null) {
             waveform.clear();
@@ -5856,6 +5968,12 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         // to the final text; translation, creation and voice edits get them once, on
         // their input, so a name is spelled right before it is translated.
         String spoken = transcript == null ? "" : transcript.trim();
+        if (spoken.isEmpty()) {
+            // 0.8.6, as desktop 0.9.11: nothing was heard, so nothing is sent on,
+            // inserted or kept, and the bar says so instead of "Inserted".
+            mainHandler.post(() -> finishProcessingState("Nothing heard - nothing inserted"));
+            return;
+        }
         String normalizedTranscript = PersonalVocabulary.applyReplacements(spoken, corrections);
         if (translation) {
             String statusLanguage = compactLanguageName(targetLanguage);
@@ -5881,7 +5999,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
                         targetLanguage
                 );
                 if (!deliverableTo(target)) {
-                    finishProcessingState(notDeliveredStatus(historyId));
+                    finishProcessingState(copiedInstead(result, rememberHistory, historyId, true));
                     return;
                 }
                 String inserted = insertVoiceText(result);
@@ -5894,7 +6012,9 @@ public class VoiceFlowKeyboardService extends InputMethodService {
                         targetLanguage,
                         historyId
                 );
-                finishProcessingState("Translated - " + labelForPreset(preset));
+                finishProcessingState(inserted.isEmpty()
+                        ? copiedInstead(result, rememberHistory, historyId, false)
+                        : "Translated - " + labelForPreset(preset));
             });
             return;
         }
@@ -5920,12 +6040,12 @@ public class VoiceFlowKeyboardService extends InputMethodService {
                         ""
                 );
                 if (!deliverableTo(target)) {
-                    finishProcessingState(notDeliveredStatus(historyId));
+                    finishProcessingState(copiedInstead(result, rememberHistory, historyId, true));
                     return;
                 }
                 String inserted = appendCreatedText(result);
                 if (inserted.isEmpty()) {
-                    finishProcessingState("Could not append created text");
+                    finishProcessingState(copiedInstead(result, rememberHistory, historyId, false));
                     return;
                 }
                 rememberLastVoiceInsertion(
@@ -6002,8 +6122,12 @@ public class VoiceFlowKeyboardService extends InputMethodService {
                     VoiceHistoryItem.OPERATION_DICTATION,
                     ""
             );
+            if (!historyId.isEmpty() && !heldBack.isEmpty()) {
+                // History keeps Use cleaned after the bar is gone (desktop 0.9.13).
+                Prefs.setHeldBackCleanup(this, historyId, heldBack, preset, expression);
+            }
             if (!deliverableTo(target)) {
-                finishProcessingState(notDeliveredStatus(historyId));
+                finishProcessingState(copiedInstead(result, rememberHistory, historyId, true));
                 return;
             }
             String inserted = insertVoiceText(result);
@@ -6021,7 +6145,9 @@ public class VoiceFlowKeyboardService extends InputMethodService {
                 lastVoiceHeldBackReason = HELD_BACK_MIXED;
                 recordEvidence(UpdateEvidence::recordDictation);
             }
-            finishProcessingState(status);
+            finishProcessingState(inserted.isEmpty()
+                    ? copiedInstead(result, rememberHistory, historyId, false)
+                    : status);
         });
     }
 
@@ -6077,6 +6203,42 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         );
     }
 
+    /**
+     * Desktop's "Copied" fallback (0.9.11), on the phone in 0.8.6: a result that
+     * could not go into the field it was started in goes to the clipboard, one
+     * Paste away (the Paste chip offers it). Never from a field that keeps no
+     * history (incognito or a password field): there nothing is copied and the
+     * bar says only where it is not.
+     *
+     * @param movedAway true when he moved to another field; false when the field
+     *                  itself would not take the text
+     * @return the bar's message
+     */
+    private String copiedInstead(String text, boolean mayCopy, String historyId, boolean movedAway) {
+        boolean copied = false;
+        if (mayCopy && text != null && !text.trim().isEmpty()) {
+            try {
+                ClipboardManager clipboard = clipboard();
+                if (clipboard != null) {
+                    clipboard.setPrimaryClip(ClipData.newPlainText("VoiceFlow", text.trim()));
+                    copied = true;
+                }
+            } catch (RuntimeException ignored) {
+                // The clipboard refused (a work profile, a policy): say where it is instead.
+            }
+        }
+        if (copied) {
+            return movedAway
+                    ? "Copied - you moved to another field. Tap Paste to put it here"
+                    : "Copied - this field didn't take the text. Paste it where you want it";
+        }
+        return movedAway
+                ? notDeliveredStatus(historyId)
+                : historyId == null || historyId.isEmpty()
+                        ? "Not inserted: this field didn't take the text"
+                        : "Not inserted: this field didn't take the text - saved in History";
+    }
+
     private static String notDeliveredStatus(String historyId) {
         return historyId == null || historyId.isEmpty()
                 ? "Not inserted: you moved to another field"
@@ -6103,6 +6265,10 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         refreshStyleChips();
         if (styleSheetOpen()) {
             showVoiceStyleOverlay();
+        } else if (capturePanel && recording) {
+            List<String> ids = panelStyleIds();
+            panelKeptStyle = RecordingChips.nextKept(ids, panelPins(ids), choice.preset, panelKeptStyle);
+            renderRecordingPanel();
         }
         announce("Style " + VoiceBar.styleLabel(labelForPreset(choice.preset), choice.expression) + " for this message");
     }
@@ -6177,6 +6343,9 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         stopStatusSpinner();
         recording = false;
         processing = false;
+        // Inserted, cancelled or failed: the keys come back (renderBar hides the panel).
+        capturePanel = false;
+        panelKeptStyle = null;
         retoneMode = false;
         translationCapture = false;
         translationTargetLanguage = "";
@@ -6638,48 +6807,192 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     }
 
     private void showCaptureRecordingState() {
-        // The style sheet no longer opens by itself: the chip opens it on purpose.
+        // The style sheet never opens by itself: the panel's chips and slider are the
+        // quick way, More opens the sheet on purpose.
         hideChipStrip();
         if (instructionCapture) {
             hideVoiceStyleOverlay();
         }
+        capturePanel = true;
         setMicVisual(true, true);
-        if (recordingHintText != null) {
-            recordingHintText.setText(instructionCapture
-                    ? "Say how to change the text, then tap Stop."
-                    : "Tap Stop when you're done. Change the style for this message any time.");
-        }
+        renderRecordingPanel();
         renderBar();
         mainHandler.removeCallbacks(meterRunnable);
         mainHandler.post(meterRunnable);
         announce(VoiceBar.listeningLabel(translationCapture, creationCapture, instructionCapture));
     }
 
-    /** The recording hint row: the style chip and what to do next, over the dimmed keys. */
-    private View buildRecordingHint() {
-        recordingHint = new LinearLayout(this);
-        recordingHint.setOrientation(LinearLayout.HORIZONTAL);
-        recordingHint.setGravity(Gravity.CENTER_VERTICAL);
-        recordingHint.setPadding(dp(4), 0, dp(6), 0);
-        recordingHint.setBackgroundColor(ui.ime);
-        recordingHint.setVisibility(View.GONE);
-        recordingHint.setClickable(true);
-        recordingStyleChip = styleChip();
-        recordingStyleChip.setOnClickListener(v -> {
-            haptic(v);
-            toggleStyleSheet();
-        });
-        recordingHint.addView(recordingStyleChip, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                dp(48)
+    // ------------------------------------------------------------ recording panel
+
+    /** The panel's frame, at the keys' place; its content is drawn by {@link #renderRecordingPanel()}. */
+    private View buildRecordingPanel() {
+        recordingPanel = new FrameLayout(this);
+        recordingPanel.setBackgroundColor(ui.ime);
+        recordingPanel.setVisibility(View.GONE);
+        // Swallows touches, so nothing reaches the keys under it.
+        recordingPanel.setClickable(true);
+        recordingHintText = null;
+        panelSlider = null;
+        return recordingPanel;
+    }
+
+    /** Whether the panel stands in for the keys now: a dictation recording or being processed. */
+    private boolean recordingPanelWanted(VoiceBar.Mode mode) {
+        return capturePanel && (mode == VoiceBar.Mode.LISTENING || mode == VoiceBar.Mode.WORKING);
+    }
+
+    /** Shows the panel or the keys, as the bar's mode calls for; never both. */
+    private void syncRecordingPanel(VoiceBar.Mode mode) {
+        if (recordingPanel == null || keyboardPanel == null) {
+            return;
+        }
+        boolean show = recordingPanelWanted(mode);
+        if (show) {
+            if (recordingPanel.getChildCount() == 0) {
+                renderRecordingPanel();
+            }
+            recordingPanel.setVisibility(View.VISIBLE);
+            // Invisible, not gone: the keys keep the surface's height, so nothing jumps.
+            keyboardPanel.setVisibility(View.INVISIBLE);
+        } else {
+            if (recordingPanel.getVisibility() != View.GONE || recordingPanel.getChildCount() > 0) {
+                recordingPanel.setVisibility(View.GONE);
+                recordingPanel.removeAllViews();
+                recordingHintText = null;
+                panelSlider = null;
+            }
+            keyboardPanel.setVisibility(View.VISIBLE);
+        }
+    }
+
+    /** The styles in their own order, and his pins (the sheet's "On the bar"), for the chips. */
+    private List<String> panelStyleIds() {
+        List<String> ids = new ArrayList<>();
+        for (PromptProfile style : Prefs.promptProfiles(this)) {
+            ids.add(style.id);
+        }
+        return ids;
+    }
+
+    private List<String> panelPins(List<String> ids) {
+        List<String> funIds = new ArrayList<>();
+        for (String id : ids) {
+            if (Prefs.isFunVoiceStyle(id)) {
+                funIds.add(id);
+            }
+        }
+        return StylePins.onBar(ids, funIds, Prefs.pinnedStyles(this), null);
+    }
+
+    /**
+     * Draws the recording panel: what to do now, the style chips (his pins, at most
+     * five, the one in use always among them, More for the rest) and the expression
+     * slider. A choice here is for this message only. After Stop the choice is fixed,
+     * so the panel stays, dimmed, until the text is inserted.
+     */
+    private void renderRecordingPanel() {
+        if (recordingPanel == null || !capturePanel) {
+            return;
+        }
+        recordingPanel.removeAllViews();
+        panelSlider = null;
+        boolean frozen = processing || !recording;
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setVerticalScrollBarEnabled(false);
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        // At most PANEL_MAX_WIDTH_DP wide, centred, so a Fold's inner screen keeps
+        // the chips and the slider together.
+        int available = Math.max(0, getResources().getConfiguration().screenWidthDp - 8);
+        int contentWidthDp = Math.max(0, Math.min(available - 24, PANEL_MAX_WIDTH_DP));
+        int sideDp = Math.max(12, (available - contentWidthDp) / 2);
+        column.setPadding(dp(sideDp), dp(2), dp(sideDp), dp(2));
+        scroll.addView(column, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
         ));
-        recordingHintText = barText("", 12, false, ui.subtle);
-        recordingHintText.setMaxLines(2);
+        recordingPanel.addView(scroll, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+        ));
+
+        if (instructionCapture) {
+            // A voice edit has no style: only what to do.
+            column.setGravity(Gravity.CENTER);
+            recordingHintText = barText(frozen ? "Applying your instruction to this text."
+                    : "Say how to change the text, then tap Stop.", 14, false, ui.muted);
+            recordingHintText.setGravity(Gravity.CENTER);
+            recordingHintText.setMaxLines(3);
+            column.addView(recordingHintText, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            ));
+            return;
+        }
+
+        String title = translationCapture ? "Style for this translation"
+                : creationCapture ? "Style for this text" : "Style for this message";
+        recordingHintText = sheetLabel(frozen ? title + " · set" : title);
+        recordingHintText.setSingleLine(true);
         recordingHintText.setEllipsize(TextUtils.TruncateAt.END);
-        recordingHintText.setLineSpacing(0, 1.1f);
-        recordingHintText.setPadding(dp(10), 0, 0, 0);
-        recordingHint.addView(recordingHintText, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        return recordingHint;
+        recordingHintText.setMinHeight(dp(20));
+        column.addView(recordingHintText, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        ));
+
+        List<String> ids = panelStyleIds();
+        RecordingChips.Row row = RecordingChips.row(ids, panelPins(ids), choice.preset, panelKeptStyle);
+        FlowRow chips = new FlowRow(this, dp(6), 0);
+        chips.setContentDescription("Styles");
+        for (String id : row.chips) {
+            TextView chip = sheetStyleChip(Prefs.promptProfile(this, id));
+            chip.setTextSize(13f);
+            chip.setPadding(dp(id.equals(choice.preset) ? 10 : 12), 0, dp(12), 0);
+            chip.setEnabled(!frozen);
+            chips.addView(chip, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(44)));
+        }
+        if (!row.more.isEmpty()) {
+            TextView more = outlinePill("More", 0);
+            more.setTextSize(13f);
+            Drawable caret = getDrawable(R.drawable.ph_caret_down);
+            if (caret != null) {
+                caret = caret.mutate();
+                caret.setBounds(0, 0, dp(14), dp(14));
+                caret.setTint(ui.muted);
+                more.setCompoundDrawables(null, null, caret, null);
+                more.setCompoundDrawablePadding(dp(4));
+            }
+            more.setPadding(dp(12), 0, dp(10), 0);
+            more.setContentDescription("More styles: " + row.more.size());
+            more.setEnabled(!frozen);
+            more.setOnClickListener(v -> {
+                if (!recording || processing) {
+                    return;
+                }
+                haptic(v);
+                openAllStylesNext = true;
+                showVoiceStyleOverlay();
+            });
+            chips.addView(more, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(44)));
+        }
+        if (frozen) {
+            chips.setAlpha(0.5f);
+        }
+        column.addView(chips, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        ));
+
+        View expression = expressionControl(true, contentWidthDp);
+        LinearLayout.LayoutParams expressionParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        expressionParams.topMargin = dp(2);
+        column.addView(expression, expressionParams);
     }
 
     /** The waveform and timer, about twelve times a second while recording. */
@@ -6717,6 +7030,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         mainHandler.removeCallbacks(meterRunnable);
         hideVoiceStyleOverlay();
         setMicVisual(false, false);
+        // The panel stays until the text is inserted, its choice now fixed (dimmed).
+        renderRecordingPanel();
         renderBar();
     }
 
