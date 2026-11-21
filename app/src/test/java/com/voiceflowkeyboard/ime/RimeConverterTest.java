@@ -65,6 +65,9 @@ public class RimeConverterTest {
                     return new String[]{"你好", "6", "ni'hao", "", "你", "3", "ni", ""};
                 case "426":
                     return new String[]{"好", "3", "hao", ""};
+                case "644269":
+                    // Nothing reads the trailing 9: the best reading covers the first five keys.
+                    return new String[]{"你好", "5", "ni'hao", ""};
                 default:
                     return new String[0];
             }
@@ -160,6 +163,38 @@ public class RimeConverterTest {
         }
         assertTrue(backend.calls.toString(), backend.calls.contains("learn 0 ni' 你"));
         assertTrue(backend.calls.contains("learn 0 426 好"));
+    }
+
+    @Test
+    public void acceptingTheTopKeepsWhatItDoesNotReadAndLearnsIt() throws Exception {
+        ready();
+        PinyinSession session = new PinyinSession(new RimeConverter(keypadClassic, engine, true, true));
+        for (char c : "644269".toCharArray()) {
+            session.append(c);
+        }
+        PinyinSession.Settlement settled = session.settle(PinyinSession.SettleReason.ACCEPT_TOP);
+        assertEquals(PinyinSession.Action.COMMIT, settled.action);
+        assertEquals("你好9", settled.text);
+        assertFalse(session.isComposing());
+        long until = System.currentTimeMillis() + 5000;
+        while (!backend.calls.contains("learn 0 64426 你好") && System.currentTimeMillis() < until) {
+            Thread.sleep(2);
+        }
+        assertTrue(backend.calls.toString(), backend.calls.contains("learn 0 64426 你好"));
+    }
+
+    @Test
+    public void switchingAwayCommitsWithoutLearning() throws Exception {
+        ready();
+        PinyinSession session = new PinyinSession(new RimeConverter(keypadClassic, engine, true, true));
+        for (char c : "64426".toCharArray()) {
+            session.append(c);
+        }
+        assertEquals("你好", session.settle(PinyinSession.SettleReason.MODE_CHANGED).text);
+        Thread.sleep(50);
+        for (String call : backend.calls) {
+            assertFalse(call, call.startsWith("learn"));
+        }
     }
 
     @Test

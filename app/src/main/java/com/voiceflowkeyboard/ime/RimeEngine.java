@@ -127,7 +127,9 @@ final class RimeEngine {
     /** The last query sent to the worker; UI thread only. */
     private Future<String[]> pending;
     /** Whether librime is started; worker thread only. */
-    private boolean nativeRunning;
+    private volatile boolean nativeRunning;
+    /** Whether this process has looked at how the previous one ended; worker thread only. */
+    private boolean reviewedPreviousRun;
     private int errors;
     private int hangs;
 
@@ -183,10 +185,18 @@ final class RimeEngine {
             setState(State.FAILED, "shut-down");
             return;
         }
+        watchStart(generation);
+    }
+
+    /** The watchdog for one start: still starting after {@link #START_TIMEOUT_MS} counts as a hang. */
+    private void watchStart(int generation) {
         platform.postDelayed(() -> {
             if (state == State.STARTING && startGeneration == generation) {
                 failure(RimeBreaker.KIND_HANG);
-                setState(State.FAILED, "start-timeout");
+                if (state == State.STARTING) {
+                    setState(State.FAILED, "start-timeout");
+                }
+                stopWhenFree();
             }
         }, START_TIMEOUT_MS);
     }
@@ -195,32 +205,42 @@ final class RimeEngine {
     private void runStart(int generation) {
         long now = platform.now();
         // The previous process: did it die with Rime live?
-        long since = breaker.liveSince();
+        // Once per process: later starts in the same process find this process's own markers.
+        long since = reviewedPreviousRun ? 0 : breaker.liveSince();
+        reviewedPreviousRun = true;
         if (since > 0 && breaker.reviewPreviousRun(platform.previousExit(since), now)) {
-            post(() -> setState(State.DISABLED, "breaker-" + breaker.trippedReason()));
+            finishStart(generation, State.DISABLED, "breaker-" + breaker.trippedReason());
             return;
         }
         if (breaker.tripped()) {
-            post(() -> setState(State.DISABLED, "breaker-" + breaker.trippedReason()));
-            return;
-        }
-        if (!platform.loadLibrary()) {
-            platform.recordStart("no-library");
-            post(() -> setState(State.FAILED, "no-library"));
+            finishStart(generation, State.DISABLED, "breaker-" + breaker.trippedReason());
             return;
         }
         Dirs installed = platform.installData();
         if (installed == null) {
             String why = "data-" + platform.installError();
             platform.recordStart(why);
-            post(() -> setState(State.FAILED, why));
+            finishStart(generation, State.FAILED, why);
+            return;
+        }
+        // Loading the library runs native code (static initialisers, JNI_OnLoad):
+        // the start-up marker must be on disk first.
+        if (!breaker.markStarting(platform.now())) {
+            platform.recordStart("no-marker");
+            finishStart(generation, State.FAILED, "no-marker");
+            return;
+        }
+        if (!platform.loadLibrary()) {
+            breaker.markInactive();
+            platform.recordStart("no-library");
+            finishStart(generation, State.FAILED, "no-library");
             return;
         }
         String error = startNative(installed);
         if (!error.isEmpty()) {
             breaker.recordFailure(RimeBreaker.KIND_START, platform.now());
             platform.recordStart("error-" + error);
-            post(() -> setState(State.FAILED, "start-" + error));
+            finishStart(generation, State.FAILED, "start-" + error);
             return;
         }
         dirs = installed;
@@ -229,6 +249,18 @@ final class RimeEngine {
         post(() -> {
             if (startGeneration == generation && state == State.STARTING) {
                 setState(State.READY, installed.dataVersion);
+            } else if (nativeRunningUi()) {
+                // Stopped, failed or timed out meanwhile: do not leave it running.
+                stopWhenFree();
+            }
+        });
+    }
+
+    /** Publishes a start's outcome only if that start is still the current one. */
+    private void finishStart(int generation, State next, String why) {
+        post(() -> {
+            if (startGeneration == generation && state == State.STARTING) {
+                setState(next, why);
             }
         });
     }
@@ -236,11 +268,13 @@ final class RimeEngine {
     /** Worker thread: native start plus a warm-up, bracketed by the breaker's markers. */
     private String startNative(Dirs installed) {
         installed.user.mkdirs();
-        breaker.markStarting(platform.now());
+        if (!breaker.markStarting(platform.now())) {
+            return "no-marker";
+        }
         String error;
         try {
             error = backend.start(installed.shared.getPath(), installed.prebuilt.getPath(), installed.user.getPath());
-        } catch (RuntimeException | LinkageError e) {
+        } catch (RuntimeException | Error e) {
             error = "exception";
         }
         if (error == null) {
@@ -251,27 +285,30 @@ final class RimeEngine {
             return error;
         }
         nativeRunning = true;
-        breaker.markActive(platform.now());
+        if (!breaker.markActive(platform.now())) {
+            stopNative();
+            return "no-marker";
+        }
         // Pages the dictionary in, so her first keystroke does not wait for it.
         try {
             backend.query(MODE_T9, "64426", 30);
             backend.query(MODE_QWERTY, "nihao", 30);
-        } catch (RuntimeException | LinkageError ignored) {
+        } catch (RuntimeException | Error ignored) {
             // A failing query shows up again on her first keystroke and is counted there.
         }
         return "";
     }
 
-    /** Stops Rime cleanly (the keyboard is going away). */
-    void stop() {
-        if (state != State.READY && state != State.STARTING) {
-            return;
-        }
-        startGeneration++;
-        setState(State.OFF, "");
+    /** Whether librime may still be running (the worker clears it); for the UI thread's cleanup decisions. */
+    private boolean nativeRunningUi() {
+        return nativeRunning;
+    }
+
+    /** Queues a clean native stop behind whatever the worker is doing. */
+    private void stopWhenFree() {
         try {
             worker.execute(() -> {
-                if (nativeRunning) {
+                if (nativeRunning && state != State.READY && state != State.STARTING) {
                     stopNative();
                 }
             });
@@ -280,6 +317,14 @@ final class RimeEngine {
         }
     }
 
+    /** Stops Rime cleanly (the keyboard is going away). */
+    void stop() {
+        startGeneration++;
+        if (state == State.READY || state == State.STARTING) {
+            setState(State.OFF, "");
+        }
+        stopWhenFree();
+    }
     /**
      * Candidates from Rime for {@code input}, or null when Rime cannot answer
      * right now (not ready, busy with a stuck call, an error, or the watchdog's
@@ -359,7 +404,7 @@ final class RimeEngine {
             worker.execute(() -> {
                 try {
                     backend.learn(mode, input, text);
-                } catch (RuntimeException | LinkageError ignored) {
+                } catch (RuntimeException | Error ignored) {
                     // Learning is best effort; the choice itself is already committed.
                 }
             });
@@ -373,45 +418,54 @@ final class RimeEngine {
      * again. Runs on the worker; {@code done} gets true on success, on the UI thread.
      */
     void forget(File userDir, java.util.function.Consumer<Boolean> done) {
-        // Queued behind any start in progress, so the user dictionary is never
-        // removed while librime has it open.
-        if (state == State.READY) {
+        // Restart afterwards only if Rime was serving now; queued behind any
+        // start in progress, so the user dictionary is never removed while
+        // librime has it open.
+        final boolean restart = state == State.READY;
+        if (restart) {
             setState(State.STARTING, "forgetting");
         }
         final int generation = ++startGeneration;
         try {
             worker.execute(() -> {
                 Dirs current = dirs;
-                boolean wasRunning = nativeRunning;
-                if (wasRunning) {
+                if (nativeRunning) {
                     stopNative();
                 }
                 boolean cleared = clearUserData(current != null ? current.user : userDir);
-                String error = wasRunning && current != null ? startNative(current) : "";
+                boolean again = restart && current != null && !breaker.tripped();
+                String error = again ? startNative(current) : "";
                 post(() -> {
                     if (startGeneration == generation && state == State.STARTING) {
-                        if (wasRunning && error.isEmpty()) {
+                        if (again && error.isEmpty()) {
                             setState(State.READY, current.dataVersion);
-                        } else if (wasRunning) {
+                        } else if (again) {
                             setState(State.FAILED, "start-" + error);
                         } else {
-                            // Nothing was running: the next switch into Chinese starts it.
+                            // The next switch into Chinese starts it again.
                             setState(State.OFF, "");
                         }
+                    } else if (again && error.isEmpty()) {
+                        // Superseded meanwhile: do not leave it running.
+                        stopWhenFree();
                     }
                     done.accept(cleared && error.isEmpty());
                 });
             });
         } catch (RejectedExecutionException shutDown) {
             done.accept(false);
+            return;
+        }
+        if (state == State.STARTING) {
+            // A start (or the restart after forgetting) is still to finish: it keeps a watchdog.
+            watchStart(generation);
         }
     }
-
     /** Worker thread. */
     private void stopNative() {
         try {
             backend.stop();
-        } catch (RuntimeException | LinkageError ignored) {
+        } catch (RuntimeException | Error ignored) {
             // Stopping is best effort.
         }
         nativeRunning = false;
@@ -448,6 +502,7 @@ final class RimeEngine {
         errors++;
         if (errors >= ERROR_LIMIT && state == State.READY) {
             setState(State.FAILED, "errors");
+            stopWhenFree();
         }
     }
 
@@ -455,6 +510,7 @@ final class RimeEngine {
     private void failure(String kind) {
         if (breaker.recordFailure(kind, platform.now())) {
             setState(State.DISABLED, "breaker-" + kind);
+            stopWhenFree();
         }
     }
 

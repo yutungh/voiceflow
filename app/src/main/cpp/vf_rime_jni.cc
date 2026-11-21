@@ -21,44 +21,72 @@ namespace {
 
 const char* const kClass = "com/voiceflowkeyboard/ime/RimeNative";
 
-// UTF-16 from Java to UTF-8. Unpaired surrogates become U+FFFD.
-std::string ToUtf8(JNIEnv* env, jstring value) {
-  std::string out;
-  if (!value) return out;
-  const jsize length = env->GetStringLength(value);
-  const jchar* chars = env->GetStringChars(value, nullptr);
-  if (!chars) return out;
-  out.reserve(static_cast<size_t>(length) * 3);
+// Holds a Java string's UTF-16 characters and releases them on every path.
+class JavaChars {
+ public:
+  JavaChars(JNIEnv* env, jstring value) : env_(env), value_(value) {
+    if (value_) {
+      length_ = env_->GetStringLength(value_);
+      chars_ = env_->GetStringChars(value_, nullptr);
+    }
+  }
+  ~JavaChars() {
+    if (chars_) env_->ReleaseStringChars(value_, chars_);
+  }
+  JavaChars(const JavaChars&) = delete;
+  JavaChars& operator=(const JavaChars&) = delete;
+  bool ok() const { return !value_ || chars_; }
+  jsize length() const { return chars_ ? length_ : 0; }
+  const jchar* data() const { return chars_; }
+
+ private:
+  JNIEnv* env_;
+  jstring value_;
+  jsize length_ = 0;
+  const jchar* chars_ = nullptr;
+};
+
+// UTF-16 from Java to UTF-8. Unpaired surrogates become U+FFFD. False when the
+// characters could not be read (an exception is then pending in Java).
+bool ToUtf8(JNIEnv* env, jstring value, std::string* out) {
+  out->clear();
+  JavaChars chars(env, value);
+  if (!chars.ok()) return false;
+  const jsize length = chars.length();
+  const jchar* c = chars.data();
+  out->reserve(static_cast<size_t>(length) * 3);
   for (jsize i = 0; i < length; ++i) {
-    uint32_t cp = chars[i];
-    if (cp >= 0xD800 && cp <= 0xDBFF && i + 1 < length && chars[i + 1] >= 0xDC00 && chars[i + 1] <= 0xDFFF) {
-      cp = 0x10000 + ((cp - 0xD800) << 10) + (chars[i + 1] - 0xDC00);
+    uint32_t cp = c[i];
+    if (cp >= 0xD800 && cp <= 0xDBFF && i + 1 < length && c[i + 1] >= 0xDC00 && c[i + 1] <= 0xDFFF) {
+      cp = 0x10000 + ((cp - 0xD800) << 10) + (c[i + 1] - 0xDC00);
       ++i;
     } else if (cp >= 0xD800 && cp <= 0xDFFF) {
       cp = 0xFFFD;
     }
     if (cp < 0x80) {
-      out += static_cast<char>(cp);
+      *out += static_cast<char>(cp);
     } else if (cp < 0x800) {
-      out += static_cast<char>(0xC0 | (cp >> 6));
-      out += static_cast<char>(0x80 | (cp & 0x3F));
+      *out += static_cast<char>(0xC0 | (cp >> 6));
+      *out += static_cast<char>(0x80 | (cp & 0x3F));
     } else if (cp < 0x10000) {
-      out += static_cast<char>(0xE0 | (cp >> 12));
-      out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
-      out += static_cast<char>(0x80 | (cp & 0x3F));
+      *out += static_cast<char>(0xE0 | (cp >> 12));
+      *out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+      *out += static_cast<char>(0x80 | (cp & 0x3F));
     } else {
-      out += static_cast<char>(0xF0 | (cp >> 18));
-      out += static_cast<char>(0x80 | ((cp >> 12) & 0x3F));
-      out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
-      out += static_cast<char>(0x80 | (cp & 0x3F));
+      *out += static_cast<char>(0xF0 | (cp >> 18));
+      *out += static_cast<char>(0x80 | ((cp >> 12) & 0x3F));
+      *out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+      *out += static_cast<char>(0x80 | (cp & 0x3F));
     }
   }
-  env->ReleaseStringChars(value, chars);
-  return out;
+  return true;
 }
 
-// UTF-8 from Rime to a Java string. Malformed bytes become U+FFFD.
+// UTF-8 from Rime to a Java string. Malformed, overlong or surrogate
+// sequences become U+FFFD. Null when the JVM could not allocate it (an
+// OutOfMemoryError is then pending).
 jstring ToJava(JNIEnv* env, const std::string& text) {
+  static const uint32_t kMinimum[4] = {0, 0x80, 0x800, 0x10000};
   std::vector<jchar> out;
   out.reserve(text.size());
   const unsigned char* s = reinterpret_cast<const unsigned char*>(text.data());
@@ -89,7 +117,7 @@ jstring ToJava(JNIEnv* env, const std::string& text) {
     if (!ok) {
       cp = 0xFFFD;
       extra = 0;
-    } else if (cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) {
+    } else if (cp < kMinimum[extra] || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) {
       cp = 0xFFFD;
     }
     if (cp >= 0x10000) {
@@ -104,46 +132,76 @@ jstring ToJava(JNIEnv* env, const std::string& text) {
   return env->NewString(out.data(), static_cast<jsize>(out.size()));
 }
 
+// Every entry point catches everything: no C++ exception may unwind into the
+// JVM. A failure returns null (or false), which Java treats as "Rime cannot
+// answer" and falls back to Classic.
+
 jstring Start(JNIEnv* env, jclass, jstring shared, jstring prebuilt, jstring user) {
-  std::string error = vf::RimeCore::Start(ToUtf8(env, shared), ToUtf8(env, prebuilt), ToUtf8(env, user));
-  return ToJava(env, error);
+  try {
+    std::string a, b, c;
+    if (!ToUtf8(env, shared, &a) || !ToUtf8(env, prebuilt, &b) || !ToUtf8(env, user, &c)) return nullptr;
+    return ToJava(env, vf::RimeCore::Start(a, b, c));
+  } catch (...) {
+    return nullptr;
+  }
 }
 
 void Stop(JNIEnv*, jclass) {
-  vf::RimeCore::Stop();
+  try {
+    vf::RimeCore::Stop();
+  } catch (...) {
+  }
 }
 
 // Flat array, four strings per candidate: text, consumed, spelling, flags
 // ("c" for a completion, else ""). Null on an error.
 jobjectArray Query(JNIEnv* env, jclass, jint mode, jstring input, jint limit) {
-  std::vector<vf::Candidate> found;
-  if (!vf::RimeCore::Query(mode, ToUtf8(env, input), limit, &found)) return nullptr;
-  jclass string_class = env->FindClass("java/lang/String");
-  if (!string_class) return nullptr;
-  jobjectArray out = env->NewObjectArray(static_cast<jsize>(found.size() * 4), string_class, nullptr);
-  env->DeleteLocalRef(string_class);
-  if (!out) return nullptr;
-  jsize at = 0;
-  for (const vf::Candidate& c : found) {
-    const std::string fields[4] = {c.text, std::to_string(c.consumed), c.spelling, c.completion ? "c" : ""};
-    for (const std::string& field : fields) {
-      jstring value = ToJava(env, field);
-      if (!value) return nullptr;  // OutOfMemoryError is pending; Java sees it.
-      env->SetObjectArrayElement(out, at++, value);
-      env->DeleteLocalRef(value);
+  try {
+    std::string buffer;
+    if (!ToUtf8(env, input, &buffer)) return nullptr;
+    std::vector<vf::Candidate> found;
+    if (!vf::RimeCore::Query(mode, buffer, limit, &found)) return nullptr;
+    jclass string_class = env->FindClass("java/lang/String");
+    if (!string_class) return nullptr;
+    jobjectArray out = env->NewObjectArray(static_cast<jsize>(found.size() * 4), string_class, nullptr);
+    env->DeleteLocalRef(string_class);
+    if (!out) return nullptr;
+    jsize at = 0;
+    for (const vf::Candidate& c : found) {
+      const std::string fields[4] = {c.text, std::to_string(c.consumed), c.spelling, c.completion ? "c" : ""};
+      for (const std::string& field : fields) {
+        jstring value = ToJava(env, field);
+        if (!value) {
+          env->DeleteLocalRef(out);
+          return nullptr;  // OutOfMemoryError is pending; Java sees it.
+        }
+        env->SetObjectArrayElement(out, at++, value);
+        env->DeleteLocalRef(value);
+      }
     }
+    return out;
+  } catch (...) {
+    return nullptr;
   }
-  return out;
 }
 
 jboolean Learn(JNIEnv* env, jclass, jint mode, jstring input, jstring text) {
-  return vf::RimeCore::Learn(mode, ToUtf8(env, input), ToUtf8(env, text)) ? JNI_TRUE : JNI_FALSE;
+  try {
+    std::string buffer, word;
+    if (!ToUtf8(env, input, &buffer) || !ToUtf8(env, text, &word)) return JNI_FALSE;
+    return vf::RimeCore::Learn(mode, buffer, word) ? JNI_TRUE : JNI_FALSE;
+  } catch (...) {
+    return JNI_FALSE;
+  }
 }
 
 jstring Version(JNIEnv* env, jclass) {
-  return ToJava(env, vf::RimeCore::Version());
+  try {
+    return ToJava(env, vf::RimeCore::Version());
+  } catch (...) {
+    return nullptr;
+  }
 }
-
 const JNINativeMethod kMethods[] = {
     {const_cast<char*>("nativeStart"),
      const_cast<char*>("(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;"),

@@ -12,11 +12,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -61,8 +57,14 @@ final class RimeAndroid {
 
             @Override
             public void put(String key, String value) {
-                // commit(): the markers must be on disk before the native call they bracket.
-                prefs.edit().putString(key, value).commit();
+                // apply(): failures are counted on the UI thread, which must not wait for the disk.
+                prefs.edit().putString(key, value).apply();
+            }
+
+            @Override
+            public boolean putDurably(String key, String value) {
+                // commit(): a marker must be on disk before the native code it guards runs.
+                return prefs.edit().putString(key, value).commit();
             }
         });
     }
@@ -153,14 +155,11 @@ final class RimeAndroid {
             try {
                 ActivityManager manager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
                 List<ApplicationExitInfo> exits = manager.getHistoricalProcessExitReasons(context.getPackageName(), 0, 16);
+                // Any native crash while Rime was live counts. A tombstone lists every
+                // loaded library, so it cannot cheaply say which one crashed; a speech
+                // crash may therefore be charged to Rime too, which errs towards Classic.
                 for (ApplicationExitInfo exit : exits) {
-                    if (exit.getTimestamp() < since || exit.getReason() != ApplicationExitInfo.REASON_CRASH_NATIVE) {
-                        continue;
-                    }
-                    String trace = trace(exit);
-                    // A tombstone that does not mention our library is another native
-                    // library's crash (speech); without a tombstone, count it.
-                    if (trace == null || trace.contains("libvfrime")) {
+                    if (exit.getTimestamp() >= since && exit.getReason() == ApplicationExitInfo.REASON_CRASH_NATIVE) {
                         return RimeBreaker.PreviousExit.NATIVE_CRASH;
                     }
                 }
@@ -168,24 +167,6 @@ final class RimeAndroid {
                 return RimeBreaker.PreviousExit.UNKNOWN;
             }
             return RimeBreaker.PreviousExit.ORDINARY;
-        }
-
-        private static String trace(ApplicationExitInfo exit) {
-            try (InputStream in = exit.getTraceInputStream()) {
-                if (in == null) {
-                    return null;
-                }
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                byte[] buffer = new byte[8192];
-                int n;
-                while ((n = in.read(buffer)) > 0 && out.size() < (4 << 20)) {
-                    out.write(buffer, 0, n);
-                }
-                // A protobuf tombstone keeps file names as plain strings.
-                return new String(out.toByteArray(), StandardCharsets.ISO_8859_1);
-            } catch (IOException | RuntimeException e) {
-                return null;
-            }
         }
 
         @Override

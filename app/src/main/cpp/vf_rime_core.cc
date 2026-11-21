@@ -111,16 +111,28 @@ std::string RimeCore::Start(const std::string& shared, const std::string& prebui
     sessions[0] = sessions[1] = 0;
     for (int mode : {kT9, kQwerty}) {
       if (!SessionFor(mode)) {
+        for (RimeSessionId& id : sessions) {
+          if (id) api->destroy_session(id);
+          id = 0;
+        }
         api->finalize();
         running = false;
         return mode == kT9 ? "no-t9-schema" : "no-qwerty-schema";
       }
     }
     return "";
-  } catch (const std::exception&) {
-    running = false;
-    return "exception";
   } catch (...) {
+    // Unwind whatever was started, so nothing keeps the user dictionary open.
+    try {
+      if (api) {
+        for (RimeSessionId& id : sessions) {
+          if (id) api->destroy_session(id);
+        }
+        api->finalize();
+      }
+    } catch (...) {
+    }
+    sessions[0] = sessions[1] = 0;
     running = false;
     return "exception";
   }

@@ -8,6 +8,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /** The Rime crash-loop breaker (0.9.0). */
@@ -22,9 +23,20 @@ public class RimeBreakerTest {
             return value == null ? "" : value;
         }
 
+        volatile boolean diskFails;
+
         @Override
         public void put(String key, String value) {
             values.put(key, value);
+        }
+
+        @Override
+        public boolean putDurably(String key, String value) {
+            if (diskFails) {
+                return false;
+            }
+            values.put(key, value);
+            return true;
         }
     }
 
@@ -94,15 +106,44 @@ public class RimeBreakerTest {
     }
 
     @Test
-    public void anUnknownExitCountsOnlyDuringStartUp() {
-        // Old Android keeps no exit reasons: a death while Rime was merely live is not blamed on it...
-        breaker.markActive(T0);
+    public void anUnknownExitDuringStartUpCountsAsACrash() {
+        breaker.markStarting(T0);
         breaker.reviewPreviousRun(RimeBreaker.PreviousExit.UNKNOWN, T0 + HOUR);
-        assertEquals(0, breaker.recentFailures(T0 + HOUR).size());
-        // ...but one in the middle of native start-up is.
-        breaker.markStarting(T0 + 2 * HOUR);
-        breaker.reviewPreviousRun(RimeBreaker.PreviousExit.UNKNOWN, T0 + 3 * HOUR);
-        assertEquals(1, breaker.recentFailures(T0 + 3 * HOUR).size());
+        java.util.List<String> failures = breaker.recentFailures(T0 + HOUR);
+        assertEquals(1, failures.size());
+        assertTrue(failures.get(0).endsWith(":crash"));
+    }
+
+    @Test
+    public void unknownExitsWhileLiveTripOnlyWhenTheyComeFast() {
+        // Old Android keeps no exit reasons: a few deaths while Rime was live
+        // (the system reclaiming memory, most likely) do not turn it off...
+        for (int i = 0; i < RimeBreaker.UNKNOWN_LIMIT - 1; i++) {
+            breaker.markActive(T0 + i * 1000);
+            assertFalse(breaker.reviewPreviousRun(RimeBreaker.PreviousExit.UNKNOWN, T0 + i * 1000 + 500));
+        }
+        assertFalse(breaker.tripped());
+        // ...but one more within the hour is a crash loop.
+        breaker.markActive(T0 + 10_000);
+        assertTrue(breaker.reviewPreviousRun(RimeBreaker.PreviousExit.UNKNOWN, T0 + 10_500));
+        assertEquals(RimeBreaker.KIND_UNKNOWN, breaker.trippedReason());
+    }
+
+    @Test
+    public void unknownExitsSpreadOverTheDayDoNotTrip() {
+        for (int i = 0; i < RimeBreaker.UNKNOWN_LIMIT + 2; i++) {
+            long at = T0 + i * 2 * HOUR;
+            breaker.markActive(at);
+            assertFalse(breaker.reviewPreviousRun(RimeBreaker.PreviousExit.UNKNOWN, at + 1000));
+        }
+        assertFalse(breaker.tripped());
+    }
+
+    @Test
+    public void aMarkerThatCannotBeWrittenIsReported() {
+        store.diskFails = true;
+        assertFalse(breaker.markStarting(T0));
+        assertFalse(breaker.markActive(T0));
     }
 
     @Test

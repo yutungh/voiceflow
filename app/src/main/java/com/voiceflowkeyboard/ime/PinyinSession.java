@@ -304,6 +304,7 @@ final class PinyinSession {
         }
         String raw = buffer.toString();
         String top = topText();
+        PinyinCandidate best = candidates.isEmpty() ? null : candidates.get(0);
         boolean acceptRaw = shouldAcceptRaw();
         clear();
 
@@ -320,9 +321,23 @@ final class PinyinSession {
             default:
                 // Falling back to the raw letters rather than dropping them keeps
                 // a mistyped run recoverable instead of silently vanishing.
-                return acceptRaw || top == null
-                        ? new Settlement(Action.KEEP_RAW, raw)
-                        : new Settlement(Action.COMMIT, top);
+                if (acceptRaw || top == null) {
+                    return new Settlement(Action.KEEP_RAW, raw);
+                }
+                // 0.9.0 (Codex review): the best reading may cover only the start
+                // of the buffer; what it does not read is committed as typed
+                // after it, never dropped.
+                int consumed = Math.min(Math.max(best.consumed, 0), raw.length());
+                String rest = raw.substring(consumed);
+                while (rest.startsWith(String.valueOf(PinyinKeypadLookup.SEPARATOR))) {
+                    rest = rest.substring(1);
+                }
+                if (reason == SettleReason.ACCEPT_TOP && composer != null) {
+                    // She accepted it (space, punctuation, return): Rime learns from it too.
+                    composer.chosen(composer.lookup().normalize(raw.substring(0, consumed),
+                            PinyinComposer.MAX_INPUT_LENGTH), best);
+                }
+                return new Settlement(Action.COMMIT, top + rest);
         }
     }
 

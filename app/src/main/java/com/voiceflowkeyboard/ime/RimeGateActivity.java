@@ -376,12 +376,21 @@ public final class RimeGateActivity extends Activity {
         } else {
             List<PinyinCandidate> candidates = session.candidates();
             String top = candidates.isEmpty() ? null : candidates.get(0).text;
+            String expected = null;
+            if (top != null) {
+                String rest = before.substring(Math.min(candidates.get(0).consumed, before.length()));
+                while (rest.startsWith("'")) {
+                    rest = rest.substring(1);
+                }
+                // What the best reading does not read is committed as typed after it.
+                expected = top + rest;
+            }
             boolean raw = session.shouldAcceptRaw();
             PinyinSession.Settlement settlement = session.settle(PinyinSession.SettleReason.ACCEPT_TOP);
             counts[5]++;
             boolean ok = raw || top == null
-                    ? settlement.action == PinyinSession.Action.KEEP_RAW
-                    : settlement.action == PinyinSession.Action.COMMIT && top.equals(settlement.text);
+                    ? settlement.action == PinyinSession.Action.KEEP_RAW && before.equals(settlement.text)
+                    : settlement.action == PinyinSession.Action.COMMIT && expected.equals(settlement.text);
             if (!ok || session.isComposing()) {
                 problem.set("settle of " + before + " gave " + settlement.action + " " + settlement.text);
             }

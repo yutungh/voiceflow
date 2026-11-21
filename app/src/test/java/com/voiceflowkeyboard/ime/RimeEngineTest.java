@@ -87,7 +87,7 @@ public class RimeEngineTest {
         }
     }
 
-    static final class FakePlatform implements RimeEngine.Platform {
+    static class FakePlatform implements RimeEngine.Platform {
         volatile boolean library = true;
         volatile RimeBreaker.PreviousExit exit = RimeBreaker.PreviousExit.ORDINARY;
         final List<Runnable> delayed = Collections.synchronizedList(new ArrayList<>());
@@ -388,6 +388,81 @@ public class RimeEngineTest {
         waitFor(done::get);
         assertFalse(new File(user, "vf_pinyin.userdb.txt").exists());
         assertFalse(backend.calls.contains("start"));
+    }
+
+    @Test
+    public void theStartMarkerIsOnDiskBeforeTheLibraryLoads() throws Exception {
+        AtomicReference<String> markerAtLoad = new AtomicReference<>();
+        FakePlatform watching = new FakePlatform() {
+            @Override
+            public boolean loadLibrary() {
+                markerAtLoad.set(store.get(RimeBreaker.KEY_STARTING));
+                return true;
+            }
+        };
+        watching.base = platform.base;
+        RimeEngine watched = new RimeEngine(backend, watching, new RimeBreaker(store), worker);
+        watched.start();
+        waitFor(() -> watched.state() != RimeEngine.State.STARTING);
+        assertEquals(RimeEngine.State.READY, watched.state());
+        assertFalse("a crash while loading must be charged to Rime", markerAtLoad.get().isEmpty());
+    }
+
+    @Test
+    public void noDurableMarkerNoNativeStart() throws Exception {
+        store.diskFails = true;
+        startAndWait();
+        assertEquals(RimeEngine.State.FAILED, engine.state());
+        assertEquals("no-marker", engine.detail());
+        assertFalse(backend.calls.contains("start"));
+    }
+
+    @Test
+    public void aStaleStartCannotOverwriteANewerOne() throws Exception {
+        CountDownLatch release = new CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicInteger loads = new java.util.concurrent.atomic.AtomicInteger();
+        FakePlatform slowFirst = new FakePlatform() {
+            @Override
+            public boolean loadLibrary() {
+                if (loads.incrementAndGet() == 1) {
+                    try {
+                        release.await(5, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    return false;  // the first start fails, late
+                }
+                return true;
+            }
+        };
+        slowFirst.base = platform.base;
+        RimeEngine e = new RimeEngine(backend, slowFirst, new RimeBreaker(store), worker);
+        e.start();
+        e.stop();
+        e.start();
+        release.countDown();
+        waitFor(() -> e.state() != RimeEngine.State.STARTING);
+        assertEquals(RimeEngine.State.READY, e.state());
+    }
+
+    @Test
+    public void aDisabledEngineIsStoppedAndForgetDoesNotRestartIt() throws Exception {
+        startAndWait();
+        for (int i = 0; i < RimeBreaker.LIMIT; i++) {
+            backend.hang = new CountDownLatch(1);
+            engine.query(true, "943943", 30);
+            backend.hang.countDown();
+            Thread.sleep(30);
+            platform.now += 1000;
+        }
+        backend.hang = null;
+        assertEquals(RimeEngine.State.DISABLED, engine.state());
+        waitFor(() -> backend.calls.contains("stop"));
+        AtomicReference<Boolean> result = new AtomicReference<>();
+        engine.forget(new File(platform.base, "user"), result::set);
+        waitFor(() -> result.get() != null);
+        assertEquals(1, Collections.frequency(backend.calls, "start"));
+        assertEquals(RimeEngine.State.DISABLED, engine.state());
     }
 
     @Test

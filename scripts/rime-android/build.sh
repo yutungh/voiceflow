@@ -179,6 +179,18 @@ REPLAY_USER="$(mktemp -d)"
 "$VFRIME/vf_rime_replay" "$DATA" "$DATA/build" "$REPLAY_USER" check "$W/build/replay.tsv"
 REPLAY_USER="$(mktemp -d)"
 "$VFRIME/vf_rime_replay" "$DATA" "$DATA/build" "$REPLAY_USER" learn
+# The phone's core must read candidates exactly as the benchmark's driver does.
+cut -f1,2 "$W/build/replay.tsv" | bash "$VFRIME/run-driver.sh" app > "$W/build/replay-driver.out"
+python3 - "$W/build/replay.tsv" "$W/build/replay-driver.out" <<'PY'
+import sys
+rows = [l.rstrip("\n").split("\t") for l in open(sys.argv[1], encoding="utf-8") if l.strip()]
+outs = [l.rstrip("\n").split("\t") for l in open(sys.argv[2], encoding="utf-8")]
+differ = sum(1 for row, out in zip(rows, outs)
+             if [(row[i], row[i + 1]) for i in range(2, len(row), 3)]
+             != [(out[i], out[i + 1]) for i in range(0, min(len(out), 10), 2)])
+print(f"core vs benchmark driver: {len(rows)} rows, {differ} differ")
+sys.exit(0 if differ == 0 and len(rows) == len(outs) else 1)
+PY
 
 # ---------------------------------------------------------------- dist
 A="$DIST/assets/rime"

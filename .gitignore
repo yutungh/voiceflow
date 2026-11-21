@@ -26,4 +26,4 @@ Thumbs.db
 third_party/rime-wanxiang/dicts/
 
 # Rime for Android (0.9.0): built by scripts/rime-android/build.sh, never committed.
-/.rime-dist/
+/.rime-dist*/
