@@ -45,8 +45,9 @@ public class PinyinComposerTest {
 
     @Test
     public void dictionaryLoadsExpectedShape() {
-        assertEquals(38999, dictionary.size());
-        assertEquals(415, dictionary.syllableCount());
+        // 0.8.9: Wanxiang zi + jichu + duoyin (scripts/build-pinyin-dict.mjs).
+        assertEquals(344410, dictionary.size());
+        assertEquals(417, dictionary.syllableCount());
         assertEquals(20, dictionary.maxKeyLength());
         assertTrue(dictionary.isSyllable("zhuang"));
         assertFalse(dictionary.isSyllable("zzz"));
@@ -178,16 +179,18 @@ public class PinyinComposerTest {
     /** A dangling tail should still let the user commit the good leading part. */
     @Test
     public void trailingGarbageFallsBackToLongestPrefix() {
-        List<PinyinCandidate> candidates = composer.candidates("nihaoq", TOP_N);
+        // A tail no syllable starts with. (0.8.9: "q" no longer dangles, since
+        // the larger dictionary completes nihaoq to 你好奇.)
+        List<PinyinCandidate> candidates = composer.candidates("nihaov", TOP_N);
         assertFalse("expected a partial reading, got nothing", candidates.isEmpty());
         boolean sawPartial = false;
         for (PinyinCandidate candidate : candidates) {
             if ("你好".equals(candidate.text)) {
-                assertEquals("你好 covers the leading 5 characters of 'nihaoq'", 5, candidate.consumed);
+                assertEquals("你好 covers the leading 5 characters of 'nihaov'", 5, candidate.consumed);
                 sawPartial = true;
             }
         }
-        assertTrue("expected 你好 as a partial reading of 'nihaoq', got " + describe(candidates), sawPartial);
+        assertTrue("expected 你好 as a partial reading of 'nihaov', got " + describe(candidates), sawPartial);
     }
 
     @Test

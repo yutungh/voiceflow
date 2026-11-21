@@ -18,19 +18,57 @@ sha256sum third_party/<dir>/<file>
 
 ---
 
-## rime-pinyin-simp — Chinese pinyin dictionary
+## rime-wanxiang — Chinese pinyin dictionary (0.8.9)
 
 | | |
 |---|---|
-| Upstream | https://github.com/rime/rime-pinyin-simp |
-| Pinned at | `0c6861ef` |
-| Licence | Apache-2.0 (`LICENSE`, plus `AUTHORS`, both retained) |
-| Consumed by | `scripts/build-pinyin-dict.mjs` |
-| Ships as | `app/src/main/assets/pinyin_dict.txt` (38,999 keys, 542 KB APK growth) |
+| Upstream | https://github.com/amzxyz/rime-wanxiang (万象拼音, by amzxyz) |
+| Pinned at | `907edf67ce6d1f5c73b9f65ce9a2de55f8d7c82d` (2026-11-21, version.txt 18.1.14) |
+| Licence | CC BY 4.0 (`rime-wanxiang/LICENSE`, retained) |
+| Files | `dicts/zi.dict.yaml`, `dicts/jichu.dict.yaml`, `dicts/duoyin.dict.yaml` |
+| SHA-256 | in `scripts/wanxiang-source.mjs` (`WANXIANG_FILES`) |
+| Consumed by | `scripts/build-pinyin-dict.mjs` (through `scripts/wanxiang-source.mjs`) |
+| Ships as | `app/src/main/assets/pinyin_dict.txt` (344,410 keys, 9.55 MB uncompressed) |
 
-Apache-2.0 requires retaining the licence and attribution notices, which is why
-`LICENSE` and `AUTHORS` sit beside the data rather than only in the generator
-header.
+The dictionaries are **not committed**: `jichu` alone is 51 MB. The build
+script fetches them from the pinned commit into `rime-wanxiang/dicts/`
+(gitignored) and refuses them unless the SHA-256 matches. The generated asset
+is committed, so building the app never needs the fetch.
+
+### Licence, verified 2026-11-21
+
+- The repository's `LICENSE` is CC BY 4.0, the GitHub API reports `CC-BY-4.0`,
+  and the README carries the CC BY 4.0 badge. No ShareAlike, no NonCommercial:
+  adaptation and commercial redistribution are allowed with attribution.
+- The sister data repository `amzxyz/rime-wanxiang-data` states the scope in
+  `LICENSE-SCOPE.md`: the project's own dictionaries and pinyin data are CC BY
+  4.0, but its **program code is not licensed** ("当前未授予…许可"). So no
+  Wanxiang tool or script is used here; the conversion in `scripts/` is our own.
+- Not used: Wanxiang's grammar model (`.gram`). `LICENSE-SCOPE.md` does not
+  name it, so it is not bundled until the author confirms its licence.
+
+### Attribution and changes (CC BY 4.0 §3(a))
+
+Shown in the app (Settings, "Open-source credits", from
+`app/src/main/assets/licenses/CREDITS.txt`) and recorded here:
+
+- Creator: amzxyz; work: 万象拼音 Wanxiang, https://github.com/amzxyz/rime-wanxiang,
+  revision above; licence: https://creativecommons.org/licenses/by/4.0/.
+- Changes: the three dictionaries are merged (highest weight per word and
+  spelling); tone marks removed and ü written v; characters with weight < 2
+  dropped; words kept are the top 300,000 by weight plus "chat-shaped" phrases
+  (ending in a particle or 了, or opening with a personal pronoun) down to
+  weight 50; 90 everyday chat words (first-party list in the build script)
+  have their weight multiplied by 20.
+
+---
+
+## rime-pinyin-simp — retired in 0.8.9
+
+The Apache-2.0 `rime/rime-pinyin-simp` dictionary (@`0c6861ef`, derived from
+AOSP PinyinIME) was the pinyin source up to 0.8.8. 0.8.9 replaced it with
+Wanxiang above and no longer ships any of it, so its copy was removed from
+this directory; it remains in the git history.
 
 ---
 

@@ -67,15 +67,23 @@ public class NineKeySentenceTest {
         assertEquals(digits.length(), first.consumed);
     }
 
+    /**
+     * 64426 62 is nihao ma and nigan ma alike (hao and gan are both 426). Chat
+     * says 你干嘛 at least as often, so 0.8.9 may put it first; 你好吗 must stay
+     * right behind it, whole.
+     */
     @Test
-    public void niHaoMaComesFirstWhole() {
+    public void niHaoMaIsOfferedWhole() {
         String digits = PinyinDigitIndex.project("nihaoma");
-        assertEquals(texts(keypad.candidates(digits, 30)).toString(), "你好吗", topOnPad(digits).text);
+        List<PinyinCandidate> found = keypad.candidates(digits, 30);
+        int rank = texts(found).indexOf("你好吗");
+        assertTrue(texts(found).toString(), rank >= 0 && rank < 3);
+        assertEquals(digits.length(), found.get(rank).consumed);
     }
 
     /** Runs whose digits read no stronger sentence than the letters do. */
     private static final String[] SAME_ON_BOTH = {
-            "woshi", "nihao", "nihaoma", "woshizhongguoren", "jintiantianqihenhao", "wozaijia",
+            "woshi", "nihao", "woshizhongguoren", "wozaijia",
             "nizaiganma", "woaini", "zhongguo", "duibuqi", "meiguanxi", "haode", "wohenxiangni",
             "nichifanlema", "womenyiqiqu", "zhegewentihenjiandan", "wobuzhidao", "tashiwodepengyou",
             "jintianhenre", "nikanzhege", "wozaigongsi", "zaoshanghao", "wanan", "shenmeshihou",
@@ -84,11 +92,15 @@ public class NineKeySentenceTest {
 
     /**
      * Runs where the keys clash: xie and zhe are both 943, jian and jiao both
-     * 5426, ma and na both 62. The pad cannot know which was meant, so it takes
-     * the commoner reading and offers the full keyboard's one right after it.
+     * 5426, ma and na both 62, hao, gan and gao all 426. The pad cannot know
+     * which was meant, so it takes the commoner reading and offers the full
+     * keyboard's one right after it. (0.8.9: 明天见 and 可以吗 now come first;
+     * nihaoma and the weather sentence moved here, 很高 and 很好 being a near
+     * tie in Wanxiang's counts.)
      */
     private static final String[] KEYS_CLASH = {
             "xiexie", "womenzoule", "mingtianjian", "keyima", "wojintianbuqule", "xiexienidebangzhu",
+            "nihaoma", "jintiantianqihenhao",
     };
 
     @Test

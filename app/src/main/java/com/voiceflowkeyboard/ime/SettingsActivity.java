@@ -344,6 +344,9 @@ public class SettingsActivity extends Activity {
         setup.addView(Ui.divider(this, 60));
         setup.addView(Ui.row(this, R.drawable.ph_sun, Ui.Tile.NEUTRAL, "Appearance",
                 "Follows your phone's light or dark setting", null));
+        setup.addView(Ui.divider(this, 60));
+        setup.addView(Ui.row(this, R.drawable.ph_info_fill, Ui.Tile.NEUTRAL, "Open-source credits",
+                "Dictionaries, fonts and icons made by others", v -> showCredits()));
         column.addView(setup, Ui.cardParams(this, 12));
 
         TextView foot = Ui.text(this, "Tidy-up fixes punctuation and filler words in your chosen style.", 12f, false, Ui.SUBTLE);
@@ -740,6 +743,30 @@ public class SettingsActivity extends Activity {
         Intent intent = new Intent(this, ModelPickerActivity.class);
         intent.putExtra(ModelPickerActivity.EXTRA_MODE, transcription ? ModelPickerActivity.MODE_TRANSCRIPTION : ModelPickerActivity.MODE_TRANSFORM);
         startActivity(intent);
+    }
+
+    /**
+     * The attributions the bundled data's licences ask for (0.8.9: the Wanxiang
+     * pinyin dictionary, CC BY 4.0), from assets/licenses/CREDITS.txt.
+     */
+    private void showCredits() {
+        String text;
+        try (java.io.InputStream in = getAssets().open("licenses/CREDITS.txt")) {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            byte[] chunk = new byte[8192];
+            int read;
+            while ((read = in.read(chunk)) > 0) {
+                out.write(chunk, 0, read);
+            }
+            text = new String(out.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            text = "Credits could not be read.";
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Open-source credits")
+                .setMessage(text)
+                .setPositiveButton("Close", null)
+                .show();
     }
 
     private void showProfileDialog() {
