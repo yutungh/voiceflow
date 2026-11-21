@@ -65,6 +65,9 @@ export function contextFor(
 
 type Review = Omit<ReviewContext, 'evidence'> & { revision: string };
 
+/** A revision no lists ever have: the cards must be reviewed again before an Apply. */
+export const NOT_REVIEWED = 'not-reviewed';
+
 /**
  * The record with its cards checked against these lists: fixes in force keep
  * their cards as reviewed (so their Undo stays); the others, undone ones too,
@@ -178,7 +181,11 @@ export async function applyFixes({
 	const after = reviewAfter ? await reviewAfter().catch(() => null) : null;
 	const next = after
 		? refreshPending(written, evidence, after)
-		: { ...written, result: { ...result, reviewedAgainst: await revisionAfter() } };
+		: {
+				...written,
+				// No fresh check: the next Apply reviews the cards again first.
+				result: { ...result, reviewedAgainst: reviewAfter ? NOT_REVIEWED : await revisionAfter() },
+			};
 	if (failure) return { ok: false, message: failure, record: next };
 	return { ok: true, record: next };
 }
@@ -239,7 +246,11 @@ export async function undoFix({
 	const next: FeedbackRecord = after
 		? refreshPending(undone, after.evidence, after.review)
 		: undone.result
-			? { ...undone, result: { ...undone.result, reviewedAgainst: await revisionAfter() } }
+			? {
+					...undone,
+					// No fresh check: the next Apply reviews the cards again first.
+					result: { ...undone.result, reviewedAgainst: reviewAfter ? NOT_REVIEWED : await revisionAfter() },
+				}
 			: undone;
 	return { ok: true, ...(note ? { message: note } : {}), record: next };
 }

@@ -358,6 +358,29 @@ describe('review findings (Codex, 0.9.16)', () => {
 		expect(ops).toHaveLength(1);
 	});
 
+	test('when the fresh check fails after an Apply, the next Apply checks again first', async () => {
+		const { ops, writers } = memoryWriters();
+		const record = await reviewed();
+		const style = record.result!.fixes.find((f) => f.kind === 'style')!;
+		const word = record.result!.fixes.find((f) => f.kind === 'word')!;
+		const first = await applyFixes({
+			record,
+			selections: [{ key: style.key }],
+			evidence: evidence(),
+			review: REVIEW(),
+			revisionAfter: async () => 'rev-2',
+			reviewAfter: async () => {
+				throw new Error('lists unreadable');
+			},
+			writers,
+		});
+		expect(first.ok).toBe(true);
+		expect(first.record.applied).toHaveLength(1);
+		const next = await applyFixes({ record: first.record, selections: [{ key: word.key }], evidence: evidence(), review: { ...REVIEW(), revision: 'rev-2' }, revisionAfter: async () => 'rev-2', writers });
+		expect(!next.ok && next.stale).toBe(true);
+		expect(ops).toHaveLength(1);
+	});
+
 	test('a wanted word past what is sent still counts', async () => {
 		const tail = 'x '.repeat(3100);
 		const wanted = `Ask Zibbo and Kestrel to bring the deck. ${tail}Then Quorbit.`;
