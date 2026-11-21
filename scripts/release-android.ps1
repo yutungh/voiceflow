@@ -23,10 +23,14 @@
   (`python <runner> <script> [timeout]`) and exposes HOST, USER, LATCH and password() for the upload.
   Nothing secret is passed on a command line or printed.
 
+  -ShareRoot (the share folder the gateway serves), -GatewayConfig (the gateway's config.json on the NAS)
+  and -Owner (uid:gid for the staged files) are required: they describe one deployment, so there are no
+  defaults. Keep them in a wrapper script of your own.
+
 .EXAMPLE
-  ./scripts/release-android.ps1 -DryRun -AcceptanceDir C:\vf\acceptance\android -Tooling <dir>\.tooling
+  ./scripts/release-android.ps1 -DryRun -AcceptanceDir <dir> -Tooling <dir>\.tooling -ShareRoot <share> -GatewayConfig <config.json> -Owner <uid:gid>
 .EXAMPLE
-  ./scripts/release-android.ps1 -Apk C:\vf\acceptance\android\VoiceFlow-keyboard-0.8.1.apk -NasRunner <runner.py>
+  ./scripts/release-android.ps1 -Apk <dir>\VoiceFlow-keyboard-0.8.1.apk -NasRunner <runner.py> -ShareRoot <share> -GatewayConfig <config.json> -Owner <uid:gid>
 #>
 [CmdletBinding()]
 param(
@@ -38,14 +42,22 @@ param(
     [string]$NasRunner = $env:VF_NAS_RUNNER,
     [string]$ExpectedSigner = "41391299c69adb88387544f70f765f89ea73bffae399a4a1a0bad1b79f6734a1",
     [string]$Package = "com.voiceflowkeyboard.ime",
-    [string]$ShareRoot = "/volume1/voiceflow",
-    [string]$Owner = "1026:100",
+    [string]$ShareRoot = "",
+    [string]$Owner = "",
     [string]$Container = "vf-sync",
-    [string]$GatewayConfig = "/volume1/docker/vf-sync/config/config.json"
+    [string]$GatewayConfig = ""
 )
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+
+# Deployment specifics are not defaults: the caller supplies them (see the description).
+foreach ($required in @(@('ShareRoot', $ShareRoot), @('Owner', $Owner), @('GatewayConfig', $GatewayConfig))) {
+    if ([string]::IsNullOrWhiteSpace($required[1])) {
+        Write-Host "STOP: -$($required[0]) is not set. Pass it, or call this script through your own wrapper that supplies the share root, the gateway config path and the file owner (uid:gid)."
+        exit 1
+    }
+}
 
 function Fail([string]$message) {
     Write-Host "STOP: $message"

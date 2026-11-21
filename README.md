@@ -151,9 +151,9 @@ Then:
 5. Open Android keyboard settings and enable **VoiceFlow Keyboard**.
 6. Choose it from the keyboard picker.
 
-## Private Local Install
+## Local Install With Your Own Keys
 
-For a personal phone build, you can keep API keys in an ignored `.env.local` file and seed them into the installed app preferences after install:
+For a build on your own phone, you can keep API keys in an ignored `.env.local` file and seed them into the installed app preferences after install:
 
 ```powershell
 .\gradlew.bat assembleDebug
@@ -168,22 +168,6 @@ AnthropicAPIKey=...
 XAIAPIKey=...
 DeepgramAPIKey=...
 ```
-
-Personal installations can also use an ignored `.voiceflow-private.json` file to preserve private vocabulary without committing it:
-
-```json
-{
-  "replacements": [
-    {
-      "from": "likely mishearing\nanother mishearing",
-      "to": "ExactSpelling",
-      "context": "Optional private context for GPT Transcribe."
-    }
-  ]
-}
-```
-
-The private installer merges entries by exact-output name, so rerunning it updates those private terms without removing unrelated replacements added in Settings.
 
 This script does not compile keys into the APK. It installs the local debug APK, then writes the keys directly into the connected device's private app preferences with `adb run-as`.
 

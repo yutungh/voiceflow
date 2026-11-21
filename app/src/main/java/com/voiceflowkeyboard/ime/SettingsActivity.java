@@ -432,14 +432,14 @@ public class SettingsActivity extends Activity {
         int installed = SelfUpdater.installedVersionCode(this);
         long checked = SyncStore.evidence(this, installed, System.currentTimeMillis()).lastCheckAt;
         if (checked <= 0) {
-            return "Updates from your NAS · not checked yet";
+            return "Updates from your sync server · not checked yet";
         }
         long minutes = Math.max(0, (System.currentTimeMillis() - checked) / 60_000L);
         String ago = minutes < 1 ? "just now"
                 : minutes < 60 ? minutes + " min ago"
                 : minutes < 48 * 60 ? (minutes / 60) + " h ago"
                 : (minutes / (24 * 60)) + " days ago";
-        return "Updates from your NAS · checked " + ago;
+        return "Updates from your sync server · checked " + ago;
     }
 
     private String wordSummary() {
