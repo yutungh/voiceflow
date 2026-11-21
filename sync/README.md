@@ -51,7 +51,7 @@ cp sync/config.example.json config/config.json
 touch config/tokens.txt
 ```
 
-Edit `config/config.json`: the paths are the container's (`/data`, `/config/tokens.txt`, `/state`), so you normally change only `rollout.canaryUser` to your user name. `canaryDevices` can stay empty unless you use the [release rollout](#releases-and-the-rollout-rule). Then copy [`docker-compose.example.yml`](docker-compose.example.yml) next to those folders, set the data-folder path and the `user:` line, and start it:
+Edit `config/config.json`: the paths are the container's (`/data`, `/config/tokens.txt`, `/state`), so you normally change only `rollout.canaryUser` to your user name. `canaryDevices` can stay empty unless you use the [release rollout](#releases-and-the-rollout-rule); set `rollout.staged` to `false` to offer every phone each new release at once instead. Then copy [`docker-compose.example.yml`](docker-compose.example.yml) next to those folders, set the data-folder path and the `user:` line, and start it:
 
 ```sh
 docker compose -f docker-compose.example.yml up -d
@@ -200,14 +200,23 @@ releases/android/flags.json                   optional: {"hold":[N…], "force":
 
 Write `release.json` last. A release is offered only when its APK is there with the stated size; the device checks the SHA-256 and the signing certificate itself.
 
+`rollout.staged` picks one of two modes:
+
+- **`"staged": false`: everyone at once.** Every device gets the newest release that isn't held, as soon as it is published. `force`, `canaryUser`, `canaryDevices` and the evidence below play no part. Use `hold` to stop a bad version.
+- **`"staged": true` (the default when the key is absent): canary first.** The rules below.
+
+In staged mode:
+
 - Devices of `rollout.canaryUser` get the newest release that isn't held.
 - Every other device gets a version only when it is forced, or when every device in `rollout.canaryDevices`:
   - first reported that `versionCode` at least `minAgeHours` (24) ago, by the gateway's clock;
   - sent a status within `freshHours` (2) that still shows it;
   - completed at least one dictation on it;
   - had no errors on it: none in its status `update.errors`, and no write of its refused by the gateway (any `4xx` but `429`). The status file’s `profile.errors` (sync problems, such as the server being offline) do not count.
-- Missing evidence holds the release, and so does an empty `canaryDevices`. A hold beats a force. A malformed flags file holds everything.
+- Missing evidence holds the release, and so does an empty `canaryDevices`. A hold beats a force.
 - The evidence lives in `<stateDir>/rollout.json`, outside the shared folder. Other devices only ever learn their own offer.
+
+In both modes a held version is offered to nobody, and a malformed flags file holds everything. The gateway keeps recording canary evidence when `staged` is false, so switching back to staged mode works with what it has. A `staged` value that isn't `true` or `false` stops the gateway at start.
 
 A status file carries the evidence in an `update` block, which `voiceflow-status` v1 allows as an extra field:
 
@@ -227,7 +236,7 @@ A status file carries the evidence in an `update` block, which `voiceflow-status
 | `tokensFile` | The tokens file; keep it outside the profile folder |
 | `stateDir` | Where rollout evidence is kept; outside the profile folder |
 | `trustProxy` | Use `X-Real-IP` as the client address |
-| `rollout` | `canaryUser`, `canaryDevices`, `minAgeHours`, `freshHours` |
+| `rollout` | `staged` (default `true`; `false` offers every device the newest non-held release at once), and for staged mode `canaryUser`, `canaryDevices`, `minAgeHours`, `freshHours` |
 | `listen` | `host`, `port` (default `0.0.0.0:8790` inside the container) |
 | `schemaDir` | Default: the bundled `pack/schema` |
 

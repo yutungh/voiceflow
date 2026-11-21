@@ -198,6 +198,71 @@ test("a release whose APK is missing or the wrong size is not offered; no canary
 	}
 });
 
+test("staged: false offers every user's devices the newest release at once, with no canary evidence", async () => {
+	const t = await setup({ rollout: { staged: false } });
+	try {
+		await addRelease(t, 50);
+		await addRelease(t, 51);
+		for (const token of [t.tok.alicePhone, t.tok.alice, t.tok.bob]) {
+			const r = await t.req("GET", "/v1/release/android", { token });
+			assert.equal(r.json.offer.versionCode, 51);
+		}
+		const apk = await t.req("GET", "/v1/release/android/apk/51", { token: t.tok.bob });
+		assert.equal(apk.status, 200);
+		assert.equal(apk.text, "apk 51");
+		assert.equal((await t.req("GET", "/v1/release/android/apk/50", { token: t.tok.bob })).status, 404);
+
+		// Canary evidence against the version changes nothing: errors, no dictation, stale status.
+		await t.req("PUT", "/v1/status", { token: t.tok.alicePhone, body: canaryStatus(51, 0, { install: 2 }) });
+		t.clock.now += 30 * HOUR;
+		assert.equal((await t.req("GET", "/v1/release/android", { token: t.tok.bob })).json.offer.versionCode, 51);
+	} finally {
+		await t.close();
+	}
+});
+
+test("staged: false still honours hold for everyone, ignores force, and a broken flags file holds everything", async () => {
+	const t = await setup({ rollout: { staged: false, canaryUser: null, canaryDevices: [] } });
+	try {
+		await addRelease(t, 70);
+		await addRelease(t, 71);
+		const offer = async (token) => (await t.req("GET", "/v1/release/android", { token })).json.offer;
+		await t.write("releases/android/flags.json", JSON.stringify({ hold: [71], note: "bad build" }));
+		assert.equal((await offer(t.tok.alicePhone)).versionCode, 70, "the next newest non-held release");
+		assert.equal((await offer(t.tok.bob)).versionCode, 70);
+		assert.equal((await t.req("GET", "/v1/release/android/apk/71", { token: t.tok.bob })).status, 404);
+		await t.write("releases/android/flags.json", JSON.stringify({ hold: [70, 71] }));
+		assert.equal(await offer(t.tok.alicePhone), null);
+		assert.equal(await offer(t.tok.bob), null);
+		// force does not pick an older version over the newest.
+		await t.write("releases/android/flags.json", JSON.stringify({ force: [70] }));
+		assert.equal((await offer(t.tok.bob)).versionCode, 71);
+		await t.write("releases/android/flags.json", "{broken");
+		assert.equal(await offer(t.tok.alicePhone), null);
+		assert.equal(await offer(t.tok.bob), null);
+		await t.write("releases/android/flags.json", JSON.stringify({ hold: ["71"] }));
+		assert.equal(await offer(t.tok.bob), null, "a malformed hold list holds everything");
+	} finally {
+		await t.close();
+	}
+});
+
+test("staged: true (also the default) keeps the canary rule; a non-boolean staged is refused at start", async () => {
+	const t = await setup({ rollout: { staged: true } });
+	try {
+		await addRelease(t, 52);
+		assert.equal((await t.req("GET", "/v1/release/android", { token: t.tok.alicePhone })).json.offer.versionCode, 52);
+		assert.equal((await t.req("GET", "/v1/release/android", { token: t.tok.bob })).json.offer, null);
+	} finally {
+		await t.close();
+	}
+	const { Rollout } = await import("../src/release.mjs");
+	const base = { stateDir: t.state, canaryUser: "alice", canaryDevices: ["phalice1"], minAgeHours: 24, freshHours: 2, now: () => 0 };
+	assert.equal(new Rollout(base).staged, true);
+	assert.equal(new Rollout({ ...base, staged: false }).staged, false);
+	for (const bad of ["false", 0, null]) assert.throws(() => new Rollout({ ...base, staged: bad }), /staged/);
+});
+
 test("release.json and flags parsing is strict", () => {
 	const good = { schema: "voiceflow-release", version: 1, versionCode: 5, versionName: "0.8.0", apk: "a.apk", sha256: "a".repeat(64), size: 10 };
 	assert.ok(parseRelease(good, "5"));

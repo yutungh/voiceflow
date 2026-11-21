@@ -5,14 +5,24 @@
 //   releases/android/<versionCode>/<apk>          the APK it names
 //   releases/android/flags.json                   optional: {"hold":[vc...], "force":[vc...]}
 //
-// Devices of the canary user get the newest release that is not held. Everyone else
-// gets a version only when it is forced, or when every canary device shows healthy
-// evidence for it: it first reported that versionCode (server time) at least
-// `minAgeHours` ago, its latest status is under `freshHours` old and still shows that
-// version, it completed at least one dictation on it, and no errors were seen for it
-// (reported by the device, or a write of its that the gateway refused). Missing
-// evidence holds the release. A hold beats a force. Non-canary devices only ever
-// learn whether they may update, never anything about the canary.
+// Two modes, chosen by `rollout.staged` (default true):
+//
+// staged: false  Every device gets the newest release that is not held, at once.
+//                `force`, the canary user and the canary evidence play no part.
+//
+// staged: true   Devices of the canary user get the newest release that is not held.
+//                Everyone else gets a version only when it is forced, or when every
+//                canary device shows healthy evidence for it: it first reported that
+//                versionCode (server time) at least `minAgeHours` ago, its latest
+//                status is under `freshHours` old and still shows that version, it
+//                completed at least one dictation on it, and no errors were seen for
+//                it (reported by the device, or a write of its that the gateway
+//                refused). Missing evidence holds the release. A hold beats a force.
+//                Non-canary devices only ever learn whether they may update, never
+//                anything about the canary.
+//
+// In both modes a held version is offered to nobody, and an unreadable flags file
+// holds everything.
 
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -55,10 +65,12 @@ export function parseUpdate(status) {
 
 export class Rollout {
 	/**
-	 * @param {{stateDir:string, canaryUser:string|null, canaryDevices:string[], minAgeHours:number, freshHours:number, now:()=>number, log?:Function}} o
+	 * @param {{stateDir:string, staged?:boolean, canaryUser:string|null, canaryDevices:string[], minAgeHours:number, freshHours:number, now:()=>number, log?:Function}} o
 	 */
 	constructor(o) {
+		if (o.staged !== undefined && typeof o.staged !== "boolean") throw new TypeError('rollout "staged" must be true or false');
 		this.o = o;
+		this.staged = o.staged ?? true;
 		this.file = path.join(o.stateDir, "rollout.json");
 		this.state = null;
 		this.chain = Promise.resolve();
@@ -161,6 +173,7 @@ export class Rollout {
 		const candidates = releases
 			.filter((r) => !flags.hold.includes(r.versionCode))
 			.sort((a, b) => b.versionCode - a.versionCode);
+		if (!this.staged) return candidates[0] ?? null;
 		if (this.o.canaryUser && user === this.o.canaryUser) return candidates[0] ?? null;
 		for (const r of candidates) {
 			if (flags.force.includes(r.versionCode) || (await this.gatePasses(r.versionCode))) return r;

@@ -10,12 +10,15 @@
   3. Copies it to -AcceptanceDir as VoiceFlow-keyboard-<versionName>.apk with a .sha256 file.
   4. Stages it on the NAS share the gateway serves (sync/README.md, "Releases"):
        releases/android/<versionCode>/<apk>, then releases/android/<versionCode>/release.json LAST.
-     The gateway's rollout rule does the rest: the canary user's devices are offered it at once;
-     everyone else only after every canary device has run it cleanly for 24 hours (or a force
-     flag). Staging never writes flags.json.
-  The NAS side refuses to stage when no canary device is configured, when the versionCode is not
-  newer than every release already there (no downgrade, no reuse), or when a different file is
-  already staged under that versionCode. Staging the identical file again is a no-op.
+     The gateway's rollout rule does the rest. With "rollout": {"staged": false} every device is
+     offered it at once. In staged mode (the default) the canary user's devices are offered it at
+     once, and everyone else only after every canary device has run it cleanly for 24 hours (or a
+     force flag). Either way a version listed in flags.json "hold" is offered to nobody. Staging
+     never writes flags.json.
+  The NAS side refuses to stage when the gateway is in staged mode with no canary device configured,
+  when the versionCode is not newer than every release already there (no downgrade, no reuse), or
+  when a different file is already staged under that versionCode. Staging the identical file again
+  is a no-op.
 
   -DryRun does steps 1-3 and prints the exact NAS script it would run, without connecting.
 
@@ -181,12 +184,18 @@ SHA='$sha'
 SIZE=$size
 R='$ShareRoot/releases/android'
 IN='$incoming'
-# Canary first: refuse while no canary device is configured (the gateway would hold it anyway).
 CFG=`$(tr -d ' \t\r\n' < '$GatewayConfig')
 case "`$CFG" in
-  *'"canaryDevices":[]'*|*'"canaryDevices":null'*) echo "STOP: no canary device in the gateway config"; exit 3 ;;
-  *'"canaryDevices":['*) : ;;
-  *) echo "STOP: canaryDevices not found in the gateway config"; exit 3 ;;
+  *'"staged":false'*)
+    echo "rollout: everyone at once (staged: false)" ;;
+  *)
+    # Canary first: refuse while no canary device is configured (the gateway would hold it anyway).
+    case "`$CFG" in
+      *'"canaryDevices":[]'*|*'"canaryDevices":null'*) echo "STOP: no canary device in the gateway config"; exit 3 ;;
+      *'"canaryDevices":['*) : ;;
+      *) echo "STOP: canaryDevices not found in the gateway config"; exit 3 ;;
+    esac
+    echo "rollout: canary first (staged)" ;;
 esac
 mkdir -p "`$R"
 # No downgrade and no reuse: newer than every release already staged, unless it is this same file.
@@ -274,4 +283,4 @@ Step "Stage on the share (release.json last)"
 Invoke-Native "python" @($NasRunner, $stageFile, "300") -Echo | Out-Null
 if ($script:NativeExit -ne 0) { Fail "staging failed (the NAS output above says why)" }
 Step "Staged"
-Write-Host "Canary devices are offered $versionName ($versionCode) on their next check; everyone else after the 24-hour rule."
+Write-Host "$versionName ($versionCode) is offered by the rollout mode shown above: everyone on their next check (staged: false), or canary devices first and everyone else after the 24-hour rule (staged)."
