@@ -367,6 +367,45 @@ public class ScreenshotsTest {
         shootKeyboard("keyboard-qwerty-pinyin");
     }
 
+    // ------------------------------------------------- the language key (0.8.8)
+
+    /** English with Chinese on: the EN language key, a blank space bar. */
+    @Test public void keyboardEnglishWithChinese() throws Exception {
+        assumeFalse("screenshots run with -PvfShots=<dir>", DIR.isEmpty());
+        RuntimeEnvironment.setQualifiers(qualifiers);
+        Prefs.setChineseInputEnabled(RuntimeEnvironment.getApplication(), true);
+        Prefs.setChineseLayout(RuntimeEnvironment.getApplication(), Prefs.CHINESE_LAYOUT_KEYPAD);
+        startKeyboard();
+        shootKeyboard("keyboard-english-language-key");
+        call("toggleSymbolsMode");
+        shootKeyboard("keyboard-english-symbols-language-key");
+    }
+
+    /** The hold on the language key: the list of keyboards, from English. */
+    @Test public void keyboardPicker() throws Exception {
+        assumeFalse("screenshots run with -PvfShots=<dir>", DIR.isEmpty());
+        RuntimeEnvironment.setQualifiers(qualifiers);
+        Prefs.setChineseInputEnabled(RuntimeEnvironment.getApplication(), true);
+        Prefs.setChineseLayout(RuntimeEnvironment.getApplication(), Prefs.CHINESE_LAYOUT_KEYPAD);
+        startKeyboard();
+        call("showKeyboardPicker");
+        shootKeyboard("keyboard-picker");
+    }
+
+    /** The same list opened from the nine-key pad. */
+    @Test public void keyboardPickerOnNineKey() throws Exception {
+        startNineKey();
+        call("showKeyboardPicker");
+        shootKeyboard("keyboard-picker-ninekey");
+    }
+
+    /** Nine-key sentence: wo shi zhong guo ren, the whole sentence first. */
+    @Test public void keyboardNineKeySentence() throws Exception {
+        startNineKey();
+        typeDigits(PinyinDigitIndex.project("woshizhongguoren"));
+        shootKeyboard("keyboard-ninekey-sentence");
+    }
+
     @Test public void keyboardEmoji() throws Exception {
         startKeyboard();
         call("showEmojiPicker");
@@ -387,6 +426,14 @@ public class ScreenshotsTest {
 
     @Test public void settingsKeyboard() throws Exception {
         shootActivity("settings-keyboard", new Intent(RuntimeEnvironment.getApplication(), SettingsActivity.class)
+                .putExtra(SettingsActivity.EXTRA_PAGE, SettingsActivity.PAGE_KEYBOARD));
+    }
+
+    /** Settings > Keyboard with Chinese on: the layout and the Language key rows (0.8.8). */
+    @Test public void settingsKeyboardChinese() throws Exception {
+        Prefs.setChineseInputEnabled(RuntimeEnvironment.getApplication(), true);
+        Prefs.setChineseLayout(RuntimeEnvironment.getApplication(), Prefs.CHINESE_LAYOUT_KEYPAD);
+        shootActivity("settings-keyboard-chinese", new Intent(RuntimeEnvironment.getApplication(), SettingsActivity.class)
                 .putExtra(SettingsActivity.EXTRA_PAGE, SettingsActivity.PAGE_KEYBOARD));
     }
 
