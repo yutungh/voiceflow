@@ -745,6 +745,32 @@ final class PinyinBenchmark {
             extra.put("latencyMs_t9pinned", stats);
             report.append("latency t9 pinned (JVM, ms per query) ").append(stats).append('\n');
         }
+        finish(name, outcomes, slices, extra, report, outDir);
+        return report.toString();
+    }
+
+    /**
+     * Scores an engine run as a process over the line protocol (README), such
+     * as Rime's driver in bench/pinyin/rime, and writes {@code <name>.json}
+     * and {@code <name>.tsv} to {@code outDir}. Returns the text report.
+     */
+    static String benchmarkExternal(String name, List<String> command, File phrasesFile, File outDir)
+            throws IOException {
+        List<Phrase> phrases = loadPhrases(phrasesFile);
+        List<Outcome> outcomes;
+        try (ExternalEngine engine = new ExternalEngine(name, command)) {
+            outcomes = run(engine, phrases);
+        }
+        Map<String, Object> extra = new LinkedHashMap<>();
+        extra.put("external", "true");
+        StringBuilder report = new StringBuilder(name).append(": external engine\n");
+        finish(name, outcomes, summarize(outcomes), extra, report, outDir);
+        return report.toString();
+    }
+
+    /** Appends the slices and the weak spots to {@code report}, and writes the files when asked. */
+    private static void finish(String name, List<Outcome> outcomes, Map<String, Summary> slices,
+                               Map<String, Object> extra, StringBuilder report, File outDir) throws IOException {
         for (Map.Entry<String, Summary> e : slices.entrySet()) {
             report.append(String.format(Locale.ROOT, "%-22s %s%n", e.getKey(), e.getValue().line()));
         }
@@ -760,11 +786,11 @@ final class PinyinBenchmark {
                     json(name, slices, extra).getBytes(StandardCharsets.UTF_8));
             writeRows(outcomes, new File(outDir, name + ".tsv"));
         }
-        return report.toString();
     }
 
     /**
      * {@code bench <name> <asset> <phrases> <outDir> [latency]} scores an asset;
+     * {@code external <name> <phrases> <outDir> <command...>} scores an engine run as a process;
      * {@code compare <baseline.tsv> <candidate.tsv>} prints paired deltas;
      * {@code misses <asset> <phrases> <mode> <split>} lists what went wrong.
      */
@@ -774,6 +800,11 @@ final class PinyinBenchmark {
             case "bench":
                 console.print(benchmark(args[1], new File(args[2]), new File(args[3]), new File(args[4]),
                         args.length > 5 && args[5].equals("latency")));
+                break;
+            case "external":
+                // external <name> <phrases> <outDir> <command> [<arg>...]
+                console.print(benchmarkExternal(args[1], Arrays.asList(Arrays.copyOfRange(args, 4, args.length)),
+                        new File(args[2]), new File(args[3])));
                 break;
             case "compare":
                 for (String mode : new String[]{"t9", "qwerty"}) {

@@ -1,0 +1,43 @@
+{
+  "what": "Rime on a desktop PC (WSL Ubuntu 24.04, Release build, g++ 13), phase 3. Timed inside the driver: no pipe overhead.",
+  "versions": {
+    "librime": "33e78140250125871856cdc5b42ddc6a5fcd3cd4 (1.17.0)",
+    "octagram": "57d18b9f58e5284bd891d559f6bdd16cf60341e9",
+    "predict": "920bd41ebf6f9bf6855d14fbe80212e54e749791 (linked, not configured)",
+    "wanxiang": "907edf67ce6d1f5c73b9f65ce9a2de55f8d7c82d (zi, jichu, duoyin)",
+    "gram": "wanxiang-lts-zh-hans.gram, sha256 e9ddd501b7d536bc5ea1346f8f900ae49a719a05be349e0a17cb27e717143ca5"
+  },
+  "perKeyMs": {
+    "about": "test phrases, 4 rounds, first a warm-up; each key pushed onto the input, then 30 candidates read",
+    "dict": {"t9": {"n": 6150, "p50": 0.102, "p95": 0.557, "p99": 0.932, "max": 3.094},
+             "qwerty": {"n": 6150, "p50": 0.05, "p95": 0.117, "p99": 0.176, "max": 1.093}},
+    "gram": {"t9": {"n": 6150, "p50": 0.102, "p95": 0.559, "p99": 0.949, "max": 2.034},
+             "qwerty": {"n": 6150, "p50": 0.05, "p95": 0.119, "p99": 0.179, "max": 1.127}}
+  },
+  "pinnedQueryMs": {
+    "about": "nine-key buffers with the first k syllables pinned, every k; round trip through the pipe",
+    "dict": {"n": 2073, "p50": 0.179, "p95": 0.503, "p99": 0.731, "max": 2.492},
+    "gram": {"n": 2073, "p50": 0.189, "p95": 0.529, "p99": 0.757, "max": 1.306}
+  },
+  "coldStartMs": {
+    "about": "process start to the first candidates of 943943 / xiexie; cold = WSL page cache dropped first; warm = mean of 3",
+    "dict": {"t9": {"cold": 24.7, "warm": 11.6}, "qwerty": {"cold": 23.8, "warm": 12.6}},
+    "gram": {"t9": {"cold": 26.9, "warm": 11.8}, "qwerty": {"cold": 29.8, "warm": 12.6}}
+  },
+  "memoryKB": {
+    "about": "after the test-phrase latency run, /proc/self/status; RssFile is memory-mapped data the kernel can drop",
+    "dict": {"VmRSS": 60428, "RssAnon": 1172, "RssFile": 59256},
+    "gram": {"VmRSS": 269812, "RssAnon": 1172, "RssFile": 268640}
+  },
+  "sizeBytes": {
+    "compiledData": 54326532,
+    "tableBin": 53956304,
+    "tableBinDeflated": 23907513,
+    "prismT9": 61984,
+    "prismQwerty": 33008,
+    "reverseBin": 275236,
+    "librimeX8664Stripped": 3568312,
+    "gram": 390786092,
+    "deployOnPcSeconds": 5.4
+  }
+}

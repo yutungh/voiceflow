@@ -1,0 +1,747 @@
+# mode	hanzi	split	tags	rank	corrections	failed	charAccuracy	top
+t9	谢谢	dev	clash,weak	1	1	0	0.0000	这些
+t9	明天见	dev	clash,weak	0	0	0	1.0000	明天见
+t9	可以吗	dev	clash,weak	1	1	0	0.6667	可以拿
+t9	早上好	dev		0	0	0	1.0000	早上好
+t9	你好啊	dev		0	0	0	1.0000	你好啊
+t9	晚上好	dev		2	1	0	0.6667	早上好
+t9	好久不见	dev		0	0	0	1.0000	好久不见
+t9	最近怎么样	dev		0	0	0	1.0000	最近怎么样
+t9	你在干嘛	dev	poly	0	0	0	1.0000	你在干嘛
+t9	吃了吗	dev	poly	0	0	0	1.0000	吃了吗
+t9	在吗	dev		4	1	0	0.5000	在哪
+t9	晚安	dev		0	0	0	1.0000	晚安
+t9	早点睡	dev		1	1	0	0.6667	晚点睡
+t9	我们几点见	test		-1	7	0	0.4000	我们接稿件
+t9	你什么时候到	test		0	0	0	1.0000	你什么时候到
+t9	我马上到	test		0	0	0	1.0000	我马上到
+t9	等我一下	test		0	0	0	1.0000	等我一下
+t9	我在门口	test		0	0	0	1.0000	我在门口
+t9	你到哪了	test	poly	0	0	0	1.0000	你到哪了
+t9	快到了	test		0	0	0	1.0000	快到了
+t9	路上堵车	test		0	0	0	1.0000	路上堵车
+t9	我先走了	test		0	0	0	1.0000	我先走了
+t9	下午见	test	clash	0	0	0	1.0000	下午见
+t9	晚饭吃什么	dev		0	0	0	1.0000	晚饭吃什么
+t9	我饿了	dev		0	0	0	1.0000	我饿了
+t9	想吃火锅	dev		0	0	0	1.0000	想吃火锅
+t9	叫外卖吧	dev	clash	-1	3	0	0.7500	叫外卖把
+t9	这家店很好吃	dev		0	0	0	1.0000	这家店很好吃
+t9	你吃饭了吗	dev		0	0	0	1.0000	你吃饭了吗
+t9	我请客	dev		2	1	0	0.6667	我请了
+t9	多吃点	dev		0	0	0	1.0000	多吃点
+t9	不太辣	dev		0	0	0	1.0000	不太辣
+t9	再来一碗	dev		0	0	0	1.0000	再来一碗
+t9	今天加班	test		0	0	0	1.0000	今天加班
+t9	开会了	test	poly	2	1	0	0.3333	来回了
+t9	老板找我	test		0	0	0	1.0000	老板找我
+t9	项目快完成了	test		0	0	0	1.0000	项目快完成了
+t9	我在上班	test		0	0	0	1.0000	我在上班
+t9	下班了吗	test		0	0	0	1.0000	下班了吗
+t9	明天请假	test		-1	3	0	0.5000	明天评价
+t9	工作太忙了	test		0	0	0	1.0000	工作太忙了
+t9	发邮件给你	test		0	0	0	1.0000	发邮件给你
+t9	报告写完了	test		-1	2	0	0.6000	包含写完了
+t9	多少钱	dev	poly	0	0	0	1.0000	多少钱
+t9	太贵了	dev		0	0	0	1.0000	太贵了
+t9	打折吗	dev		1	1	0	0.3333	打针啊
+t9	我买了	dev		0	0	0	1.0000	我买了
+t9	去超市	dev		1	1	0	0.0000	普遍是
+t9	帮我带瓶水	dev		-1	2	0	0.8000	帮我带清水
+t9	网上买的	dev		0	0	0	1.0000	网上买的
+t9	快递到了	dev		0	0	0	1.0000	快递到了
+t9	退货吧	dev		1	1	0	0.6667	退婚吧
+t9	质量不错	dev		0	0	0	1.0000	质量不错
+t9	今天好冷	test		-1	3	0	0.7500	今天寒冷
+t9	外面下雨了	test		0	0	0	1.0000	外面下雨了
+t9	记得带伞	test	poly	-1	4	0	0.0000	借的必然
+t9	天气真好	test		0	0	0	1.0000	天气真好
+t9	明天降温	test	poly	0	0	0	1.0000	明天降温
+t9	多穿点衣服	test		0	0	0	1.0000	多穿点衣服
+t9	太阳很大	test		0	0	0	1.0000	太阳很大
+t9	下雪了	test		0	0	0	1.0000	下雪了
+t9	风好大	test		0	0	0	1.0000	风好大
+t9	有点热	test		1	1	0	0.6667	有点色
+t9	我感冒了	dev		0	0	0	1.0000	我感冒了
+t9	头有点疼	dev		0	0	0	1.0000	头有点疼
+t9	多喝热水	dev		0	0	0	1.0000	多喝热水
+t9	好好休息	dev		0	0	0	1.0000	好好休息
+t9	吃药了吗	dev		0	0	0	1.0000	吃药了吗
+t9	发烧了	dev		0	0	0	1.0000	发烧了
+t9	早日康复	dev		0	0	0	1.0000	早日康复
+t9	去看医生	dev		0	0	0	1.0000	去看医生
+t9	睡不着	dev	poly	0	0	0	1.0000	睡不着
+t9	身体要紧	dev		0	0	0	1.0000	身体要紧
+t9	机票订好了	test		-1	3	0	0.4000	技巧定好了
+t9	几点的飞机	test		0	0	0	1.0000	几点的飞机
+t9	我到机场了	test		0	0	0	1.0000	我到机场了
+t9	行李太重了	test	poly	-1	2	0	0.6000	盈利太重了
+t9	酒店在哪里	test		0	0	0	1.0000	酒店在哪里
+t9	玩得开心	test	poly	0	0	0	1.0000	玩得开心
+t9	拍点照片	test		-1	1	0	0.7500	赛点照片
+t9	落地了	test	poly	0	0	0	1.0000	落地了
+t9	护照带了吗	test		0	0	0	1.0000	护照带了吗
+t9	一路平安	test		0	0	0	1.0000	一路平安
+t9	妈妈打电话了	dev		0	0	0	1.0000	妈妈打电话了
+t9	爸爸在家吗	dev		-1	3	0	0.8000	爸爸在家那
+t9	回家吃饭	dev		0	0	0	1.0000	回家吃饭
+t9	想你了	dev		0	0	0	1.0000	想你了
+t9	周末回去	dev		0	0	0	1.0000	周末回去
+t9	奶奶身体好吗	dev		0	0	0	1.0000	奶奶身体好吗
+t9	孩子睡了	dev		0	0	0	1.0000	孩子睡了
+t9	我老公不在	dev		0	0	0	1.0000	我老公不在
+t9	姐姐结婚了	dev		0	0	0	1.0000	姐姐结婚了
+t9	一家人	dev		0	0	0	1.0000	一家人
+t9	手机没电了	test		0	0	0	1.0000	手机没电了
+t9	充电器在哪	test		0	0	0	1.0000	充电器在哪
+t9	信号不好	test		0	0	0	1.0000	信号不好
+t9	发个微信	test		0	0	0	1.0000	发个微信
+t9	加个好友	test		0	0	0	1.0000	加个好友
+t9	网速太慢	test		-1	3	0	0.7500	网速太难
+t9	密码忘了	test		0	0	0	1.0000	密码忘了
+t9	截图给我	test		0	0	0	1.0000	截图给我
+t9	重启一下	test	poly	0	0	0	1.0000	重启一下
+t9	视频通话	test		0	0	0	1.0000	视频通话
+t9	几点了	dev		6	2	0	0.6667	里点了
+t9	下周一	dev		0	0	0	1.0000	下周一
+t9	星期天有空吗	dev	poly	0	0	0	1.0000	星期天有空吗
+t9	晚点再说	dev		-1	1	0	0.7500	要点再说
+t9	来不及了	dev		0	0	0	1.0000	来不及了
+t9	早点出发	dev		-1	1	0	0.7500	要点出发
+t9	改天吧	dev		0	0	0	1.0000	改天吧
+t9	等一会儿	dev		0	0	0	1.0000	等一会儿
+t9	九点半	dev		2	1	0	0.0000	酒店餐
+t9	大概半小时	dev		0	0	0	1.0000	大概半小时
+t9	谢谢你	test	clash	0	0	0	1.0000	谢谢你
+t9	不客气	test		0	0	0	1.0000	不客气
+t9	对不起	test		0	0	0	1.0000	对不起
+t9	没关系	test		0	0	0	1.0000	没关系
+t9	辛苦了	test		0	0	0	1.0000	辛苦了
+t9	麻烦你了	test		0	0	0	1.0000	麻烦你了
+t9	不好意思	test		0	0	0	1.0000	不好意思
+t9	太感谢了	test		0	0	0	1.0000	太感谢了
+t9	抱歉来晚了	test		0	0	0	1.0000	抱歉来晚了
+t9	别客气	test		0	0	0	1.0000	别客气
+t9	我很开心	dev		0	0	0	1.0000	我很开心
+t9	有点累	dev		0	0	0	1.0000	有点累
+t9	好无聊	dev		0	0	0	1.0000	好无聊
+t9	别担心	dev		0	0	0	1.0000	别担心
+t9	我生气了	dev		0	0	0	1.0000	我生气了
+t9	太好了	dev		0	0	0	1.0000	太好了
+t9	真的吗	dev	clash	0	0	0	1.0000	真的吗
+t9	好感动	dev		0	0	0	1.0000	好感动
+t9	压力好大	dev		0	0	0	1.0000	压力好大
+t9	放轻松	dev		0	0	0	1.0000	放轻松
+t9	周末去哪玩	test		-1	3	0	0.8000	周末去哪要
+t9	去爬山吧	test		-1	3	0	0.7500	去爬山把
+t9	在家休息	test		-1	3	0	0.5000	在家注意
+t9	一起看电影	test		0	0	0	1.0000	一起看电影
+t9	逛街去	test		0	0	0	1.0000	逛街去
+t9	睡个懒觉	test	poly	0	0	0	1.0000	睡个懒觉
+t9	约了朋友	test		-1	1	0	0.5000	学科朋友
+t9	去公园走走	test		-1	3	0	0.6000	去公园又有
+t9	打扫房间	test		0	0	0	1.0000	打扫房间
+t9	出去玩吗	test		0	0	0	1.0000	出去玩吗
+t9	作业写完了吗	dev		0	0	0	1.0000	作业写完了吗
+t9	明天考试	dev		-1	3	0	0.5000	明天老是
+t9	复习一下	dev		0	0	0	1.0000	复习一下
+t9	图书馆见	dev	clash	-1	3	0	0.7500	图书馆叫
+t9	老师说的	dev		-1	2	0	0.7500	老是说的
+t9	这道题不会	dev		0	0	0	1.0000	这道题不会
+t9	成绩出来了	dev		0	0	0	1.0000	成绩出来了
+t9	学英语	dev		0	0	0	1.0000	学英语
+t9	上课了	dev		0	0	0	1.0000	上课了
+t9	放假了	dev	poly	0	0	0	1.0000	放假了
+t9	坐地铁	test		0	0	0	1.0000	坐地铁
+t9	打车回去	test		-1	2	0	0.7500	打车贵去
+t9	公交来了	test		0	0	0	1.0000	公交来了
+t9	我开车去	test		0	0	0	1.0000	我开车去
+t9	停车场	test	poly	0	0	0	1.0000	停车场
+t9	走路过去	test		0	0	0	1.0000	走路过去
+t9	堵在路上	test		0	0	0	1.0000	堵在路上
+t9	换乘二号线	test	poly	-1	2	0	0.8000	换成二号线
+t9	高铁票	test		1	1	0	0.6667	高铁桥
+t9	到站了	test		6	2	0	0.3333	翻找了
+t9	洗衣服	dev		0	0	0	1.0000	洗衣服
+t9	做饭了	dev		1	1	0	0.6667	做到了
+t9	倒垃圾	dev	poly	0	0	0	1.0000	倒垃圾
+t9	碗洗了吗	dev		-1	2	0	0.5000	早已了吗
+t9	买点菜	dev		0	0	0	1.0000	买点菜
+t9	收拾一下	dev		0	0	0	1.0000	收拾一下
+t9	拖地	dev		0	0	0	1.0000	拖地
+t9	冰箱空了	dev	poly	-1	2	0	0.2500	并掌控了
+t9	水电费	dev		0	0	0	1.0000	水电费
+t9	修空调	dev	poly	0	0	0	1.0000	修空调
+t9	转账给你	test	poly	-1	2	0	0.5000	专项给你
+t9	钱收到了	test		0	0	0	1.0000	钱收到了
+t9	发工资了	test		0	0	0	1.0000	发工资了
+t9	省点钱	test		0	0	0	1.0000	省点钱
+t9	信用卡还了	test	poly	-1	3	0	0.8000	信用卡换了
+t9	房租到期	test		-1	3	0	0.0000	防御烦死
+t9	太便宜了	test	poly	0	0	0	1.0000	太便宜了
+t9	花了多少	test		0	0	0	1.0000	花了多少
+t9	红包收到了	test		0	0	0	1.0000	红包收到了
+t9	记账	test		2	1	0	0.0000	理想
+t9	这部电影好看	dev		-1	2	0	0.6667	这部电影高考
+t9	看过了	dev		1	1	0	0.6667	考过了
+t9	新歌好听	dev		-1	1	0	0.5000	银河好听
+t9	演唱会门票	dev		0	0	0	1.0000	演唱会门票
+t9	电视剧更新了	dev		0	0	0	1.0000	电视剧更新了
+t9	推荐一部	dev		-1	3	0	0.7500	推荐一步
+t9	太搞笑了	dev		0	0	0	1.0000	太搞笑了
+t9	结局很感人	dev		0	0	0	1.0000	结局很感人
+t9	一起追剧	dev		0	0	0	1.0000	一起追剧
+t9	听歌	dev		0	0	0	1.0000	听歌
+t9	去健身房	test		0	0	0	1.0000	去健身房
+t9	跑了五公里	test		0	0	0	1.0000	跑了五公里
+t9	打篮球	test		0	0	0	1.0000	打篮球
+t9	比赛赢了	test		0	0	0	1.0000	比赛赢了
+t9	游泳去吗	test		0	0	0	1.0000	游泳去吗
+t9	腿好酸	test		0	0	0	1.0000	腿好酸
+t9	减肥成功	test		0	0	0	1.0000	减肥成功
+t9	每天锻炼	test		0	0	0	1.0000	每天锻炼
+t9	足球比赛	test		0	0	0	1.0000	足球比赛
+t9	加油	test		0	0	0	1.0000	加油
+t9	猫咪饿了	dev		-1	2	0	0.2500	马默河了
+t9	带狗出去	dev		-1	3	0	0.5000	代购出去
+t9	好可爱	dev		0	0	0	1.0000	好可爱
+t9	小狗生病了	dev		-1	1	0	0.6000	项目生病了
+t9	猫粮没了	dev		0	0	0	1.0000	猫粮没了
+t9	它在睡觉	dev	poly	-1	2	0	0.7500	他在睡觉
+t9	给它洗澡	dev		-1	2	0	0.7500	给他洗澡
+t9	宠物医院	dev		0	0	0	1.0000	宠物医院
+t9	喂过了	dev		0	0	0	1.0000	喂过了
+t9	真乖	dev		5	1	0	0.0000	正太
+t9	怎么做的	test		0	0	0	1.0000	怎么做的
+t9	放点盐	test		0	0	0	1.0000	放点盐
+t9	炒个青菜	test		-1	3	0	0.5000	表格青菜
+t9	煮面条	test		0	0	0	1.0000	煮面条
+t9	红烧肉	test		0	0	0	1.0000	红烧肉
+t9	米饭好了	test		-1	1	0	0.2500	你反感了
+t9	有点咸	test		2	1	0	0.6667	有点小
+t9	火开小一点	test		-1	3	0	0.6000	过来小一点
+t9	蒸鸡蛋	test		2	1	0	0.0000	整理到
+t9	包饺子	test		0	0	0	1.0000	包饺子
+t9	往左走	dev		0	0	0	1.0000	往左走
+t9	在你后面	dev		0	0	0	1.0000	在你后面
+t9	地址发我	dev		-1	4	0	0.2500	滴制法我
+t9	我迷路了	dev		0	0	0	1.0000	我迷路了
+t9	就在附近	dev		0	0	0	1.0000	就在附近
+t9	过马路	dev		0	0	0	1.0000	过马路
+t9	第二个路口	dev		0	0	0	1.0000	第二个路口
+t9	看到你了	dev		1	1	0	0.5000	劳烦你了
+t9	在楼下等你	dev		0	0	0	1.0000	在楼下等你
+t9	导航一下	dev	poly	0	0	0	1.0000	导航一下
+t9	生日快乐	test	poly	0	0	0	1.0000	生日快乐
+t9	送你礼物	test		-1	3	0	0.5000	送你继续
+t9	蛋糕订了	test		-1	3	0	0.2500	但搞定了
+t9	许个愿	test		0	0	0	1.0000	许个愿
+t9	惊喜	test		0	0	0	1.0000	惊喜
+t9	喜欢吗	test		1	1	0	0.6667	喜欢那
+t9	新年快乐	test	poly	0	0	0	1.0000	新年快乐
+t9	祝你幸福	test		0	0	0	1.0000	祝你幸福
+t9	纪念日	test		0	0	0	1.0000	纪念日
+t9	买束花	test		0	0	0	1.0000	买束花
+t9	预约挂号	dev		0	0	0	1.0000	预约挂号
+t9	检查结果出来了	dev	poly	0	0	0	1.0000	检查结果出来了
+t9	医生怎么说	dev		0	0	0	1.0000	医生怎么说
+t9	要打针吗	dev		-1	5	0	0.0000	研发折磨啊
+t9	没什么大问题	dev		0	0	0	1.0000	没什么大问题
+t9	按时吃药	dev		0	0	0	1.0000	按时吃药
+t9	牙疼	dev		0	0	0	1.0000	牙疼
+t9	过敏了	dev		0	0	0	1.0000	过敏了
+t9	体检报告	dev		-1	3	0	0.5000	提交报告
+t9	排队好久	dev		-1	2	0	0.5000	排队号就
+t9	喝咖啡吗	test		0	0	0	1.0000	喝咖啡吗
+t9	奶茶少糖	test	poly	0	0	0	1.0000	奶茶少糖
+t9	去冰	test		10	2	0	0.0000	去爱你
+t9	来杯热的	test		-1	1	0	0.5000	开呗热的
+t9	帮我点一杯	test		0	0	0	1.0000	帮我点一杯
+t9	星巴克	test	name	0	0	0	1.0000	星巴克
+t9	拿铁	test		0	0	0	1.0000	拿铁
+t9	喝点水	test		0	0	0	1.0000	喝点水
+t9	茶好了	test		-1	5	0	0.6667	查好了
+t9	不加糖	test		0	0	0	1.0000	不加糖
+t9	哈哈哈	dev	colloq	0	0	0	1.0000	哈哈哈
+t9	笑死我了	dev	colloq	0	0	0	1.0000	笑死我了
+t9	你真行	dev	colloq,poly	0	0	0	1.0000	你真行
+t9	别闹了	dev	colloq	0	0	0	1.0000	别闹了
+t9	得了吧	dev	colloq,poly	0	0	0	1.0000	得了吧
+t9	没事没事	dev	colloq	0	0	0	1.0000	没事没事
+t9	随便吧	dev	colloq,poly	0	0	0	1.0000	随便吧
+t9	算了	dev	colloq	0	0	0	1.0000	算了
+t9	好吧	dev	colloq	0	0	0	1.0000	好吧
+t9	厉害了	dev	colloq	0	0	0	1.0000	厉害了
+t9	北京	test	name	0	0	0	1.0000	北京
+t9	上海	test	name	0	0	0	1.0000	上海
+t9	小明	test	name	0	0	0	1.0000	小明
+t9	王老师	test	name	0	0	0	1.0000	王老师
+t9	张阿姨	test	name	0	0	0	1.0000	张阿姨
+t9	李医生	test	name	0	0	0	1.0000	李医生
+t9	广州	test	name	0	0	0	1.0000	广州
+t9	深圳	test	name	0	0	0	1.0000	深圳
+t9	西安	test	name	12	1	0	0.0000	小
+t9	成都	test	name,poly	1	1	0	0.0000	程度
+t9	为什么	dev	poly	0	0	0	1.0000	为什么
+t9	怎么办	dev		0	0	0	1.0000	怎么办
+t9	你觉得呢	dev	poly	0	0	0	1.0000	你觉得呢
+t9	是不是	dev		0	0	0	1.0000	是不是
+t9	有没有	dev		0	0	0	1.0000	有没有
+t9	去不去	dev		0	0	0	1.0000	去不去
+t9	哪个好	dev		9	2	0	0.0000	买点
+t9	谁说的	dev		0	0	0	1.0000	谁说的
+t9	在哪里	dev		0	0	0	1.0000	在哪里
+t9	要不要	dev		0	0	0	1.0000	要不要
+t9	好的	test		0	0	0	1.0000	好的
+t9	知道了	test		0	0	0	1.0000	知道了
+t9	可以	test		0	0	0	1.0000	可以
+t9	没问题	test		0	0	0	1.0000	没问题
+t9	行吧	test	poly	0	0	0	1.0000	行吧
+t9	收到	test		0	0	0	1.0000	收到
+t9	对的	test		0	0	0	1.0000	对的
+t9	不用了	test		0	0	0	1.0000	不用了
+t9	马上	test		0	0	0	1.0000	马上
+t9	等等	test		0	0	0	1.0000	等等
+t9	宝宝睡着了	dev	poly	0	0	0	1.0000	宝宝睡着了
+t9	送孩子上学	dev		0	0	0	1.0000	送孩子上学
+t9	接孩子	dev		0	0	0	1.0000	接孩子
+t9	幼儿园放学	dev		-1	3	0	0.6000	幼儿园当月
+t9	玩具	dev		0	0	0	1.0000	玩具
+t9	讲故事	dev		0	0	0	1.0000	讲故事
+t9	别哭了	dev		0	0	0	1.0000	别哭了
+t9	真听话	dev		0	0	0	1.0000	真听话
+t9	长高了	dev	poly	2	1	0	0.3333	想好了
+t9	喝奶	dev		1	1	0	0.0000	很爱
+t9	订个房间	test		-1	2	0	0.7500	定个房间
+t9	两个人	test		0	0	0	1.0000	两个人
+t9	住三晚	test		0	0	0	1.0000	住三晚
+t9	退房时间	test		0	0	0	1.0000	退房时间
+t9	有早餐吗	test		-1	2	0	0.0000	又要宝马
+t9	预订成功	test		0	0	0	1.0000	预订成功
+t9	取消订单	test		0	0	0	1.0000	取消订单
+t9	帮我查一下	test		0	0	0	1.0000	帮我查一下
+t9	大床房	test		0	0	0	1.0000	大床房
+t9	入住	test		0	0	0	1.0000	入住
+t9	服务员	dev		0	0	0	1.0000	服务员
+t9	点菜	dev		0	0	0	1.0000	点菜
+t9	来一份	dev		0	0	0	1.0000	来一份
+t9	买单	dev		1	1	0	0.5000	买到
+t9	打包带走	dev		0	0	0	1.0000	打包带走
+t9	有位置吗	dev		0	0	0	1.0000	有位置吗
+t9	菜单给我	dev		0	0	0	1.0000	菜单给我
+t9	不要香菜	dev		0	0	0	1.0000	不要香菜
+t9	味道不错	dev		0	0	0	1.0000	味道不错
+t9	再加一个菜	dev		-1	3	0	0.8000	再加一个才
+t9	加油站	test		0	0	0	1.0000	加油站
+t9	车坏了	test		2	1	0	0.6667	憋坏了
+t9	找不到车位	test		-1	2	0	0.8000	找不到车为
+t9	慢点开	test		0	0	0	1.0000	慢点开
+t9	系好安全带	test	poly	0	0	0	1.0000	系好安全带
+t9	前面右转	test	poly	-1	3	0	0.2500	前面有一套
+t9	限速	test		5	1	0	0.0000	陷入
+t9	洗车	test		5	1	0	0.0000	下个
+t9	违章了	test		-1	2	0	0.3333	胃胀了
+t9	到楼下了	test		0	0	0	1.0000	到楼下了
+t9	收到请回复	dev		-1	2	0	0.8000	收到请回度
+t9	方案改好了	dev		-1	3	0	0.8000	方案还好了
+t9	我看一下	dev		0	0	0	1.0000	我看一下
+t9	稍等	dev		3	1	0	0.0000	前锋
+t9	已经发了	dev		0	0	0	1.0000	已经发了
+t9	明天给你	dev		0	0	0	1.0000	明天给你
+t9	没问题的	dev		0	0	0	1.0000	没问题的
+t9	需要帮忙吗	dev		0	0	0	1.0000	需要帮忙吗
+t9	我来处理	dev	poly	0	0	0	1.0000	我来处理
+t9	辛苦大家	dev		0	0	0	1.0000	辛苦大家
+t9	我也是	test		0	0	0	1.0000	我也是
+t9	一起去吧	test		0	0	0	1.0000	一起去吧
+t9	你决定	test		0	0	0	1.0000	你决定
+t9	我觉得可以	test	poly	0	0	0	1.0000	我觉得可以
+t9	听你的	test		0	0	0	1.0000	听你的
+t9	到时候再说	test		0	0	0	1.0000	到时候再说
+t9	我不知道	test		0	0	0	1.0000	我不知道
+t9	你说呢	test		0	0	0	1.0000	你说呢
+t9	就这样吧	test		0	0	0	1.0000	就这样吧
+t9	好主意	test		0	0	0	1.0000	好主意
+t9	那可以吗	test	clash	-1	2	0	0.5000	吗可以拿
+t9	谢谢大家	test	clash	0	0	0	1.0000	谢谢大家
+t9	周五见	test	clash	0	0	0	1.0000	周五见
+t9	好吗	test	clash	0	0	0	1.0000	好吗
+t9	这些都要	test	clash	0	0	0	1.0000	这些都要
+t9	叫他过来	test	clash	0	0	0	1.0000	叫他过来
+t9	你叫什么	test	clash	0	0	0	1.0000	你叫什么
+t9	真的谢谢	test	clash	0	0	0	1.0000	真的谢谢
+t9	回头见	test	clash	1	1	0	0.6667	回头叫
+t9	能来吗	test	clash	1	1	0	0.6667	能开吗
+qwerty	谢谢	dev	clash,weak	0	0	0	1.0000	谢谢
+qwerty	明天见	dev	clash,weak	0	0	0	1.0000	明天见
+qwerty	可以吗	dev	clash,weak	0	0	0	1.0000	可以吗
+qwerty	早上好	dev		0	0	0	1.0000	早上好
+qwerty	你好啊	dev		0	0	0	1.0000	你好啊
+qwerty	晚上好	dev		0	0	0	1.0000	晚上好
+qwerty	好久不见	dev		0	0	0	1.0000	好久不见
+qwerty	最近怎么样	dev		0	0	0	1.0000	最近怎么样
+qwerty	你在干嘛	dev	poly	0	0	0	1.0000	你在干嘛
+qwerty	吃了吗	dev	poly	0	0	0	1.0000	吃了吗
+qwerty	在吗	dev		0	0	0	1.0000	在吗
+qwerty	晚安	dev		0	0	0	1.0000	晚安
+qwerty	早点睡	dev		0	0	0	1.0000	早点睡
+qwerty	我们几点见	test		-1	2	0	0.6000	我们记点检
+qwerty	你什么时候到	test		0	0	0	1.0000	你什么时候到
+qwerty	我马上到	test		0	0	0	1.0000	我马上到
+qwerty	等我一下	test		0	0	0	1.0000	等我一下
+qwerty	我在门口	test		0	0	0	1.0000	我在门口
+qwerty	你到哪了	test	poly	0	0	0	1.0000	你到哪了
+qwerty	快到了	test		0	0	0	1.0000	快到了
+qwerty	路上堵车	test		0	0	0	1.0000	路上堵车
+qwerty	我先走了	test		0	0	0	1.0000	我先走了
+qwerty	下午见	test	clash	0	0	0	1.0000	下午见
+qwerty	晚饭吃什么	dev		0	0	0	1.0000	晚饭吃什么
+qwerty	我饿了	dev		0	0	0	1.0000	我饿了
+qwerty	想吃火锅	dev		0	0	0	1.0000	想吃火锅
+qwerty	叫外卖吧	dev	clash	-1	2	0	0.7500	叫外卖把
+qwerty	这家店很好吃	dev		0	0	0	1.0000	这家店很好吃
+qwerty	你吃饭了吗	dev		0	0	0	1.0000	你吃饭了吗
+qwerty	我请客	dev		0	0	0	1.0000	我请客
+qwerty	多吃点	dev		0	0	0	1.0000	多吃点
+qwerty	不太辣	dev		0	0	0	1.0000	不太辣
+qwerty	再来一碗	dev		0	0	0	1.0000	再来一碗
+qwerty	今天加班	test		0	0	0	1.0000	今天加班
+qwerty	开会了	test	poly	0	0	0	1.0000	开会了
+qwerty	老板找我	test		0	0	0	1.0000	老板找我
+qwerty	项目快完成了	test		0	0	0	1.0000	项目快完成了
+qwerty	我在上班	test		0	0	0	1.0000	我在上班
+qwerty	下班了吗	test		0	0	0	1.0000	下班了吗
+qwerty	明天请假	test		0	0	0	1.0000	明天请假
+qwerty	工作太忙了	test		0	0	0	1.0000	工作太忙了
+qwerty	发邮件给你	test		0	0	0	1.0000	发邮件给你
+qwerty	报告写完了	test		0	0	0	1.0000	报告写完了
+qwerty	多少钱	dev	poly	0	0	0	1.0000	多少钱
+qwerty	太贵了	dev		0	0	0	1.0000	太贵了
+qwerty	打折吗	dev		0	0	0	1.0000	打折吗
+qwerty	我买了	dev		0	0	0	1.0000	我买了
+qwerty	去超市	dev		0	0	0	1.0000	去超市
+qwerty	帮我带瓶水	dev		0	0	0	1.0000	帮我带瓶水
+qwerty	网上买的	dev		0	0	0	1.0000	网上买的
+qwerty	快递到了	dev		0	0	0	1.0000	快递到了
+qwerty	退货吧	dev		0	0	0	1.0000	退货吧
+qwerty	质量不错	dev		0	0	0	1.0000	质量不错
+qwerty	今天好冷	test		0	0	0	1.0000	今天好冷
+qwerty	外面下雨了	test		0	0	0	1.0000	外面下雨了
+qwerty	记得带伞	test	poly	0	0	0	1.0000	记得带伞
+qwerty	天气真好	test		0	0	0	1.0000	天气真好
+qwerty	明天降温	test	poly	0	0	0	1.0000	明天降温
+qwerty	多穿点衣服	test		0	0	0	1.0000	多穿点衣服
+qwerty	太阳很大	test		0	0	0	1.0000	太阳很大
+qwerty	下雪了	test		0	0	0	1.0000	下雪了
+qwerty	风好大	test		0	0	0	1.0000	风好大
+qwerty	有点热	test		0	0	0	1.0000	有点热
+qwerty	我感冒了	dev		0	0	0	1.0000	我感冒了
+qwerty	头有点疼	dev		0	0	0	1.0000	头有点疼
+qwerty	多喝热水	dev		0	0	0	1.0000	多喝热水
+qwerty	好好休息	dev		0	0	0	1.0000	好好休息
+qwerty	吃药了吗	dev		0	0	0	1.0000	吃药了吗
+qwerty	发烧了	dev		0	0	0	1.0000	发烧了
+qwerty	早日康复	dev		0	0	0	1.0000	早日康复
+qwerty	去看医生	dev		0	0	0	1.0000	去看医生
+qwerty	睡不着	dev	poly	0	0	0	1.0000	睡不着
+qwerty	身体要紧	dev		0	0	0	1.0000	身体要紧
+qwerty	机票订好了	test		-1	3	0	0.8000	机票定好了
+qwerty	几点的飞机	test		0	0	0	1.0000	几点的飞机
+qwerty	我到机场了	test		0	0	0	1.0000	我到机场了
+qwerty	行李太重了	test	poly	0	0	0	1.0000	行李太重了
+qwerty	酒店在哪里	test		0	0	0	1.0000	酒店在哪里
+qwerty	玩得开心	test	poly	0	0	0	1.0000	玩得开心
+qwerty	拍点照片	test		0	0	0	1.0000	拍点照片
+qwerty	落地了	test	poly	0	0	0	1.0000	落地了
+qwerty	护照带了吗	test		0	0	0	1.0000	护照带了吗
+qwerty	一路平安	test		0	0	0	1.0000	一路平安
+qwerty	妈妈打电话了	dev		0	0	0	1.0000	妈妈打电话了
+qwerty	爸爸在家吗	dev		0	0	0	1.0000	爸爸在家吗
+qwerty	回家吃饭	dev		0	0	0	1.0000	回家吃饭
+qwerty	想你了	dev		0	0	0	1.0000	想你了
+qwerty	周末回去	dev		0	0	0	1.0000	周末回去
+qwerty	奶奶身体好吗	dev		0	0	0	1.0000	奶奶身体好吗
+qwerty	孩子睡了	dev		0	0	0	1.0000	孩子睡了
+qwerty	我老公不在	dev		0	0	0	1.0000	我老公不在
+qwerty	姐姐结婚了	dev		0	0	0	1.0000	姐姐结婚了
+qwerty	一家人	dev		0	0	0	1.0000	一家人
+qwerty	手机没电了	test		0	0	0	1.0000	手机没电了
+qwerty	充电器在哪	test		0	0	0	1.0000	充电器在哪
+qwerty	信号不好	test		0	0	0	1.0000	信号不好
+qwerty	发个微信	test		0	0	0	1.0000	发个微信
+qwerty	加个好友	test		0	0	0	1.0000	加个好友
+qwerty	网速太慢	test		0	0	0	1.0000	网速太慢
+qwerty	密码忘了	test		0	0	0	1.0000	密码忘了
+qwerty	截图给我	test		0	0	0	1.0000	截图给我
+qwerty	重启一下	test	poly	0	0	0	1.0000	重启一下
+qwerty	视频通话	test		0	0	0	1.0000	视频通话
+qwerty	几点了	dev		0	0	0	1.0000	几点了
+qwerty	下周一	dev		0	0	0	1.0000	下周一
+qwerty	星期天有空吗	dev	poly	0	0	0	1.0000	星期天有空吗
+qwerty	晚点再说	dev		0	0	0	1.0000	晚点再说
+qwerty	来不及了	dev		0	0	0	1.0000	来不及了
+qwerty	早点出发	dev		0	0	0	1.0000	早点出发
+qwerty	改天吧	dev		0	0	0	1.0000	改天吧
+qwerty	等一会儿	dev		0	0	0	1.0000	等一会儿
+qwerty	九点半	dev		0	0	0	1.0000	九点半
+qwerty	大概半小时	dev		0	0	0	1.0000	大概半小时
+qwerty	谢谢你	test	clash	0	0	0	1.0000	谢谢你
+qwerty	不客气	test		0	0	0	1.0000	不客气
+qwerty	对不起	test		0	0	0	1.0000	对不起
+qwerty	没关系	test		0	0	0	1.0000	没关系
+qwerty	辛苦了	test		0	0	0	1.0000	辛苦了
+qwerty	麻烦你了	test		0	0	0	1.0000	麻烦你了
+qwerty	不好意思	test		0	0	0	1.0000	不好意思
+qwerty	太感谢了	test		0	0	0	1.0000	太感谢了
+qwerty	抱歉来晚了	test		0	0	0	1.0000	抱歉来晚了
+qwerty	别客气	test		0	0	0	1.0000	别客气
+qwerty	我很开心	dev		0	0	0	1.0000	我很开心
+qwerty	有点累	dev		0	0	0	1.0000	有点累
+qwerty	好无聊	dev		0	0	0	1.0000	好无聊
+qwerty	别担心	dev		0	0	0	1.0000	别担心
+qwerty	我生气了	dev		0	0	0	1.0000	我生气了
+qwerty	太好了	dev		0	0	0	1.0000	太好了
+qwerty	真的吗	dev	clash	0	0	0	1.0000	真的吗
+qwerty	好感动	dev		0	0	0	1.0000	好感动
+qwerty	压力好大	dev		0	0	0	1.0000	压力好大
+qwerty	放轻松	dev		0	0	0	1.0000	放轻松
+qwerty	周末去哪玩	test		0	0	0	1.0000	周末去哪玩
+qwerty	去爬山吧	test		-1	2	0	0.7500	去爬山把
+qwerty	在家休息	test		0	0	0	1.0000	在家休息
+qwerty	一起看电影	test		0	0	0	1.0000	一起看电影
+qwerty	逛街去	test		0	0	0	1.0000	逛街去
+qwerty	睡个懒觉	test	poly	0	0	0	1.0000	睡个懒觉
+qwerty	约了朋友	test		0	0	0	1.0000	约了朋友
+qwerty	去公园走走	test		0	0	0	1.0000	去公园走走
+qwerty	打扫房间	test		0	0	0	1.0000	打扫房间
+qwerty	出去玩吗	test		0	0	0	1.0000	出去玩吗
+qwerty	作业写完了吗	dev		0	0	0	1.0000	作业写完了吗
+qwerty	明天考试	dev		0	0	0	1.0000	明天考试
+qwerty	复习一下	dev		0	0	0	1.0000	复习一下
+qwerty	图书馆见	dev	clash	0	0	0	1.0000	图书馆见
+qwerty	老师说的	dev		-1	2	0	0.7500	老是说的
+qwerty	这道题不会	dev		0	0	0	1.0000	这道题不会
+qwerty	成绩出来了	dev		0	0	0	1.0000	成绩出来了
+qwerty	学英语	dev		0	0	0	1.0000	学英语
+qwerty	上课了	dev		0	0	0	1.0000	上课了
+qwerty	放假了	dev	poly	0	0	0	1.0000	放假了
+qwerty	坐地铁	test		0	0	0	1.0000	坐地铁
+qwerty	打车回去	test		0	0	0	1.0000	打车回去
+qwerty	公交来了	test		0	0	0	1.0000	公交来了
+qwerty	我开车去	test		0	0	0	1.0000	我开车去
+qwerty	停车场	test	poly	0	0	0	1.0000	停车场
+qwerty	走路过去	test		0	0	0	1.0000	走路过去
+qwerty	堵在路上	test		0	0	0	1.0000	堵在路上
+qwerty	换乘二号线	test	poly	-1	2	0	0.8000	换成二号线
+qwerty	高铁票	test		0	0	0	1.0000	高铁票
+qwerty	到站了	test		0	0	0	1.0000	到站了
+qwerty	洗衣服	dev		0	0	0	1.0000	洗衣服
+qwerty	做饭了	dev		0	0	0	1.0000	做饭了
+qwerty	倒垃圾	dev	poly	0	0	0	1.0000	倒垃圾
+qwerty	碗洗了吗	dev		0	0	0	1.0000	碗洗了吗
+qwerty	买点菜	dev		0	0	0	1.0000	买点菜
+qwerty	收拾一下	dev		0	0	0	1.0000	收拾一下
+qwerty	拖地	dev		0	0	0	1.0000	拖地
+qwerty	冰箱空了	dev	poly	0	0	0	1.0000	冰箱空了
+qwerty	水电费	dev		0	0	0	1.0000	水电费
+qwerty	修空调	dev	poly	0	0	0	1.0000	修空调
+qwerty	转账给你	test	poly	0	0	0	1.0000	转账给你
+qwerty	钱收到了	test		0	0	0	1.0000	钱收到了
+qwerty	发工资了	test		0	0	0	1.0000	发工资了
+qwerty	省点钱	test		0	0	0	1.0000	省点钱
+qwerty	信用卡还了	test	poly	-1	3	0	0.8000	信用卡换了
+qwerty	房租到期	test		0	0	0	1.0000	房租到期
+qwerty	太便宜了	test	poly	0	0	0	1.0000	太便宜了
+qwerty	花了多少	test		0	0	0	1.0000	花了多少
+qwerty	红包收到了	test		0	0	0	1.0000	红包收到了
+qwerty	记账	test		1	1	0	0.0000	几张
+qwerty	这部电影好看	dev		0	0	0	1.0000	这部电影好看
+qwerty	看过了	dev		0	0	0	1.0000	看过了
+qwerty	新歌好听	dev		0	0	0	1.0000	新歌好听
+qwerty	演唱会门票	dev		0	0	0	1.0000	演唱会门票
+qwerty	电视剧更新了	dev		0	0	0	1.0000	电视剧更新了
+qwerty	推荐一部	dev		-1	3	0	0.7500	推荐一步
+qwerty	太搞笑了	dev		0	0	0	1.0000	太搞笑了
+qwerty	结局很感人	dev		0	0	0	1.0000	结局很感人
+qwerty	一起追剧	dev		0	0	0	1.0000	一起追剧
+qwerty	听歌	dev		0	0	0	1.0000	听歌
+qwerty	去健身房	test		0	0	0	1.0000	去健身房
+qwerty	跑了五公里	test		0	0	0	1.0000	跑了五公里
+qwerty	打篮球	test		0	0	0	1.0000	打篮球
+qwerty	比赛赢了	test		0	0	0	1.0000	比赛赢了
+qwerty	游泳去吗	test		0	0	0	1.0000	游泳去吗
+qwerty	腿好酸	test		0	0	0	1.0000	腿好酸
+qwerty	减肥成功	test		0	0	0	1.0000	减肥成功
+qwerty	每天锻炼	test		0	0	0	1.0000	每天锻炼
+qwerty	足球比赛	test		0	0	0	1.0000	足球比赛
+qwerty	加油	test		0	0	0	1.0000	加油
+qwerty	猫咪饿了	dev		-1	2	0	0.2500	毛灭了
+qwerty	带狗出去	dev		-1	2	0	0.5000	代购出去
+qwerty	好可爱	dev		0	0	0	1.0000	好可爱
+qwerty	小狗生病了	dev		0	0	0	1.0000	小狗生病了
+qwerty	猫粮没了	dev		0	0	0	1.0000	猫粮没了
+qwerty	它在睡觉	dev	poly	-1	2	0	0.7500	他在睡觉
+qwerty	给它洗澡	dev		-1	2	0	0.7500	给他洗澡
+qwerty	宠物医院	dev		0	0	0	1.0000	宠物医院
+qwerty	喂过了	dev		0	0	0	1.0000	喂过了
+qwerty	真乖	dev		0	0	0	1.0000	真乖
+qwerty	怎么做的	test		0	0	0	1.0000	怎么做的
+qwerty	放点盐	test		0	0	0	1.0000	放点盐
+qwerty	炒个青菜	test		-1	2	0	0.5000	超哥青菜
+qwerty	煮面条	test		0	0	0	1.0000	煮面条
+qwerty	红烧肉	test		0	0	0	1.0000	红烧肉
+qwerty	米饭好了	test		0	0	0	1.0000	米饭好了
+qwerty	有点咸	test		0	0	0	1.0000	有点咸
+qwerty	火开小一点	test		-1	2	0	0.8000	或开小一点
+qwerty	蒸鸡蛋	test		0	0	0	1.0000	蒸鸡蛋
+qwerty	包饺子	test		0	0	0	1.0000	包饺子
+qwerty	往左走	dev		0	0	0	1.0000	往左走
+qwerty	在你后面	dev		0	0	0	1.0000	在你后面
+qwerty	地址发我	dev		-1	2	0	0.2500	滴制法我
+qwerty	我迷路了	dev		0	0	0	1.0000	我迷路了
+qwerty	就在附近	dev		0	0	0	1.0000	就在附近
+qwerty	过马路	dev		0	0	0	1.0000	过马路
+qwerty	第二个路口	dev		0	0	0	1.0000	第二个路口
+qwerty	看到你了	dev		0	0	0	1.0000	看到你了
+qwerty	在楼下等你	dev		0	0	0	1.0000	在楼下等你
+qwerty	导航一下	dev	poly	0	0	0	1.0000	导航一下
+qwerty	生日快乐	test	poly	0	0	0	1.0000	生日快乐
+qwerty	送你礼物	test		0	0	0	1.0000	送你礼物
+qwerty	蛋糕订了	test		-1	3	0	0.2500	但搞定了
+qwerty	许个愿	test		0	0	0	1.0000	许个愿
+qwerty	惊喜	test		0	0	0	1.0000	惊喜
+qwerty	喜欢吗	test		0	0	0	1.0000	喜欢吗
+qwerty	新年快乐	test	poly	0	0	0	1.0000	新年快乐
+qwerty	祝你幸福	test		0	0	0	1.0000	祝你幸福
+qwerty	纪念日	test		0	0	0	1.0000	纪念日
+qwerty	买束花	test		0	0	0	1.0000	买束花
+qwerty	预约挂号	dev		0	0	0	1.0000	预约挂号
+qwerty	检查结果出来了	dev	poly	0	0	0	1.0000	检查结果出来了
+qwerty	医生怎么说	dev		0	0	0	1.0000	医生怎么说
+qwerty	要打针吗	dev		-1	3	0	0.5000	要大针码
+qwerty	没什么大问题	dev		0	0	0	1.0000	没什么大问题
+qwerty	按时吃药	dev		0	0	0	1.0000	按时吃药
+qwerty	牙疼	dev		0	0	0	1.0000	牙疼
+qwerty	过敏了	dev		0	0	0	1.0000	过敏了
+qwerty	体检报告	dev		0	0	0	1.0000	体检报告
+qwerty	排队好久	dev		-1	2	0	0.5000	排队号就
+qwerty	喝咖啡吗	test		0	0	0	1.0000	喝咖啡吗
+qwerty	奶茶少糖	test	poly	0	0	0	1.0000	奶茶少糖
+qwerty	去冰	test		4	1	0	0.5000	去病
+qwerty	来杯热的	test		0	0	0	1.0000	来杯热的
+qwerty	帮我点一杯	test		0	0	0	1.0000	帮我点一杯
+qwerty	星巴克	test	name	0	0	0	1.0000	星巴克
+qwerty	拿铁	test		0	0	0	1.0000	拿铁
+qwerty	喝点水	test		0	0	0	1.0000	喝点水
+qwerty	茶好了	test		-1	3	0	0.6667	查好了
+qwerty	不加糖	test		0	0	0	1.0000	不加糖
+qwerty	哈哈哈	dev	colloq	0	0	0	1.0000	哈哈哈
+qwerty	笑死我了	dev	colloq	0	0	0	1.0000	笑死我了
+qwerty	你真行	dev	colloq,poly	0	0	0	1.0000	你真行
+qwerty	别闹了	dev	colloq	0	0	0	1.0000	别闹了
+qwerty	得了吧	dev	colloq,poly	0	0	0	1.0000	得了吧
+qwerty	没事没事	dev	colloq	0	0	0	1.0000	没事没事
+qwerty	随便吧	dev	colloq,poly	0	0	0	1.0000	随便吧
+qwerty	算了	dev	colloq	0	0	0	1.0000	算了
+qwerty	好吧	dev	colloq	0	0	0	1.0000	好吧
+qwerty	厉害了	dev	colloq	0	0	0	1.0000	厉害了
+qwerty	北京	test	name	0	0	0	1.0000	北京
+qwerty	上海	test	name	0	0	0	1.0000	上海
+qwerty	小明	test	name	0	0	0	1.0000	小明
+qwerty	王老师	test	name	0	0	0	1.0000	王老师
+qwerty	张阿姨	test	name	0	0	0	1.0000	张阿姨
+qwerty	李医生	test	name	0	0	0	1.0000	李医生
+qwerty	广州	test	name	0	0	0	1.0000	广州
+qwerty	深圳	test	name	0	0	0	1.0000	深圳
+qwerty	西安	test	name	4	1	0	0.0000	先
+qwerty	成都	test	name,poly	1	1	0	0.0000	程度
+qwerty	为什么	dev	poly	0	0	0	1.0000	为什么
+qwerty	怎么办	dev		0	0	0	1.0000	怎么办
+qwerty	你觉得呢	dev	poly	0	0	0	1.0000	你觉得呢
+qwerty	是不是	dev		0	0	0	1.0000	是不是
+qwerty	有没有	dev		0	0	0	1.0000	有没有
+qwerty	去不去	dev		0	0	0	1.0000	去不去
+qwerty	哪个好	dev		1	1	0	0.6667	那个好
+qwerty	谁说的	dev		0	0	0	1.0000	谁说的
+qwerty	在哪里	dev		0	0	0	1.0000	在哪里
+qwerty	要不要	dev		0	0	0	1.0000	要不要
+qwerty	好的	test		0	0	0	1.0000	好的
+qwerty	知道了	test		0	0	0	1.0000	知道了
+qwerty	可以	test		0	0	0	1.0000	可以
+qwerty	没问题	test		0	0	0	1.0000	没问题
+qwerty	行吧	test	poly	0	0	0	1.0000	行吧
+qwerty	收到	test		0	0	0	1.0000	收到
+qwerty	对的	test		0	0	0	1.0000	对的
+qwerty	不用了	test		0	0	0	1.0000	不用了
+qwerty	马上	test		0	0	0	1.0000	马上
+qwerty	等等	test		0	0	0	1.0000	等等
+qwerty	宝宝睡着了	dev	poly	0	0	0	1.0000	宝宝睡着了
+qwerty	送孩子上学	dev		0	0	0	1.0000	送孩子上学
+qwerty	接孩子	dev		0	0	0	1.0000	接孩子
+qwerty	幼儿园放学	dev		0	0	0	1.0000	幼儿园放学
+qwerty	玩具	dev		0	0	0	1.0000	玩具
+qwerty	讲故事	dev		0	0	0	1.0000	讲故事
+qwerty	别哭了	dev		0	0	0	1.0000	别哭了
+qwerty	真听话	dev		0	0	0	1.0000	真听话
+qwerty	长高了	dev	poly	0	0	0	1.0000	长高了
+qwerty	喝奶	dev		1	1	0	0.0000	很爱
+qwerty	订个房间	test		-1	2	0	0.7500	定个房间
+qwerty	两个人	test		0	0	0	1.0000	两个人
+qwerty	住三晚	test		0	0	0	1.0000	住三晚
+qwerty	退房时间	test		0	0	0	1.0000	退房时间
+qwerty	有早餐吗	test		0	0	0	1.0000	有早餐吗
+qwerty	预订成功	test		0	0	0	1.0000	预订成功
+qwerty	取消订单	test		0	0	0	1.0000	取消订单
+qwerty	帮我查一下	test		0	0	0	1.0000	帮我查一下
+qwerty	大床房	test		0	0	0	1.0000	大床房
+qwerty	入住	test		0	0	0	1.0000	入住
+qwerty	服务员	dev		0	0	0	1.0000	服务员
+qwerty	点菜	dev		0	0	0	1.0000	点菜
+qwerty	来一份	dev		0	0	0	1.0000	来一份
+qwerty	买单	dev		0	0	0	1.0000	买单
+qwerty	打包带走	dev		0	0	0	1.0000	打包带走
+qwerty	有位置吗	dev		0	0	0	1.0000	有位置吗
+qwerty	菜单给我	dev		0	0	0	1.0000	菜单给我
+qwerty	不要香菜	dev		0	0	0	1.0000	不要香菜
+qwerty	味道不错	dev		0	0	0	1.0000	味道不错
+qwerty	再加一个菜	dev		-1	2	0	0.8000	再加一个才
+qwerty	加油站	test		0	0	0	1.0000	加油站
+qwerty	车坏了	test		0	0	0	1.0000	车坏了
+qwerty	找不到车位	test		-1	2	0	0.8000	找不到车为
+qwerty	慢点开	test		0	0	0	1.0000	慢点开
+qwerty	系好安全带	test	poly	0	0	0	1.0000	系好安全带
+qwerty	前面右转	test	poly	0	0	0	1.0000	前面右转
+qwerty	限速	test		0	0	0	1.0000	限速
+qwerty	洗车	test		0	0	0	1.0000	洗车
+qwerty	违章了	test		-1	2	0	0.3333	胃胀了
+qwerty	到楼下了	test		0	0	0	1.0000	到楼下了
+qwerty	收到请回复	dev		0	0	0	1.0000	收到请回复
+qwerty	方案改好了	dev		0	0	0	1.0000	方案改好了
+qwerty	我看一下	dev		0	0	0	1.0000	我看一下
+qwerty	稍等	dev		0	0	0	1.0000	稍等
+qwerty	已经发了	dev		0	0	0	1.0000	已经发了
+qwerty	明天给你	dev		0	0	0	1.0000	明天给你
+qwerty	没问题的	dev		0	0	0	1.0000	没问题的
+qwerty	需要帮忙吗	dev		0	0	0	1.0000	需要帮忙吗
+qwerty	我来处理	dev	poly	0	0	0	1.0000	我来处理
+qwerty	辛苦大家	dev		0	0	0	1.0000	辛苦大家
+qwerty	我也是	test		0	0	0	1.0000	我也是
+qwerty	一起去吧	test		0	0	0	1.0000	一起去吧
+qwerty	你决定	test		0	0	0	1.0000	你决定
+qwerty	我觉得可以	test	poly	0	0	0	1.0000	我觉得可以
+qwerty	听你的	test		0	0	0	1.0000	听你的
+qwerty	到时候再说	test		0	0	0	1.0000	到时候再说
+qwerty	我不知道	test		0	0	0	1.0000	我不知道
+qwerty	你说呢	test		0	0	0	1.0000	你说呢
+qwerty	就这样吧	test		0	0	0	1.0000	就这样吧
+qwerty	好主意	test		0	0	0	1.0000	好主意
+qwerty	那可以吗	test	clash	0	0	0	1.0000	那可以吗
+qwerty	谢谢大家	test	clash	0	0	0	1.0000	谢谢大家
+qwerty	周五见	test	clash	0	0	0	1.0000	周五见
+qwerty	好吗	test	clash	0	0	0	1.0000	好吗
+qwerty	这些都要	test	clash	0	0	0	1.0000	这些都要
+qwerty	叫他过来	test	clash	0	0	0	1.0000	叫他过来
+qwerty	你叫什么	test	clash	0	0	0	1.0000	你叫什么
+qwerty	真的谢谢	test	clash	0	0	0	1.0000	真的谢谢
+qwerty	回头见	test	clash	0	0	0	1.0000	回头见
+qwerty	能来吗	test	clash	0	0	0	1.0000	能来吗

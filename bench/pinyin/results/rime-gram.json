@@ -1,0 +1,26 @@
+{
+  "engine": "rime-gram",
+  "external": true,
+  "slices": {
+    "qwerty/all": {"phrases":373,"top1":0.9437,"top5":0.9598,"recall30":0.9598,"charAccuracy":0.9728,"correctionsPerPhrase":0.1072,"correctionsPer100Chars":2.924,"failed":0},
+    "qwerty/dev": {"phrases":183,"top1":0.9508,"top5":0.9617,"recall30":0.9617,"charAccuracy":0.9807,"correctionsPerPhrase":0.0929,"correctionsPer100Chars":2.511,"failed":0},
+    "qwerty/dev/clash": {"phrases":6,"top1":0.8333,"top5":0.8333,"recall30":0.8333,"charAccuracy":0.9167,"correctionsPerPhrase":0.3333,"correctionsPer100Chars":10.526,"failed":0},
+    "qwerty/dev/colloq": {"phrases":10,"top1":1.0000,"top5":1.0000,"recall30":1.0000,"charAccuracy":1.0000,"correctionsPerPhrase":0.0000,"correctionsPer100Chars":0.000,"failed":0},
+    "qwerty/dev/poly": {"phrases":20,"top1":0.9500,"top5":0.9500,"recall30":0.9500,"charAccuracy":0.9875,"correctionsPerPhrase":0.1000,"correctionsPer100Chars":2.667,"failed":0},
+    "qwerty/dev/weak": {"phrases":3,"top1":1.0000,"top5":1.0000,"recall30":1.0000,"charAccuracy":1.0000,"correctionsPerPhrase":0.0000,"correctionsPer100Chars":0.000,"failed":0},
+    "qwerty/test": {"phrases":190,"top1":0.9368,"top5":0.9579,"recall30":0.9579,"charAccuracy":0.9653,"correctionsPerPhrase":0.1211,"correctionsPer100Chars":3.329,"failed":0},
+    "qwerty/test/clash": {"phrases":12,"top1":1.0000,"top5":1.0000,"recall30":1.0000,"charAccuracy":1.0000,"correctionsPerPhrase":0.0000,"correctionsPer100Chars":0.000,"failed":0},
+    "qwerty/test/name": {"phrases":11,"top1":0.8182,"top5":1.0000,"recall30":1.0000,"charAccuracy":0.8182,"correctionsPerPhrase":0.1818,"correctionsPer100Chars":7.692,"failed":0},
+    "qwerty/test/poly": {"phrases":22,"top1":0.8636,"top5":0.9091,"recall30":0.9091,"charAccuracy":0.9364,"correctionsPerPhrase":0.2727,"correctionsPer100Chars":6.977,"failed":0},
+    "t9/all": {"phrases":373,"top1":0.7775,"top5":0.8525,"recall30":0.8740,"charAccuracy":0.8817,"correctionsPerPhrase":0.4182,"correctionsPer100Chars":11.404,"failed":0},
+    "t9/dev": {"phrases":183,"top1":0.7978,"top5":0.8907,"recall30":0.9071,"charAccuracy":0.8932,"correctionsPerPhrase":0.3388,"correctionsPer100Chars":9.158,"failed":0},
+    "t9/dev/clash": {"phrases":6,"top1":0.5000,"top5":0.8333,"recall30":0.8333,"charAccuracy":0.7361,"correctionsPerPhrase":0.8333,"correctionsPer100Chars":26.316,"failed":0},
+    "t9/dev/colloq": {"phrases":10,"top1":1.0000,"top5":1.0000,"recall30":1.0000,"charAccuracy":1.0000,"correctionsPerPhrase":0.0000,"correctionsPer100Chars":0.000,"failed":0},
+    "t9/dev/poly": {"phrases":20,"top1":0.8000,"top5":0.8500,"recall30":0.8500,"charAccuracy":0.8792,"correctionsPerPhrase":0.3500,"correctionsPer100Chars":9.333,"failed":0},
+    "t9/dev/weak": {"phrases":3,"top1":0.3333,"top5":1.0000,"recall30":1.0000,"charAccuracy":0.5556,"correctionsPerPhrase":0.6667,"correctionsPer100Chars":25.000,"failed":0},
+    "t9/test": {"phrases":190,"top1":0.7579,"top5":0.8158,"recall30":0.8421,"charAccuracy":0.8706,"correctionsPerPhrase":0.4947,"correctionsPer100Chars":13.603,"failed":0},
+    "t9/test/clash": {"phrases":12,"top1":0.7500,"top5":0.9167,"recall30":0.9167,"charAccuracy":0.9236,"correctionsPerPhrase":0.2500,"correctionsPer100Chars":7.317,"failed":0},
+    "t9/test/name": {"phrases":11,"top1":0.8182,"top5":0.9091,"recall30":1.0000,"charAccuracy":0.8182,"correctionsPerPhrase":0.1818,"correctionsPer100Chars":7.692,"failed":0},
+    "t9/test/poly": {"phrases":22,"top1":0.6364,"top5":0.7273,"recall30":0.7273,"charAccuracy":0.7583,"correctionsPerPhrase":0.8182,"correctionsPer100Chars":20.930,"failed":0}
+  }
+}
