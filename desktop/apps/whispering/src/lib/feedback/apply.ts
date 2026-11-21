@@ -63,20 +63,46 @@ export function contextFor(
 	};
 }
 
+type Review = Omit<ReviewContext, 'evidence'> & { revision: string };
+
+/**
+ * The record with its cards checked against these lists: fixes in force keep
+ * their cards as reviewed (so their Undo stays); the others, undone ones too,
+ * are reviewed again, so every preview still says what applying would do.
+ */
+export function refreshPending(record: FeedbackRecord, evidence: DictationEvidence, review: Review): FeedbackRecord {
+	const result = record.result;
+	if (!result) return record;
+	const live = new Set((record.applied ?? []).filter((x) => !x.undoneAt).map((x) => x.key));
+	const again = reviewProposals(result.proposals ?? [], contextFor(record, evidence, review), live);
+	const order = (key: string) => Number(key.slice(1));
+	const fixes = [...result.fixes.filter((f) => live.has(f.key)), ...again.fixes].sort(
+		(a, b) => order(a.key) - order(b.key),
+	);
+	return { ...record, result: { ...result, fixes, dropped: again.dropped, reviewedAgainst: review.revision } };
+}
+
 export async function applyFixes({
 	record,
 	selections: asked,
 	evidence,
 	review,
 	revisionAfter,
+	reviewAfter,
 	writers,
 }: {
 	record: FeedbackRecord;
 	selections: readonly Selection[];
 	evidence: DictationEvidence;
-	review: Omit<ReviewContext, 'evidence'> & { revision: string };
+	review: Review;
 	/** The lists' revision once the edits are in (read after writing). */
 	revisionAfter: () => Promise<string>;
+	/**
+	 * 0.9.16: the lists once the edits are in. The cards not applied are then
+	 * checked again (one fix changes what another would do: two promotions
+	 * compete for the same 20 words), so the next Apply uses true previews.
+	 */
+	reviewAfter?: () => Promise<Review | null>;
 	writers: Writers;
 }): Promise<ApplyOutcome> {
 	const result = record.result;
@@ -86,23 +112,12 @@ export async function applyFixes({
 	if (unique.length === 0) return { ok: false, message: 'Tick a fix to apply first.', record };
 	const ctx = contextFor(record, evidence, review);
 	if (review.revision !== result.reviewedAgainst) {
-		// Fixes in force keep their cards as reviewed, so their Undo stays;
-		// the others (undone ones too) are checked again.
-		const kept = live;
-		const again = reviewProposals(result.proposals ?? [], ctx, kept);
-		const order = (key: string) => Number(key.slice(1));
-		const fixes = [...result.fixes.filter((f) => kept.has(f.key)), ...again.fixes].sort(
-			(a, b) => order(a.key) - order(b.key),
-		);
 		return {
 			ok: false,
 			stale: true,
 			message:
 				'Your word lists changed since these fixes were checked. Look them over again, then apply.',
-			record: {
-				...record,
-				result: { ...result, fixes, dropped: again.dropped, reviewedAgainst: review.revision },
-			},
+			record: refreshPending(record, evidence, review),
 		};
 	}
 	const checked = checkSelection(result.fixes, unique, ctx, live);
@@ -156,12 +171,14 @@ export async function applyFixes({
 		}
 		applied.push({ key: fix.key, opId: saved.op.id, ...(scope ? { scope } : {}), appliedAt: saved.op.createdAt });
 	}
-	const next: FeedbackRecord = {
-		...record,
-		applied,
-		// The lists now include these edits: that is the revision reviewed.
-		result: { ...result, reviewedAgainst: await revisionAfter() },
-	};
+	const written: FeedbackRecord = { ...record, applied };
+	// The lists now include these edits: the cards not applied are checked
+	// against them (or, without that, the revision is just noted).
+	// The edits are written: nothing below may lose the record of them.
+	const after = reviewAfter ? await reviewAfter().catch(() => null) : null;
+	const next = after
+		? refreshPending(written, evidence, after)
+		: { ...written, result: { ...result, reviewedAgainst: await revisionAfter() } };
 	if (failure) return { ok: false, message: failure, record: next };
 	return { ok: true, record: next };
 }
@@ -196,6 +213,7 @@ export async function undoFix({
 	removeOp,
 	revisionAfter,
 	listsAfter,
+	reviewAfter,
 }: {
 	record: FeedbackRecord;
 	opId: string;
@@ -203,20 +221,25 @@ export async function undoFix({
 	revisionAfter: () => Promise<string>;
 	/** The word lists once the undo is in (to say when a later edit still carries a word fix). */
 	listsAfter?: () => Pick<ProfileSnapshot, 'terms'> | null;
+	/** 0.9.16: the lists and evidence once the undo is in, to check the other cards again. */
+	reviewAfter?: () => Promise<{ evidence: DictationEvidence; review: Review } | null>;
 }): Promise<{ ok: true; record: FeedbackRecord; message?: string } | { ok: false; message: string }> {
 	const entry = record.applied?.find((x) => x.opId === opId && !x.undoneAt);
 	if (!entry) return { ok: false, message: 'That fix is not applied.' };
 	const tombstone = await removeOp(entry.opId);
 	const note = listsAfter ? stillCarried(record, entry.key, entry.opId, listsAfter()) : null;
-	return {
-		ok: true,
-		...(note ? { message: note } : {}),
-		record: {
-			...record,
-			applied: (record.applied ?? []).map((x) =>
-				x.opId === entry.opId ? { ...x, undoneAt: tombstone.createdAt, tombstoneId: tombstone.id } : x,
-			),
-			...(record.result ? { result: { ...record.result, reviewedAgainst: await revisionAfter() } } : {}),
-		},
+	const undone: FeedbackRecord = {
+		...record,
+		applied: (record.applied ?? []).map((x) =>
+			x.opId === entry.opId ? { ...x, undoneAt: tombstone.createdAt, tombstoneId: tombstone.id } : x,
+		),
 	};
+	// The tombstone is written: nothing below may fail the undo.
+	const after = reviewAfter && undone.result ? await reviewAfter().catch(() => null) : null;
+	const next: FeedbackRecord = after
+		? refreshPending(undone, after.evidence, after.review)
+		: undone.result
+			? { ...undone, result: { ...undone.result, reviewedAgainst: await revisionAfter() } }
+			: undone;
+	return { ok: true, ...(note ? { message: note } : {}), record: next };
 }

@@ -180,9 +180,13 @@ async function setup(recordingId: string): Promise<Reply<{ setup: FeedbackSetup 
 /** The longest "what it should have said" kept (a rewrite of one dictation). */
 const WANTED_CAP = 20_000;
 
+/** Longer than this is refused, never cut. */
+const tooLong = (text: string | undefined) => (text?.length ?? 0) > WANTED_CAP;
+const TOO_LONG = `What it should have said is too long (${WANTED_CAP.toLocaleString('en')} characters at most).`;
+
 function wantedOf(text: string | undefined): string | undefined {
 	const t = text?.replace(/\r\n?/g, '\n');
-	return t?.trim() ? t.slice(0, WANTED_CAP) : undefined;
+	return t?.trim() ? t : undefined;
 }
 
 async function draftFor(a: { recordingId: string; feedback: string; wanted?: string; recordId?: string }) {
@@ -212,6 +216,7 @@ const service: FeedbackClient = {
 
 	async saveDraft(a) {
 		if (!a.feedback.trim()) return { ok: false, message: 'Say what should have been different.' };
+		if (tooLong(a.wanted)) return { ok: false, message: TOO_LONG };
 		return serial(a.recordId ?? `new:${a.recordingId}`, async () => {
 			const { record } = await draftFor(a);
 			if (!record) return { ok: false as const, message: 'That dictation is no longer in History.' };
@@ -221,6 +226,7 @@ const service: FeedbackClient = {
 
 	async submit(a) {
 		if (!a.feedback.trim()) return { ok: false, message: 'Say or type what should have been different.' };
+		if (tooLong(a.wanted)) return { ok: false, message: TOO_LONG };
 		const { provider: shown, model: shownModel } = provider();
 		if (a.expect && (a.expect.provider !== shown || a.expect.model !== shownModel))
 			return {
@@ -278,6 +284,7 @@ const service: FeedbackClient = {
 				evidence: evidenceFor(recording, await loadEvidence(recording.id), appIdOf(recording)),
 				review: await reviewContext(recording),
 				revisionAfter: revision,
+				reviewAfter: () => reviewContext(recording),
 				writers: { saveCorrection, saveAppStyle, saveWord, removeOp },
 			});
 			const saved = outcome.record === record ? record : await save(outcome.record);
@@ -297,6 +304,14 @@ const service: FeedbackClient = {
 					removeOp,
 					revisionAfter: revision,
 					listsAfter: () => wordLists.snapshot,
+					reviewAfter: async () => {
+						const recording = await recordingOf(record.recordingId);
+						if (!recording) return null;
+						return {
+							evidence: evidenceFor(recording, await loadEvidence(recording.id), appIdOf(recording)),
+							review: await reviewContext(recording),
+						};
+					},
 				});
 				if (!outcome.ok) return outcome;
 				return {

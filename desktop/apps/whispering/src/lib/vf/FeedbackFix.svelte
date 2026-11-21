@@ -94,7 +94,9 @@
 
 	function openWanted() {
 		showWanted = true;
-		if (!wanted.trim()) wanted = setup?.subject?.deliveredText ?? '';
+		const delivered = setup?.subject?.deliveredText ?? '';
+		// Prefilled to edit, unless longer than the box takes (it is never cut).
+		if (!wanted.trim() && delivered.length <= 20000) wanted = delivered;
 	}
 
 	async function send(e?: SubmitEvent) {

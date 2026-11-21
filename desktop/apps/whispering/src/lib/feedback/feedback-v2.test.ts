@@ -46,6 +46,18 @@ function snapshot(over: Partial<ProfileSnapshot> = {}): ProfileSnapshot {
 	};
 }
 
+/** The lists with a word edit in force (as the merge keeps the edit's entry). */
+const withWordLists = (
+	lists: ProfileSnapshot,
+	w: { text: string; heardAs?: string[]; priority?: number; apps?: string[] },
+): ProfileSnapshot => ({
+	...lists,
+	terms: [
+		...lists.terms.filter((t) => t.text !== w.text),
+		term(w.text, w.priority ?? 50, { id: 'dev1-op1', layer: 'edit', heardAs: w.heardAs ?? [], apps: w.apps ?? ['*'] }),
+	],
+});
+
 const asOp = (c: ProfileSnapshot['corrections'][number]): CorrectionOp => ({
 	schema: 'voiceflow-op',
 	version: 1,
@@ -311,6 +323,39 @@ describe('review findings (Codex, 0.9.16)', () => {
 		expect(fixes.map((f) => f.choices.app!.effect.dropsOut)).toEqual([['Tirvel'], ['Tirvel']]);
 		const both = checkSelection(fixes, fixes.map((f) => ({ key: f.key, scope: 'app' as const })), c);
 		expect(both.ok).toBe(false);
+	});
+
+	test('after an Apply, the cards not applied are checked again', async () => {
+		const lists = snapshot({ terms: [...FILLER.map((t, i) => term(t, 90 - i)), term('Zibbo', 40, { heardAs: ['Zebbo'] }), term('Quorbit', 40, { heardAs: ['Quorb'] })] });
+		const e = evidence({ rawText: 'zebbo and quorb', tidyOutput: 'Zebbo and Quorb.', deliveredText: 'Zebbo and Quorb.', corrections: [] });
+		const answer = {
+			explanation: 'x',
+			corrected_text: '',
+			issues: [{ layer: 'transcriber', summary: 's', proposals: [P('raise_priority', { from: ['zebbo'], to: 'Zibbo' }), P('raise_priority', { from: ['quorb'], to: 'Quorbit' })] }],
+		};
+		const review = { snapshot: lists, active: [], history: [], revision: 'r1' };
+		const outcome = await runFix({ evidence: e, feedback: 'f', review, provider: { apiKey: 'k', model: 'm' }, complete: async () => ({ ok: true, text: JSON.stringify(answer) }) });
+		if (!outcome.ok) throw new Error(outcome.message);
+		const record: FeedbackRecord = { schema: 'voiceflow-feedback-draft', version: 2, id: 'fb-00000004', device: 'd', createdAt: 'x', recordingId: 'rec1', rawText: '', feedback: 'f', result: outcome.result };
+		const { ops, writers } = memoryWriters();
+		const [zibbo, quorbit] = outcome.result.fixes as WordFix[];
+		// After Zibbo is raised to 72, Quorbit needs 72 too (it now has to pass Sovane), not 71.
+		const after = withWordLists(lists, wordEditOf(zibbo!.choices.everywhere!));
+		const first = await applyFixes({
+			record,
+			selections: [{ key: zibbo!.key }],
+			evidence: e,
+			review,
+			revisionAfter: async () => 'r2',
+			reviewAfter: async () => ({ ...review, snapshot: after, revision: 'r2' }),
+			writers,
+		});
+		expect(first.ok).toBe(true);
+		const fresh = first.record.result!.fixes.find((f) => f.key === quorbit!.key) as WordFix;
+		expect(quorbit!.choices.everywhere!.priority!.to).toBe(71);
+		expect(fresh.choices.everywhere!.priority!.to).toBe(72);
+		expect(first.record.result!.reviewedAgainst).toBe('r2');
+		expect(ops).toHaveLength(1);
 	});
 
 	test('a wanted word past what is sent still counts', async () => {
