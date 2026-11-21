@@ -208,6 +208,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     private static final int MENU_SPELLING = 4;
     private static final int MENU_PASTE = 5;
     private static final int MENU_SETTINGS = 6;
+    private static final int MENU_CHINESE_LAYOUT = 7;
     private boolean compactBar;
     private VoiceBar.Mode barMode = VoiceBar.Mode.IDLE;
     private FrameLayout barHost;
@@ -308,6 +309,17 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     // starts and cleared by any private field it passes through.
     private boolean recordingMayRemember = true;
     private boolean pinyinCandidateStripExpanded;
+    // The nine-key pad's side column (punctuation, or spellings while composing)
+    // and its 重输 key; null whenever the pad is not on screen.
+    private LinearLayout keypadSideColumn;
+    private ScrollView keypadSideScroller;
+    private String keypadSideSignature;
+    private TextView keypadReenterKey;
+    // The spelling of the 9-key reading, over the candidates ("ni'hao").
+    private TextView pinyinSpellingText;
+    // A configuration change (fold, unfold, rotate) rebuilds the input view and
+    // restarts input on the same field; a composition survives it.
+    private boolean rebuildingForConfiguration;
     private int correctionGeneration;
     private int statusSpinnerStep;
 
@@ -317,7 +329,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         colors = KeyColors.from(ui);
         // The framework calls this again after a configuration change, so this
         // is the one place geometry needs to be derived.
-        metrics = KeyboardMetrics.from(getResources().getConfiguration());
+        metrics = KeyboardMetrics.from(getResources().getConfiguration(), Prefs.splitLargeScreens(this));
         if (!recording && !processing && !retoneMode) {
             // A rotation mid-recording keeps that message's style.
             String preset = Prefs.activePreset(this);
@@ -375,6 +387,24 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         return root;
     }
 
+    /**
+     * Folding or unfolding the Fold (or turning any phone) is a configuration
+     * change: the framework rebuilds the input view through
+     * {@link #onCreateInputView()} and restarts input on the same field, all
+     * inside this call. The flag lets that restart keep a half-typed pinyin run
+     * instead of dropping it (0.8.7). A real field change afterwards still
+     * settles it as before.
+     */
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        rebuildingForConfiguration = composingPinyin();
+        try {
+            super.onConfigurationChanged(newConfig);
+        } finally {
+            rebuildingForConfiguration = false;
+        }
+    }
+
     @Override
     public void onDestroy() {
         watchClipboard(false);
@@ -403,7 +433,12 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             // field it passed through allows it.
             recordingMayRemember &= canRememberFromThisField();
         }
-        settlePinyin(PinyinSession.SettleReason.EDITOR_GONE);
+        if (rebuildingForConfiguration && restarting) {
+            // Folding, unfolding or turning the phone restarts input on the same
+            // field. What she was composing stays; the rebuilt strip shows it again.
+        } else {
+            settlePinyin(PinyinSession.SettleReason.EDITOR_GONE);
+        }
         clearAutoCorrection();
         clearLastAutoCorrection();
         clearPhraseUndo();
@@ -445,7 +480,30 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             // The offline word lists, read ahead of the first dictation.
             WordLists.prewarm(app);
         });
+        applyKeyboardSettingsChangedElsewhere();
         restoreKeyboardForActiveInput();
+    }
+
+    /**
+     * Settings > Keyboard can change the split switch or the pinyin layout while
+     * the keyboard is away; the cached view would keep the old ones until the
+     * next fold or rotation. Picks them up when the keyboard next opens.
+     */
+    private void applyKeyboardSettingsChangedElsewhere() {
+        if (keyboardPanel == null || recording || processing) {
+            return;
+        }
+        if (inputMode.isChinese() && chineseAvailable() && !composingPinyin()) {
+            InputMode wanted = InputMode.chineseFor(Prefs.chineseLayout(this));
+            if (wanted != inputMode) {
+                setInputMode(wanted);
+            }
+        }
+        boolean splitWanted = KeyboardGeometry.shouldSplit(
+                getResources().getConfiguration().smallestScreenWidthDp, Prefs.splitLargeScreens(this));
+        if (splitWanted != metrics.split) {
+            setInputView(onCreateInputView());
+        }
     }
 
     @Override
@@ -926,7 +984,22 @@ public class VoiceFlowKeyboardService extends InputMethodService {
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
         ));
-        suggestionBar.addView(chipScroller, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
+        // 0.8.7: on the nine-key pad the reading of the digits ("ni'hao") sits in
+        // a small line over the candidates, inside the bar's own height.
+        LinearLayout candidateColumn = new LinearLayout(this);
+        candidateColumn.setOrientation(LinearLayout.VERTICAL);
+        pinyinSpellingText = barText("", 12, false, ui.muted);
+        pinyinSpellingText.setSingleLine(true);
+        pinyinSpellingText.setEllipsize(TextUtils.TruncateAt.START);
+        pinyinSpellingText.setPadding(dp(8), 0, dp(8), 0);
+        pinyinSpellingText.setIncludeFontPadding(false);
+        pinyinSpellingText.setVisibility(View.GONE);
+        pinyinSpellingText.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        candidateColumn.addView(pinyinSpellingText, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(PINYIN_SPELLING_LINE_DP)));
+        candidateColumn.addView(chipScroller, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+        suggestionBar.addView(candidateColumn, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
         micButton = micButton();
         micButton.setOnClickListener(v -> {
             haptic(v);
@@ -1219,6 +1292,9 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         letterButtons.clear();
         shiftButton = null;
         spaceButtons.clear();
+        keypadSideColumn = null;
+        keypadSideScroller = null;
+        keypadReenterKey = null;
         if (symbolsMode) {
             if (symbolPage == SymbolPage.NUMPAD) {
                 addNumpadRows(panel);
@@ -1252,8 +1328,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         }
 
         if (inputMode.isKeypad()) {
+            // The nine-key pad brings its own bottom row (符 123 ☺ space 中/英).
             addKeypadRows(panel);
-            panel.addView(bottomRow("?123"));
             return;
         }
 
@@ -1996,6 +2072,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             renderBar();
             return;
         }
+        // The nine-key side column follows the composition: spellings or punctuation.
+        refreshKeypadSide();
         // Candidates outrank everything: while composing, the strip is the only
         // way to choose a character.
         if (showPinyinCandidates()) {
@@ -2367,7 +2445,13 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         if (clipboardHasText()) {
             menu.getMenu().add(0, MENU_PASTE, 4, "Paste clipboard");
         }
-        menu.getMenu().add(1, MENU_SETTINGS, 5, "VoiceFlow settings");
+        if (chineseAvailable()) {
+            // 0.8.7: one tap between the two Chinese layouts, as Sogou offers.
+            boolean keypadNext = !Prefs.CHINESE_LAYOUT_KEYPAD.equals(Prefs.chineseLayout(this));
+            menu.getMenu().add(1, MENU_CHINESE_LAYOUT, 5, keypadNext
+                    ? "中文 九宫格 (nine-key)" : "中文 全键 (full keyboard)");
+        }
+        menu.getMenu().add(1, MENU_SETTINGS, 6, "VoiceFlow settings");
         menu.setOnMenuItemClickListener(item -> {
             haptic(anchor);
             switch (item.getItemId()) {
@@ -2385,6 +2469,10 @@ public class VoiceFlowKeyboardService extends InputMethodService {
                     return true;
                 case MENU_PASTE:
                     pasteClipboard();
+                    return true;
+                case MENU_CHINESE_LAYOUT:
+                    setInputMode(Prefs.CHINESE_LAYOUT_KEYPAD.equals(Prefs.chineseLayout(this))
+                            ? InputMode.CHINESE_QWERTY : InputMode.CHINESE_KEYPAD);
                     return true;
                 case MENU_SETTINGS:
                     openSettings();
@@ -4812,11 +4900,14 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             this.outerInsetDp = outerInsetDp;
         }
 
-        static KeyboardMetrics from(Configuration configuration) {
+        static KeyboardMetrics from(Configuration configuration, boolean splitEnabled) {
             boolean landscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE;
-            boolean split = KeyboardGeometry.shouldSplit(configuration.smallestScreenWidthDp);
+            // Key height follows the screen; whether the rows split also
+            // follows the Settings switch.
+            boolean large = KeyboardGeometry.shouldSplit(configuration.smallestScreenWidthDp);
+            boolean split = KeyboardGeometry.shouldSplit(configuration.smallestScreenWidthDp, splitEnabled);
             return new KeyboardMetrics(
-                    KeyboardGeometry.keyHeightDp(landscape, split),
+                    KeyboardGeometry.keyHeightDp(landscape, large),
                     split,
                     split ? KeyboardGeometry.gutterDp(configuration.screenWidthDp) : 0,
                     KeyboardGeometry.outerInsetDp(split)
@@ -4875,7 +4966,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         } else {
             pinyinSession.setComposer(composer);
         }
-        setStatus(inputMode.isKeypad() ? "中文 九键" : "中文 全键");
+        setStatus(inputMode.isKeypad() ? "中文 九宫格" : "中文 全键");
         showIdleChips();
     }
 
@@ -4926,7 +5017,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             return;
         }
         if (composingPinyin()) {
-            connection.setComposingText(pinyinSession.rawText(), 1);
+            // On the 9-key pad the field shows the reading ("ni'hao"), not digits.
+            connection.setComposingText(pinyinSession.composingText(), 1);
         }
         showIdleChips();
     }
@@ -5007,31 +5099,70 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     private boolean showPinyinCandidates() {
         if (chipStrip == null || !composingPinyin() || recording || processing || historyMode) {
             setPinyinCandidateStripExpanded(false);
+            if (pinyinSpellingText != null) {
+                pinyinSpellingText.setVisibility(View.GONE);
+            }
             return false;
         }
         List<PinyinCandidate> candidates = pinyinSession.candidates();
+        boolean keypad = pinyinSession.isKeypad();
         setPinyinCandidateStripExpanded(true);
         chipStrip.removeAllViews();
         chipScroller.scrollTo(0, 0);
         showChipStrip();
-        TextView raw = pinyinCandidateChip(pinyinSession.rawText(), v -> selectRawPinyin());
-        raw.setContentDescription("Type " + pinyinSession.rawText() + " as Latin text");
-        raw.setTextColor(ui.muted);
-        if (candidates.isEmpty()) {
-            tonal(raw);
+        if (pinyinSpellingText != null) {
+            pinyinSpellingText.setVisibility(keypad ? View.VISIBLE : View.GONE);
+            pinyinSpellingText.setText(keypad ? pinyinSession.spellingDisplay() : "");
         }
-        chipStrip.addView(raw);
+        int chipHeightDp = keypad ? BAR_HEIGHT_DP - PINYIN_SPELLING_LINE_DP - 2 : 48;
+        if (!keypad) {
+            TextView raw = pinyinCandidateChip(pinyinSession.rawText(), v -> selectRawPinyin(), chipHeightDp);
+            raw.setContentDescription("Type " + pinyinSession.rawText() + " as Latin text");
+            raw.setTextColor(ui.muted);
+            if (candidates.isEmpty()) {
+                tonal(raw);
+            }
+            chipStrip.addView(raw);
+        }
         for (int i = 0; i < candidates.size(); i++) {
             final int index = i;
             TextView candidate = pinyinCandidateChip(
                     candidates.get(i).text,
-                    v -> selectPinyinCandidate(index));
+                    v -> selectPinyinCandidate(index),
+                    chipHeightDp);
             if (i == 0) {
                 tonal(candidate);
             }
             chipStrip.addView(candidate);
         }
+        if (keypad) {
+            // Last, the letters themselves, for a word that is not Chinese.
+            String letters = pinyinSession.composingText().replace("'", "");
+            TextView latin = pinyinCandidateChip(letters, v -> selectSpelledLetters(), chipHeightDp);
+            latin.setContentDescription("Type " + letters + " as Latin text");
+            latin.setTextColor(ui.muted);
+            if (candidates.isEmpty()) {
+                tonal(latin);
+            }
+            chipStrip.addView(latin);
+        }
         return true;
+    }
+
+    /** Height of the 9-key spelling line over the candidates. */
+    private static final int PINYIN_SPELLING_LINE_DP = 16;
+
+    /** 9-key: commits the spelled letters as Latin text. */
+    private void selectSpelledLetters() {
+        if (pinyinSession == null) {
+            return;
+        }
+        applySettlement(pinyinSession.selectSpelledLetters());
+        InputConnection connection = getCurrentInputConnection();
+        if (connection != null) {
+            connection.finishComposingText();
+        }
+        showIdleChips();
     }
 
     /**
@@ -5047,14 +5178,14 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     }
 
     /** Larger, easier-to-hit text than the compact English/status chips. */
-    private TextView pinyinCandidateChip(String text, View.OnClickListener listener) {
+    private TextView pinyinCandidateChip(String text, View.OnClickListener listener, int heightDp) {
         TextView candidate = chip(text, listener);
-        candidate.setTextSize(18);
+        candidate.setTextSize(heightDp < 48 ? 17 : 18);
         candidate.setMinWidth(dp(48));
         candidate.setPadding(dp(16), 0, dp(16), 0);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-                dp(48));
+                dp(heightDp));
         params.setMargins(dp(2), 0, dp(2), 0);
         candidate.setLayoutParams(params);
         return candidate;
@@ -5115,8 +5246,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             return;
         }
         PopupMenu menu = new PopupMenu(this, anchor);
-        menu.getMenu().add(0, 1, 0, "中文 全键 (full pinyin)");
-        menu.getMenu().add(0, 2, 1, "中文 九键 (9-key)");
+        menu.getMenu().add(0, 1, 0, "中文 全键 (full keyboard)");
+        menu.getMenu().add(0, 2, 1, "中文 九宫格 (nine-key)");
         menu.getMenu().add(0, 3, 2, "English");
         menu.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
@@ -5136,7 +5267,14 @@ public class VoiceFlowKeyboardService extends InputMethodService {
 
     /** The language key: tap to toggle, long-press to pick the Chinese layout. */
     private TextView languageKey() {
-        TextView key = keyButton(inputMode.keyLabel(), 1.15f, v -> toggleLanguage(), true);
+        return languageKey(inputMode.keyLabel());
+    }
+
+    private TextView languageKey(String label) {
+        TextView key = keyButton(label, 1.15f, v -> toggleLanguage(), true);
+        key.setContentDescription(inputMode.isChinese()
+                ? "Switch to English; hold to choose the Chinese layout"
+                : "Switch to Chinese; hold to choose the Chinese layout");
         key.setOnLongClickListener(v -> {
             showChineseLayoutMenu(v);
             return true;
@@ -5144,38 +5282,246 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         return key;
     }
 
-    /** Samsung-style 3x4 pinyin keypad: eight letter groups plus function keys. */
+    /**
+     * The nine-key (九宫格) pad, 0.8.7, laid out as Sogou and Gboard do:
+     *
+     * <pre>
+     *  ，   | 1 分词 | 2 ABC | 3 DEF  | ⌫
+     *  。   | 4 GHI  | 5 JKL | 6 MNO  | 重输
+     *  ？…  | 7 PQRS | 8 TUV | 9 WXYZ | ⏎
+     *  符   | 123    | ☺     | space  | 中/英 | (⏎)
+     * </pre>
+     *
+     * The left column lists punctuation, and while composing the spellings the
+     * first digits could be (64: ni, mi, m, n, o); tapping one pins it. On a
+     * large or wide screen the pad keeps a thumb-sized width, centred, rather
+     * than stretching edge to edge (see {@link KeyboardGeometry#keypadWidthDp}).
+     */
     private void addKeypadRows(LinearLayout panel) {
         String[][] groups = {
-                {"ABC", "2"}, {"DEF", "3"}, {"GHI", "4"},
-                {"JKL", "5"}, {"MNO", "6"}, {"PQRS", "7"},
-                {"TUV", "8"}, {"WXYZ", "9"}
+                {"分词", "1"}, {"ABC", "2"}, {"DEF", "3"},
+                {"GHI", "4"}, {"JKL", "5"}, {"MNO", "6"},
+                {"PQRS", "7"}, {"TUV", "8"}, {"WXYZ", "9"}
         };
-        int cursor = 0;
+        int rowHeight = keyHeightPx();
+        LinearLayout pad = new LinearLayout(this);
+        pad.setOrientation(LinearLayout.HORIZONTAL);
+
+        // Left block: the side column and the 3x3 grid, over the bottom row.
+        LinearLayout left = new LinearLayout(this);
+        left.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout upper = new LinearLayout(this);
+        upper.setOrientation(LinearLayout.HORIZONTAL);
+
+        ScrollView side = new ScrollView(this);
+        side.setVerticalScrollBarEnabled(false);
+        side.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        keypadSideColumn = new LinearLayout(this);
+        keypadSideColumn.setOrientation(LinearLayout.VERTICAL);
+        side.addView(keypadSideColumn, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT));
+        keypadSideScroller = side;
+        keypadSideSignature = null;
+        upper.addView(side, new LinearLayout.LayoutParams(0, rowHeight * 3, KEYPAD_SIDE_WEIGHT));
+
+        LinearLayout grid = new LinearLayout(this);
+        grid.setOrientation(LinearLayout.VERTICAL);
         for (int row = 0; row < 3; row++) {
             LinearLayout line = new LinearLayout(this);
             line.setOrientation(LinearLayout.HORIZONTAL);
-            for (int column = 0; column < 3 && cursor < groups.length; column++, cursor++) {
-                final String digit = groups[cursor][1];
-                TextView group = keyButton(groups[cursor][0], 1f, v -> commitKey(digit));
+            for (int column = 0; column < 3; column++) {
+                String[] group = groups[row * 3 + column];
+                final String digit = group[1];
+                TextView key = "1".equals(digit)
+                        ? keyButton(group[0], 1f, v -> typeKeypadSeparator())
+                        : keyButton(group[0], 1f, v -> commitKey(digit));
                 // keyButton sizes text by label length, which would render ABC at
                 // 18sp next to PQRS at 11sp. The keypad wants one uniform size.
-                group.setTextSize(15);
-                group.setTypeface(Typeface.DEFAULT_BOLD);
-                line.addView(group);
+                key.setTextSize(15);
+                key.setTypeface(Typeface.DEFAULT_BOLD);
+                // The digit small above its letters, as on a phone keypad.
+                android.text.SpannableString label = new android.text.SpannableString(digit + "\n" + group[0]);
+                label.setSpan(new android.text.style.RelativeSizeSpan(0.72f), 0, digit.length(), 0);
+                label.setSpan(new android.text.style.ForegroundColorSpan(ui.subtle), 0, digit.length(), 0);
+                key.setSingleLine(false);
+                key.setMaxLines(2);
+                key.setLineSpacing(0f, 0.95f);
+                key.setText(label);
+                key.setContentDescription("1".equals(digit)
+                        ? "Syllable break" : digit + " " + group[0]);
+                line.addView(key);
             }
-            if (row == 0) {
-                line.addView(deleteKey());
-            } else if (row == 1) {
-                line.addView(keyButton("，", 1.35f, v -> commitSeparator("，"), true));
-            } else {
-                // The last row is one letter group short; 。 fills it so every
-                // row keeps the same four-column geometry.
-                line.addView(keyButton("。", 1f, v -> commitSeparator("。")));
-                line.addView(keyButton("？", 1.35f, v -> commitSeparator("？"), true));
-            }
-            panel.addView(line);
+            grid.addView(line);
         }
+        upper.addView(grid, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 3f));
+        left.addView(upper);
+
+        LinearLayout bottom = new LinearLayout(this);
+        bottom.setOrientation(LinearLayout.HORIZONTAL);
+        TextView symbols = keyButton("符", KEYPAD_SIDE_WEIGHT, v -> toggleSymbolsMode(), true);
+        symbols.setContentDescription("Symbols");
+        bottom.addView(symbols);
+        TextView numbers = keyButton("123", 0.9f, v -> showLayer(KeyboardLayerRules.Layer.NUMPAD), true);
+        numbers.setContentDescription("Numbers");
+        bottom.addView(numbers);
+        TextView emojiKey = keyButton("", 0.8f, v -> showEmojiPicker(), true);
+        emojiKey.setBackground(iconKeyBackground(colors.keyAlt, R.drawable.ph_smiley, colors.text));
+        emojiKey.setContentDescription("Open emoji keyboard");
+        bottom.addView(emojiKey);
+        bottom.addView(spaceKey(1.6f));
+        bottom.addView(languageKey("中/英"));
+        left.addView(bottom);
+        pad.addView(left, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT,
+                KEYPAD_SIDE_WEIGHT + 3f));
+
+        // Right column: delete, re-enter, and a two-row return.
+        LinearLayout right = new LinearLayout(this);
+        right.setOrientation(LinearLayout.VERTICAL);
+        TextView delete = deleteKey();
+        right.addView(delete, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, rowHeight));
+        keypadReenterKey = keyButton("重输", 1f, v -> reenterPinyin(), true);
+        keypadReenterKey.setContentDescription("Clear what you typed");
+        right.addView(keypadReenterKey,
+                new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, rowHeight));
+        TextView enter = returnKey(1f);
+        right.addView(enter, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, rowHeight * 2));
+        pad.addView(right, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        int widthDp = KeyboardGeometry.keypadWidthDp(
+                getResources().getConfiguration().screenWidthDp - 2 * metrics.outerInsetDp - 8, metrics.split);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                widthDp > 0 ? dp(widthDp) : LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.gravity = Gravity.CENTER_HORIZONTAL;
+        panel.addView(pad, params);
+        refreshKeypadSide();
+    }
+
+    /** Share of the pad's width the side column (and 符 under it) takes, against 1 per digit column. */
+    private static final float KEYPAD_SIDE_WEIGHT = 0.85f;
+
+    /** Punctuation in the side column, commonest first; 省略号 types as a pair. */
+    private static final String[] KEYPAD_PUNCTUATION = {
+            "，", "。", "？", "！", "…", "、", "：", "；", "～", "“", "”", "（", "）", "《", "》", "@"
+    };
+
+    /**
+     * Fills the side column: the spellings to pin while composing, punctuation
+     * otherwise. Also dims 重输 when there is nothing to clear. Cheap to call on
+     * every keystroke; it only rebuilds when what it shows changed.
+     */
+    private void refreshKeypadSide() {
+        if (keypadSideColumn == null || !inputMode.isKeypad() || symbolsMode) {
+            return;
+        }
+        boolean composing = composingPinyin();
+        List<PinyinKeypadLookup.SpellingOption> options = composing
+                ? pinyinSession.spellingOptions()
+                : java.util.Collections.<PinyinKeypadLookup.SpellingOption>emptyList();
+        String signature = composing ? "s:" + options + "@" + pinyinSession.rawText() : "p";
+        if (keypadReenterKey != null) {
+            keypadReenterKey.setAlpha(composing ? 1f : 0.45f);
+        }
+        if (signature.equals(keypadSideSignature)) {
+            return;
+        }
+        keypadSideSignature = signature;
+        keypadSideColumn.removeAllViews();
+        int itemHeight = Math.round(keyHeightPx() * 0.75f);
+        if (composing && !options.isEmpty()) {
+            for (int i = 0; i < options.size(); i++) {
+                final int index = i;
+                TextView item = keypadSideItem(options.get(i).label, itemHeight, v -> pinKeypadSpelling(index));
+                item.setContentDescription("Spell " + options.get(i).label);
+                if (i == 0) {
+                    item.setTextColor(colors.accent);
+                }
+                keypadSideColumn.addView(item);
+            }
+        } else {
+            for (String mark : KEYPAD_PUNCTUATION) {
+                String typed = "…".equals(mark) ? "……" : mark;
+                keypadSideColumn.addView(keypadSideItem(mark, itemHeight, v -> commitKeypadPunctuation(typed)));
+            }
+        }
+        if (keypadSideScroller != null) {
+            keypadSideScroller.scrollTo(0, 0);
+        }
+    }
+
+    /** A row of the side column: flat, on the utility key colour, outside keyButtons. */
+    private TextView keypadSideItem(String label, int heightPx, View.OnClickListener listener) {
+        TextView item = new TextView(this);
+        item.setText(label);
+        item.setTextSize(label.length() > 2 ? 15 : 17);
+        item.setTypeface(Fonts.medium(this));
+        item.setSingleLine(true);
+        item.setGravity(Gravity.CENTER);
+        item.setTextColor(colors.text);
+        item.setBackground(keyVisualBackground(colors.keyAlt, false));
+        item.setIncludeFontPadding(false);
+        item.setClickable(true);
+        item.setOnClickListener(v -> {
+            if (recording || processing) {
+                return;
+            }
+            haptic(v);
+            listener.onClick(v);
+        });
+        item.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, heightPx));
+        return item;
+    }
+
+    /** Side-column punctuation: settles any reading first, as every separator does. */
+    private void commitKeypadPunctuation(String mark) {
+        clearBarMessage();
+        if (recording || processing) {
+            return;
+        }
+        if (mark.length() == 1 && "，。？！：；".contains(mark)) {
+            commitSeparator(mark);
+            return;
+        }
+        settlePinyin(PinyinSession.SettleReason.ACCEPT_TOP);
+        commitText(mark);
+        showIdleChips();
+    }
+
+    /** Pins the spelling at {@code index} from the side column. */
+    private void pinKeypadSpelling(int index) {
+        if (pinyinSession == null || !composingPinyin()) {
+            return;
+        }
+        if (pinyinSession.pinSpelling(index)) {
+            refreshComposingText();
+        }
+    }
+
+    /**
+     * The 1 key (分词): a syllable break while composing; otherwise it types 1,
+     * which is what its corner says.
+     */
+    private void typeKeypadSeparator() {
+        clearBarMessage();
+        if (recording || processing) {
+            return;
+        }
+        if (composingPinyin()) {
+            pinyinSession.appendSeparator();
+            refreshComposingText();
+            return;
+        }
+        commitText("1");
+    }
+
+    /** 重输: drops what is composing, leaving the field as it was. */
+    private void reenterPinyin() {
+        clearBarMessage();
+        if (recording || processing || !composingPinyin()) {
+            return;
+        }
+        settlePinyin(PinyinSession.SettleReason.CANCELLED);
+        showIdleChips();
     }
 
     private void toggleSymbolsMode() {

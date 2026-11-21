@@ -57,10 +57,17 @@ public class ScreenshotsTest {
         return Arrays.asList(new Object[][]{
                 {"phone-light", "w412dp-h915dp-notnight-xhdpi", 412, 915},
                 {"phone-dark", "w412dp-h915dp-night-xhdpi", 412, 915},
-                {"fold-outer-light", "w344dp-h882dp-notnight-xhdpi", 344, 882},
-                {"fold-outer-dark", "w344dp-h882dp-night-xhdpi", 344, 882},
-                {"fold-inner-light", "w840dp-h900dp-notnight-xhdpi", 840, 900},
-                {"fold-inner-dark", "w840dp-h900dp-night-xhdpi", 840, 900},
+                // Galaxy Z Fold8 Ultra (SM-F976U), measured with dumpsys at 480dpi
+                // (see KeyboardGeometryTest): cover 1080x2520 px = 360 x 840 dp,
+                // inner 2256x2504 px = 752 x 835 dp. Both ways up (0.8.7).
+                {"fold-cover-light", "w360dp-h840dp-port-notnight-xhdpi", 360, 840},
+                {"fold-cover-dark", "w360dp-h840dp-port-night-xhdpi", 360, 840},
+                {"fold-cover-land-light", "w840dp-h360dp-land-notnight-xhdpi", 840, 360},
+                {"fold-cover-land-dark", "w840dp-h360dp-land-night-xhdpi", 840, 360},
+                {"fold-inner-light", "w752dp-h835dp-port-notnight-xhdpi", 752, 835},
+                {"fold-inner-dark", "w752dp-h835dp-port-night-xhdpi", 752, 835},
+                {"fold-inner-land-light", "w835dp-h752dp-land-notnight-xhdpi", 835, 752},
+                {"fold-inner-land-dark", "w835dp-h752dp-land-night-xhdpi", 835, 752},
         });
     }
 
@@ -278,6 +285,86 @@ public class ScreenshotsTest {
         startKeyboard();
         call("toggleSymbolsMode");
         shootKeyboard("keyboard-symbols");
+    }
+
+    // ------------------------------------------------- nine-key pinyin (0.8.7)
+
+    /** Chinese on, the nine-key layout chosen, its dictionary loaded. */
+    private void startNineKey() throws Exception {
+        assumeFalse("screenshots run with -PvfShots=<dir>", DIR.isEmpty());
+        RuntimeEnvironment.setQualifiers(qualifiers);
+        Prefs.setChineseInputEnabled(RuntimeEnvironment.getApplication(), true);
+        Prefs.setChineseLayout(RuntimeEnvironment.getApplication(), Prefs.CHINESE_LAYOUT_KEYPAD);
+        startKeyboard();
+        ReflectionHelpers.callInstanceMethod(service, "setInputMode",
+                ClassParameter.from(InputMode.class, InputMode.CHINESE_KEYPAD));
+        long deadline = System.currentTimeMillis() + 30_000;
+        while (ReflectionHelpers.getField(service, "pinyinSession") == null
+                || !((PinyinEngine) ReflectionHelpers.getField(service, "pinyinEngine")).isReady(InputMode.CHINESE_KEYPAD)) {
+            if (System.currentTimeMillis() > deadline) {
+                throw new AssertionError("nine-key engine not ready");
+            }
+            idle();
+            Thread.sleep(25);
+        }
+        idle();
+    }
+
+    private void typeDigits(String digits) {
+        for (char digit : digits.toCharArray()) {
+            ReflectionHelpers.callInstanceMethod(service, "commitKey",
+                    ClassParameter.from(String.class, String.valueOf(digit)));
+        }
+    }
+
+    @Test public void keyboardNineKey() throws Exception {
+        startNineKey();
+        shootKeyboard("keyboard-ninekey");
+    }
+
+    /** 64426: 你好 on top, the reading ni'hao over the candidates, spellings in the side column. */
+    @Test public void keyboardNineKeyComposing() throws Exception {
+        startNineKey();
+        typeDigits("64426");
+        shootKeyboard("keyboard-ninekey-composing");
+    }
+
+    /** 7426 with qian pinned from the side column: 钱 leads. */
+    @Test public void keyboardNineKeyPinned() throws Exception {
+        startNineKey();
+        typeDigits("7426");
+        PinyinSession session = ReflectionHelpers.getField(service, "pinyinSession");
+        int qian = -1;
+        for (int i = 0; i < session.spellingOptions().size(); i++) {
+            if ("qian".equals(session.spellingOptions().get(i).label)) {
+                qian = i;
+            }
+        }
+        ReflectionHelpers.callInstanceMethod(service, "pinKeypadSpelling", ClassParameter.from(int.class, qian));
+        shootKeyboard("keyboard-ninekey-pinned");
+    }
+
+    /** Full-keyboard pinyin composing, for comparison on every screen. */
+    @Test public void keyboardQwertyPinyin() throws Exception {
+        assumeFalse("screenshots run with -PvfShots=<dir>", DIR.isEmpty());
+        RuntimeEnvironment.setQualifiers(qualifiers);
+        Prefs.setChineseInputEnabled(RuntimeEnvironment.getApplication(), true);
+        startKeyboard();
+        ReflectionHelpers.callInstanceMethod(service, "setInputMode",
+                ClassParameter.from(InputMode.class, InputMode.CHINESE_QWERTY));
+        long deadline = System.currentTimeMillis() + 30_000;
+        while (ReflectionHelpers.getField(service, "pinyinSession") == null) {
+            if (System.currentTimeMillis() > deadline) {
+                throw new AssertionError("pinyin engine not ready");
+            }
+            idle();
+            Thread.sleep(25);
+        }
+        for (char letter : "nihao".toCharArray()) {
+            ReflectionHelpers.callInstanceMethod(service, "commitKey",
+                    ClassParameter.from(String.class, String.valueOf(letter)));
+        }
+        shootKeyboard("keyboard-qwerty-pinyin");
     }
 
     @Test public void keyboardEmoji() throws Exception {

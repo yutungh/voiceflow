@@ -28,6 +28,9 @@ import java.util.Set;
  * spell out more than was typed, then readings that cover only a leading part
  * of the buffer (the escape hatch when a typo leaves a dangling tail).
  *
+ * <p>Every candidate also carries the letters it spells (0.8.7), which the 9-key
+ * layout shows as the reading of the digits.
+ *
  * <p>Pure Java by design — no Android types — so it is unit tested directly.
  */
 final class PinyinComposer {
@@ -55,6 +58,11 @@ final class PinyinComposer {
         this.logTotalFrequency = Math.log(Math.max(1L, dictionary.totalFrequency()));
     }
 
+    /** The lookup behind this composer; the 9-key layout asks it for spellings. */
+    PinyinLookup lookup() {
+        return dictionary;
+    }
+
     /** Unigram log-probability of one dictionary entry. Always negative. */
     private double logProbability(int frequency) {
         return Math.log(frequency + 1.0) - logTotalFrequency;
@@ -63,10 +71,13 @@ final class PinyinComposer {
     private static final class Path {
         final String text;
         final double score;
+        /** Dictionary keys of the words so far, apostrophe-separated. */
+        final String spelling;
 
-        Path(String text, double score) {
+        Path(String text, double score, String spelling) {
             this.text = text;
             this.score = score;
+            this.spelling = spelling;
         }
     }
 
@@ -91,10 +102,55 @@ final class PinyinComposer {
         Set<String> seen = new HashSet<>();
 
         addFullReadings(input, paths, results, seen);
-        addCompletions(input, results, seen, limit);
-        addPartialReadings(input, paths, results, seen, limit);
+        if (dictionary.offersLeadingWords()) {
+            // Keep room at the end of the list for the words that read just the
+            // start of the buffer: they are how a long run is committed piecewise.
+            int reserved = Math.min(LEADING_WORDS, Math.max(0, limit - results.size()) / 2);
+            addCompletions(input, results, seen, limit - reserved);
+            addPartialReadings(input, paths, results, seen, limit - reserved);
+            addLeadingWords(input, results, seen, limit);
+        } else {
+            addCompletions(input, results, seen, limit);
+            addPartialReadings(input, paths, results, seen, limit);
+        }
 
         return results.size() > limit ? new ArrayList<>(results.subList(0, limit)) : results;
+    }
+
+    /** How many leading-word candidates the 9-key list keeps room for. */
+    private static final int LEADING_WORDS = 10;
+
+    /**
+     * Tier four, 9-key only: single dictionary words covering a leading stretch
+     * of the buffer, longest stretch first. Choosing one commits it and leaves the
+     * rest composing. An apostrophe right after the stretch goes with it.
+     */
+    private void addLeadingWords(
+            String input,
+            List<PinyinCandidate> results,
+            Set<String> seen,
+            int limit
+    ) {
+        int longest = Math.min(dictionary.maxSpanLength(), input.length() - 1);
+        boolean[] boundaries = dictionary.spanBoundaries(input);
+        for (int end = longest; end > 0 && results.size() < limit; end--) {
+            if (boundaries != null && !boundaries[end]) {
+                continue;
+            }
+            List<PinyinDictionary.Entry> entries = dictionary.entriesFor(input.substring(0, end));
+            int consumed = end < input.length() && input.charAt(end) == '\'' ? end + 1 : end;
+            int taken = 0;
+            for (PinyinDictionary.Entry entry : entries) {
+                if (taken >= 3 || results.size() >= limit) {
+                    break;
+                }
+                if (seen.add(entry.word)) {
+                    results.add(new PinyinCandidate(entry.word, consumed, false,
+                            logProbability(entry.frequency), keyOf(entry, input.substring(0, end))));
+                    taken++;
+                }
+            }
+        }
     }
 
     /** Best single reading of the whole buffer, or null when it cannot be covered. */
@@ -109,17 +165,22 @@ final class PinyinComposer {
         for (int i = 0; i <= n; i++) {
             paths.add(new ArrayList<>(BEAM_WIDTH));
         }
-        paths.get(0).add(new Path("", 0.0));
+        paths.get(0).add(new Path("", 0.0, ""));
 
         int maxKey = Math.min(dictionary.maxSpanLength(), n);
+        boolean[] boundaries = dictionary.spanBoundaries(input);
         for (int start = 0; start < n; start++) {
             List<Path> prefixPaths = paths.get(start);
-            if (prefixPaths.isEmpty()) {
+            if (prefixPaths.isEmpty() || (boundaries != null && !boundaries[start])) {
                 continue;
             }
             for (int length = 1; length <= maxKey && start + length <= n; length++) {
                 int end = start + length;
-                List<PinyinDictionary.Entry> entries = dictionary.entriesFor(input.substring(start, end));
+                if (boundaries != null && !boundaries[end]) {
+                    continue;
+                }
+                String span = input.substring(start, end);
+                List<PinyinDictionary.Entry> entries = dictionary.entriesFor(span);
                 if (entries.isEmpty()) {
                     continue;
                 }
@@ -127,8 +188,10 @@ final class PinyinComposer {
                 for (int e = 0; e < considered; e++) {
                     PinyinDictionary.Entry entry = entries.get(e);
                     double gain = logProbability(entry.frequency);
+                    String key = keyOf(entry, span);
                     for (Path prefix : prefixPaths) {
-                        offer(paths.get(end), new Path(prefix.text + entry.word, prefix.score + gain));
+                        String spelling = prefix.spelling.isEmpty() ? key : prefix.spelling + "'" + key;
+                        offer(paths.get(end), new Path(prefix.text + entry.word, prefix.score + gain, spelling));
                     }
                 }
             }
@@ -170,12 +233,12 @@ final class PinyinComposer {
             List<PinyinCandidate> results,
             Set<String> seen
     ) {
-        Map<String, Double> scored = new HashMap<>();
+        Map<String, Path> scored = new HashMap<>();
         for (Path path : paths.get(input.length())) {
-            merge(scored, path.text, path.score);
+            merge(scored, path);
         }
         for (PinyinDictionary.Entry entry : dictionary.entriesFor(input)) {
-            merge(scored, entry.word, logProbability(entry.frequency));
+            merge(scored, new Path(entry.word, logProbability(entry.frequency), keyOf(entry, input)));
         }
         emit(scored, input.length(), false, results, seen, Integer.MAX_VALUE);
     }
@@ -190,9 +253,9 @@ final class PinyinComposer {
         if (results.size() >= limit) {
             return;
         }
-        Map<String, Double> scored = new HashMap<>();
+        Map<String, Path> scored = new HashMap<>();
         for (PinyinDictionary.Entry entry : dictionary.completionsFor(input, limit * 4)) {
-            merge(scored, entry.word, logProbability(entry.frequency));
+            merge(scored, new Path(entry.word, logProbability(entry.frequency), keyOf(entry, "")));
         }
         emit(scored, input.length(), true, results, seen, limit - results.size());
     }
@@ -217,24 +280,28 @@ final class PinyinComposer {
             if (beam.isEmpty()) {
                 continue;
             }
-            Map<String, Double> scored = new HashMap<>();
+            Map<String, Path> scored = new HashMap<>();
             for (Path path : beam) {
-                merge(scored, path.text, path.score);
+                merge(scored, path);
             }
             emit(scored, end, false, results, seen, limit - results.size());
             return;
         }
     }
 
-    private static void merge(Map<String, Double> scored, String text, double score) {
-        Double existing = scored.get(text);
-        if (existing == null || score > existing) {
-            scored.put(text, score);
+    private static String keyOf(PinyinDictionary.Entry entry, String fallback) {
+        return entry.key != null ? entry.key : fallback;
+    }
+
+    private static void merge(Map<String, Path> scored, Path path) {
+        Path existing = scored.get(path.text);
+        if (existing == null || path.score > existing.score) {
+            scored.put(path.text, path);
         }
     }
 
     private static void emit(
-            Map<String, Double> scored,
+            Map<String, Path> scored,
             int consumed,
             boolean completion,
             List<PinyinCandidate> results,
@@ -244,15 +311,15 @@ final class PinyinComposer {
         if (room <= 0) {
             return;
         }
-        List<Map.Entry<String, Double>> ordered = new ArrayList<>(scored.entrySet());
-        ordered.sort((a, b) -> Double.compare(b.getValue(), a.getValue()));
+        List<Path> ordered = new ArrayList<>(scored.values());
+        ordered.sort((a, b) -> Double.compare(b.score, a.score));
         int added = 0;
-        for (Map.Entry<String, Double> entry : ordered) {
+        for (Path path : ordered) {
             if (added >= room) {
                 return;
             }
-            if (seen.add(entry.getKey())) {
-                results.add(new PinyinCandidate(entry.getKey(), consumed, completion, entry.getValue()));
+            if (seen.add(path.text)) {
+                results.add(new PinyinCandidate(path.text, consumed, completion, path.score, path.spelling));
                 added++;
             }
         }

@@ -131,13 +131,13 @@ final class PinyinEngine {
 
     private void submitKeypadIndexBuild(PinyinDictionary source) {
         background.execute(() -> {
-            PinyinDigitIndex index = null;
+            PinyinKeypadLookup index = null;
             try {
-                index = PinyinDigitIndex.build(source);
+                index = new PinyinKeypadLookup(PinyinDigitIndex.build(source));
             } catch (RuntimeException error) {
                 Log.e(TAG, "Could not build the 9-key index", error);
             }
-            PinyinDigitIndex result = index;
+            PinyinKeypadLookup result = index;
             mainHandler.post(() -> {
                 loadingKeypad = false;
                 if (result != null) {

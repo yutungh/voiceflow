@@ -31,10 +31,21 @@ final class PinyinDictionary implements PinyinLookup {
     static final class Entry {
         final String word;
         final int frequency;
+        /**
+         * The letter key this entry was read from ("nihao"), or null when it was
+         * built without one. The 9-key layout shows it as the spelling of the
+         * chosen reading.
+         */
+        final String key;
 
         Entry(String word, int frequency) {
+            this(word, frequency, null);
+        }
+
+        Entry(String word, int frequency, String key) {
             this.word = word;
             this.frequency = frequency;
+            this.key = key;
         }
     }
 
@@ -117,7 +128,7 @@ final class PinyinDictionary implements PinyinLookup {
             // composer's log-probability maths stays finite.
             declaredTotalFrequency = 1L;
             for (String payload : payloads) {
-                for (Entry entry : parse(payload)) {
+                for (Entry entry : parse(payload, null)) {
                     declaredTotalFrequency += entry.frequency;
                 }
             }
@@ -176,7 +187,7 @@ final class PinyinDictionary implements PinyinLookup {
     }
 
     List<Entry> entriesAt(int index) {
-        return parse(payloads[index]);
+        return parse(payloads[index], keys[index]);
     }
 
     /**
@@ -185,7 +196,7 @@ final class PinyinDictionary implements PinyinLookup {
      * so the leading record is always the best one.
      */
     Entry firstEntryAt(int index) {
-        return parseFirst(payloads[index]);
+        return parseFirst(payloads[index], keys[index]);
     }
 
     boolean isSyllable(String candidate) {
@@ -196,6 +207,11 @@ final class PinyinDictionary implements PinyinLookup {
         return syllables.size();
     }
 
+    /** Every valid pinyin syllable, from the asset's header. */
+    Set<String> syllables() {
+        return Collections.unmodifiableSet(syllables);
+    }
+
     /** Entries whose key is exactly {@code key}, already ordered by descending frequency. */
     @Override
     public List<Entry> entriesFor(String key) {
@@ -203,7 +219,7 @@ final class PinyinDictionary implements PinyinLookup {
         if (index < 0) {
             return Collections.emptyList();
         }
-        return parse(payloads[index]);
+        return parse(payloads[index], keys[index]);
     }
 
     /** True when any key starts with {@code prefix} (including an exact match). */
@@ -233,7 +249,7 @@ final class PinyinDictionary implements PinyinLookup {
             if (keys[i].length() == prefix.length()) {
                 continue;
             }
-            Entry best = parseFirst(payloads[i]);
+            Entry best = parseFirst(payloads[i], keys[i]);
             if (best != null) {
                 found.add(best);
             }
@@ -249,7 +265,7 @@ final class PinyinDictionary implements PinyinLookup {
     }
 
     /** Parses only the leading record of a payload. Null when it is malformed. */
-    private static Entry parseFirst(String payload) {
+    private static Entry parseFirst(String payload, String key) {
         int comma = payload.indexOf(',');
         int end = comma < 0 ? payload.length() : comma;
         int colon = payload.lastIndexOf(':', end);
@@ -257,13 +273,13 @@ final class PinyinDictionary implements PinyinLookup {
             return null;
         }
         try {
-            return new Entry(payload.substring(0, colon), Integer.parseInt(payload.substring(colon + 1, end)));
+            return new Entry(payload.substring(0, colon), Integer.parseInt(payload.substring(colon + 1, end)), key);
         } catch (NumberFormatException ignored) {
             return null;
         }
     }
 
-    private static List<Entry> parse(String payload) {
+    private static List<Entry> parse(String payload, String key) {
         List<Entry> entries = new ArrayList<>(4);
         int position = 0;
         while (position < payload.length()) {
@@ -274,7 +290,8 @@ final class PinyinDictionary implements PinyinLookup {
                 try {
                     entries.add(new Entry(
                             payload.substring(position, colon),
-                            Integer.parseInt(payload.substring(colon + 1, end))
+                            Integer.parseInt(payload.substring(colon + 1, end)),
+                            key
                     ));
                 } catch (NumberFormatException ignored) {
                     // Skip a malformed record rather than failing the whole lookup.

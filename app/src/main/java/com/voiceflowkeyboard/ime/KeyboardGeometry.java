@@ -89,6 +89,38 @@ final class KeyboardGeometry {
         return smallestScreenWidthDp >= SPLIT_MIN_SMALLEST_WIDTH_DP;
     }
 
+    /**
+     * Whether to split, with the Settings switch (0.8.7, "Split keyboard on
+     * large screens", on by default). Off keeps one full-width keyboard on the
+     * Fold's inner screen; it never splits a phone or the cover screen.
+     */
+    static boolean shouldSplit(int smallestScreenWidthDp, boolean splitEnabled) {
+        return splitEnabled && shouldSplit(smallestScreenWidthDp);
+    }
+
+    /**
+     * Widest the nine-key pad gets: five columns of about 99dp. A 3x4 pad has
+     * no two halves, so on a large screen it is centred at this width instead
+     * of split, and in landscape it stops short of the bezels too.
+     */
+    static final int KEYPAD_MAX_WIDTH_DP = 480;
+
+    /** Below this window width the pad simply fills the width, as on a phone held upright. */
+    static final int KEYPAD_FULL_WIDTH_BELOW_DP = 600;
+
+    /**
+     * Width for the nine-key pad in dp, or -1 to fill the width. Fills on a
+     * phone upright and on the Fold's cover screen; on a wider window (a phone
+     * on its side, the unfolded inner screen) it keeps a thumb-sized width,
+     * centred.
+     */
+    static int keypadWidthDp(int availableWidthDp, boolean split) {
+        if (!split && availableWidthDp < KEYPAD_FULL_WIDTH_BELOW_DP) {
+            return -1;
+        }
+        return Math.min(availableWidthDp, KEYPAD_MAX_WIDTH_DP);
+    }
+
     /** Outer breathing room for each split cluster; phones remain edge-to-edge. */
     static int outerInsetDp(boolean split) {
         return split ? SPLIT_OUTER_INSET_DP : 0;

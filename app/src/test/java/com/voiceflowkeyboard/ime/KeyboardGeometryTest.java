@@ -43,6 +43,38 @@ public class KeyboardGeometryTest {
         assertFalse(KeyboardGeometry.shouldSplit(FOLD_COVER_SW_DP));
     }
 
+    /** 0.8.7: the Settings switch can keep the Fold's inner screen whole; nothing else ever splits. */
+    @Test
+    public void theSplitSwitchOnlyEverTurnsSplittingOff() {
+        assertTrue(KeyboardGeometry.shouldSplit(FOLD_UNFOLDED_SW_DP, true));
+        assertFalse(KeyboardGeometry.shouldSplit(FOLD_UNFOLDED_SW_DP, false));
+        assertFalse(KeyboardGeometry.shouldSplit(FOLD_COVER_SW_DP, true));
+        assertFalse(KeyboardGeometry.shouldSplit(PHONE_SW_DP, true));
+    }
+
+    /**
+     * 0.8.7: the nine-key pad fills a phone and the cover screen, and keeps a
+     * centred thumb width on the inner screen (both ways up) and on any phone
+     * on its side.
+     */
+    @Test
+    public void theNineKeyPadKeepsAThumbWidthOnWideScreens() {
+        assertEquals(-1, KeyboardGeometry.keypadWidthDp(FOLD_COVER_SW_DP, false));
+        assertEquals(-1, KeyboardGeometry.keypadWidthDp(PHONE_SW_DP, false));
+        assertEquals(KeyboardGeometry.KEYPAD_MAX_WIDTH_DP,
+                KeyboardGeometry.keypadWidthDp(FOLD_UNFOLDED_SW_DP, true));
+        assertEquals(KeyboardGeometry.KEYPAD_MAX_WIDTH_DP,
+                KeyboardGeometry.keypadWidthDp(FOLD_UNFOLDED_HEIGHT_DP, true));
+        // The inner screen with the split switched off: still centred.
+        assertEquals(KeyboardGeometry.KEYPAD_MAX_WIDTH_DP,
+                KeyboardGeometry.keypadWidthDp(FOLD_UNFOLDED_SW_DP, false));
+        // The cover screen or a phone on its side.
+        assertEquals(KeyboardGeometry.KEYPAD_MAX_WIDTH_DP,
+                KeyboardGeometry.keypadWidthDp(PHONE_LANDSCAPE_WIDTH_DP, false));
+        // Never wider than the window it is in.
+        assertEquals(450, KeyboardGeometry.keypadWidthDp(450, true));
+    }
+
     @Test
     public void thresholdBoundaryIsInclusive() {
         assertFalse(KeyboardGeometry.shouldSplit(599));
