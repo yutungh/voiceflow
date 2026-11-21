@@ -6,8 +6,8 @@ import android.content.Intent;
 
 /**
  * After an update: report the new version straight away and keep the hourly job.
- * If he started the update by opening the app a moment ago, open it again in
- * the new version (Android may refuse a start from the background; then he
+ * If the user started the update by opening the app a moment ago, open it again in
+ * the new version (Android may refuse a start from the background; then the user
  * simply opens it himself).
  */
 public final class PackageReplacedReceiver extends BroadcastReceiver {

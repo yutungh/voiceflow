@@ -15,7 +15,7 @@ import org.robolectric.annotation.Config;
 import org.robolectric.util.ReflectionHelpers;
 
 /**
- * "Install when he opens the app" counts openings of the whole app: moving between
+ * "Install when the user opens the app" counts openings of the whole app: moving between
  * its pages is the same opening, leaving it and coming back is a new one.
  */
 @RunWith(RobolectricTestRunner.class)

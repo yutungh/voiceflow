@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 // privacy-check.mjs - block private words and personal emails from reaching a public remote.
 //
+// OPTIONAL MAINTAINER TOOL. It needs a private term list that only the maintainer has, and it
+// fails closed without one (exit 2). Contributors should not install or run it; the repository's
+// public CI does not depend on it.
+//
 // Maintainers keep a private term list outside version control (default:
 // private-docs/privacy-terms.txt, which .git/info/exclude keeps out of git).
 // This script holds no terms of its own.

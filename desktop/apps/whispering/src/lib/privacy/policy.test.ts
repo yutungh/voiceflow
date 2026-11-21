@@ -308,7 +308,7 @@ describe('Paste rules: where the text goes when it is ready', () => {
 		expect(d).toMatchObject({ paste: false, reason: 'moved' });
 		// The same window: pasted.
 		expect(decidePaste({ current: target(), atStop: target() }).paste).toBe(true);
-		// Desktop at Stop, an app later: copied (he may have moved on).
+		// Desktop at Stop, an app later: copied (the user may have moved on).
 		const desktop = target({ exeName: 'explorer.exe', windowClass: 'Progman', windowId: '65552', pid: 5 });
 		expect(decidePaste({ current: target(), atStop: desktop }).reason).toBe('moved');
 		// No window known at Stop: no constraint.

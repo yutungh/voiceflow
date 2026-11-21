@@ -7,7 +7,7 @@ package com.voiceflowkeyboard.ime;
  *   <li>A dictation goes only into the editor it was started in: the same app,
  *       the same field and the same input session (a new session starts whenever
  *       focus moves to an editor, so two fields with the same metadata are still
- *       told apart). A result that comes back after he moved is kept in History,
+ *       told apart). A result that comes back after the user moved is kept in History,
  *       never typed somewhere else.</li>
  *   <li>A replacement ("Use cleaned", Retone) replaces only the verified last
  *       insertion: same editor session, the cursor known and still right after

@@ -180,7 +180,7 @@ public class TranscriptDetailActivity extends Activity {
     }
 
     /**
-     * 0.8.6, desktop 0.9.13: his own words were kept because the tidy-up changed the
+     * 0.8.6, desktop 0.9.13: the user's own words were kept because the tidy-up changed the
      * language of part of it, and the tidy-up is still on offer. Use cleaned makes it
      * this entry's text and copies it; nothing in any app is changed.
      */

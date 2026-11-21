@@ -1,5 +1,5 @@
 /**
- * VoiceFlow 0.9.13: when the language guard keeps his own words, the bar
+ * VoiceFlow 0.9.13: when the language guard keeps the user's own words, the bar
  * says so quietly ("Kept your words") with Use cleaned and Feedback, for as
  * long as a problem stays; History keeps Use cleaned after. Never a
  * question that blocks. Also the word lists' new style fields on the bar:
@@ -76,7 +76,7 @@ describe('Kept your words', () => {
 		expect(history).toContain('Tidied version');
 		const actions = readFileSync(join(root, 'lib/query/isomorphic/actions.ts'), 'utf8');
 		expect(actions).toContain("useCleaned: (recordingId: string) => recovery.useCleaned(recordingId)");
-		// Copied, never pasted over his words.
+		// Copied, never pasted over the user's words.
 		const useCleaned = actions.slice(actions.indexOf('async function useCleanedNow'), actions.indexOf('async function retryTranscriptionNow'));
 		expect(useCleaned).toContain('copyToClipboard');
 		// History then says it was copied, and an earlier problem is cleared (Codex review).

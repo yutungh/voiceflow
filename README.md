@@ -1,11 +1,39 @@
-# VoiceFlow Keyboard
+# VoiceFlow
+
+Voice dictation with your own AI key. Speak, and VoiceFlow turns it into clean text in whatever app you are using, with your own names and terms spelled right. You choose the provider (OpenAI, Grok / xAI, Deepgram, Claude for cleanup, or fully offline models) and pay it directly; there is no VoiceFlow account and no VoiceFlow server in the way.
+
+VoiceFlow has three parts that work alone or together: a **desktop app** (press a hotkey, speak, text appears at the cursor), an **Android keyboard** (a native input method with a microphone button), and an optional **sync server** that shares your word lists between devices.
+
+> **No prebuilt downloads yet.** There are no installers or APKs to download. You build each app from source, which this page and each part's own docs walk through. Prebuilt builds may be published on the [Releases page](https://github.com/yutungh/voiceflow/releases) later.
+
+> Not affiliated with Typeless, Voiceflow, Apple, Google, Anthropic, or OpenAI. "Typeless-style" is used only to describe the product category: voice-first typing with AI cleanup.
+
+## The parts
+
+| Part | What it is | Licence | Status | Docs |
+|---|---|---|---|---|
+| **Android keyboard** (repository root, `app/`) | Native Android keyboard with voice dictation, AI cleanup, offline models and an emoji picker | MIT | Working prototype, built from source | [This page](#android-keyboard), [`PRIVACY.md`](PRIVACY.md) |
+| **Desktop app** (`desktop/`) | Hotkey dictation for Windows and macOS. A fork of [Whispering](https://github.com/EpicenterHQ/epicenter) | AGPL-3.0 | In development, built from source | [`desktop/README.md`](desktop/README.md), [`desktop/CHANGELOG.md`](desktop/CHANGELOG.md) |
+| **Word-list pack** (`pack/`) | The data format both apps read: words, spelling fixes, styles, privacy lists. Data only | MIT | Stable format, versioned | [`pack/README.md`](pack/README.md), [Connect your own AI](docs/desktop/CONNECT-YOUR-OWN-AI.md) |
+| **Sync server** (`sync/`) | Small self-hosted HTTP service that gives each phone its word lists, with a token per device | MIT | Optional, self-hosted | [`sync/README.md`](sync/README.md) |
+
+Each folder's licence covers only that folder. Do not copy code from the AGPL desktop app into the MIT parts.
+
+## Get the source
+
+```sh
+git clone -c core.longpaths=true https://github.com/yutungh/voiceflow
+```
+
+On Windows, keep `-c core.longpaths=true`. Some paths in the repository are long, and without it the clone or the desktop build can fail on Windows' 260-character path limit.
+
+Then follow the build steps for the part you want: the [Android keyboard](#build) below or the [desktop app](desktop/README.md).
+
+# Android keyboard
 
 Open-source Android voice keyboard for people who want a Typeless-style mobile dictation workflow, AI dictation cleanup, and bring-your-own-key voice-to-text on any Android phone.
 
-Record a voice note from the keyboard, transcribe it, optionally clean it with an LLM prompt, and insert the final text into any app. VoiceFlow Keyboard is a native Android IME, so it works anywhere a normal keyboard works: chat apps, email, notes, search, docs, forms, and coding tools.
-
-> Not affiliated with Typeless, Voiceflow, Apple, Google, Anthropic, or OpenAI. "Typeless-style" is used only to describe the product category: voice-first mobile typing with AI cleanup.
-
+Record a voice note from the keyboard, transcribe it, optionally clean it with an LLM prompt, and insert the final text into any app. It is a native Android IME, so it works anywhere a normal keyboard works: chat apps, email, notes, search, docs, forms, and coding tools.
 ## Screenshots
 
 ![VoiceFlow Keyboard letters layout](docs/keyboard-letters.png)
@@ -33,8 +61,6 @@ Most mobile voice typing tools either insert raw dictation immediately or live i
 - rewrite or lightly clean the transcript with a configurable prompt,
 - insert the final result into the active text field,
 - let users bring their own API key and model choices.
-
-Good search terms for this project: Android voice keyboard, VoiceFlow Keyboard, Typeless alternative for Android, AI dictation keyboard, AI voice keyboard, OpenAI transcription keyboard, Grok transcription keyboard, Claude cleanup keyboard, offline voice typing Android, Parakeet offline transcription Android, Vosk offline keyboard, voice-to-text IME, prompt-based dictation cleanup, bring your own API key keyboard.
 
 ## Features
 
@@ -111,19 +137,27 @@ Known tradeoffs:
 
 Requirements:
 
-- Android Studio or Android SDK
-- JDK 17+
+- JDK 17 (CI uses Temurin 17; newer JDKs may work but are untested).
+- Android SDK with **platform 35** (`compileSdk 35`, `targetSdk 35`, `minSdk 26`) and **build-tools 35.0.0**. Android Studio installs both; or use `sdkmanager "platforms;android-35" "build-tools;35.0.0"`.
+- Tell Gradle where the SDK is, either with a `local.properties` file in the repository root:
 
-Build the debug APK:
+  ```text
+  sdk.dir=C\:\\Users\\you\\AppData\\Local\\Android\\Sdk
+  ```
+
+  (on macOS/Linux: `sdk.dir=/home/you/Android/Sdk`) or with the `ANDROID_HOME` environment variable. Android Studio writes `local.properties` for you. It is git-ignored.
+- Gradle itself comes from the wrapper (`gradlew`, Gradle 8.10.2); the first build downloads it.
+
+Run the unit tests and build the debug APK:
 
 ```powershell
-.\gradlew.bat assembleDebug
+.\gradlew.bat testDebugUnitTest assembleDebug
 ```
 
 On macOS/Linux:
 
 ```bash
-./gradlew assembleDebug
+./gradlew testDebugUnitTest assembleDebug
 ```
 
 Output:
@@ -132,6 +166,7 @@ Output:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
+**Release builds.** `assembleRelease` signs with `~/.android/debug.keystore` (the standard Android debug key, created by Android Studio or the first debug build) unless you point it at your own keystore with `-PvfKeystore=<path>` or the `VF_KEYSTORE` environment variable. Because that fallback is the public debug key, treat such a build as a test build and use your own keystore for anything you distribute. The release build keeps only the arm64 native libraries.
 ## Install On A Phone
 
 Enable Developer Options and USB Debugging on your Android phone. On Samsung devices, you may also need to disable Auto Blocker for sideloading.
@@ -236,7 +271,7 @@ Current privacy model:
 - API keys are saved locally on the device in app preferences.
 - When a cloud transcription provider is enabled, recorded audio is sent to that provider after recording stops.
 - With compatible OpenAI transcription models, configured personal vocabulary spellings and context are sent with the recording as transcription hints.
-- A phone enrolled with a vf-sync gateway (`sync/`) also downloads its user's word lists (household, generated and personal layers, plus edits made in the apps), keeps an offline copy in app-private storage, and merges them with the phone's own list by the rules in `pack/`. They are used for dictation only: the vocabulary line and keywords sent with the recording, and the corrections applied once to the dictated text. Typed-text corrections keep using the phone's own list. Nothing is uploaded in this release.
+- A phone enrolled with a vf-sync gateway ([`sync/`](sync/README.md)) also downloads its user's word lists (household, generated and personal layers, plus edits made in the apps), keeps an offline copy in app-private storage, and merges them with the phone's own list by the rules in `pack/`. They are used for dictation only: the vocabulary line and keywords sent with the recording, and the corrections applied once to the dictated text. Typed-text corrections keep using the phone's own list. Nothing is uploaded in this release.
 - When transcript cleanup is enabled, transcript text is sent to the configured transform provider.
 - Offline Vosk and Offline Parakeet transcription keep audio local after the selected local model has been downloaded.
 
@@ -256,7 +291,7 @@ For a production release, you should:
 - Per-field safety rules.
 - Better tablet/foldable layouts.
 - More local transcription model options.
-- Release builds and signing instructions.
+- Prebuilt, signed release builds.
 
 ## Contributing
 
@@ -264,4 +299,4 @@ Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+The Android keyboard, `pack/` and `sync/` are MIT ([LICENSE](LICENSE), [pack/LICENSE](pack/LICENSE)). The desktop app in `desktop/` is AGPL-3.0 ([desktop/LICENSE](desktop/LICENSE)). Each folder's licence covers only that folder.

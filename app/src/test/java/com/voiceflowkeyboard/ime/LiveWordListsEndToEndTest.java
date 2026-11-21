@@ -94,7 +94,7 @@ public class LiveWordListsEndToEndTest {
         summary.put("secondSync", WordLists.refresh(context, client, enrolment).name())
                 .put("secondSyncMs", System.currentTimeMillis() - start);
 
-        // The NAS lists alone, merged as the desktop merges them (no built-ins, no phone rows).
+        // The sync server lists alone, merged as the desktop merges them (no built-ins, no phone rows).
         File folder = WordLists.folder(context, enrolment);
         List<WordLayer> layers = new ArrayList<>();
         JSONObject perLayer = new JSONObject();

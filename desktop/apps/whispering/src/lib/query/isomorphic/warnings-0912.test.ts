@@ -1,7 +1,7 @@
 /**
  * VoiceFlow 0.9.12, the rest of the warnings audit: the Notifications list
  * keeps problems only, fixed problems clear themselves, Home shows only
- * what still needs him, "Nothing heard" can be retried, no developer
+ * what still needs the user, "Nothing heard" can be retried, no developer
  * statistics. Pure parts are called; modules that import `$lib` paths
  * `bun test` cannot resolve are checked in their source.
  */

@@ -2,11 +2,13 @@
 
 VoiceFlow's word lists are plain JSON files in a folder you choose. Any assistant that can read and write files (a chat assistant with file access, a coding agent, a script) can manage them for you: add the names you use, fix spellings VoiceFlow keeps getting wrong, adjust a tidy-up style. Nothing here depends on a particular AI, service or server.
 
-The format is in [`pack/README.md`](../../pack/README.md); the JSON Schemas are in [`pack/schema/`](../../pack/schema/). This page is the short version for an assistant, with the rules that keep your lists safe.
+The format is in [`pack/README.md`](../../pack/README.md); the JSON Schemas are in [`pack/schema/`](../../pack/schema/).
+
+> **Paths in this page.** Schema and fixture paths such as `pack/schema/...` and `pack/fixtures/demo/` are relative to the root of the VoiceFlow repository (`git clone https://github.com/yutungh/voiceflow`), not to your word-list folder. Give your assistant the schema file's contents if it cannot see the repository. This page is the short version for an assistant, with the rules that keep your lists safe.
 
 ## 1. Set up the folder
 
-1. Make a folder, for example `Documents/VoiceFlow` (or a shared folder on a NAS so all your devices see it).
+1. Make a folder, for example `Documents/VoiceFlow` (or a shared folder on a home server or NAS so all your devices see it).
 2. Create `profiles/<you>/profile.json`, where `<you>` is a short lower-case name:
 
    ```json

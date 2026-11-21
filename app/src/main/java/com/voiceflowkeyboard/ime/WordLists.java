@@ -24,11 +24,11 @@ import java.util.regex.Pattern;
 
 /**
  * This phone's word lists: its own list (kept in the settings, exactly as
- * before) merged with the user's lists on the NAS, read through the vf-sync
+ * before) merged with the user's lists on the sync server, read through the vf-sync
  * gateway and kept in an offline copy.
  *
  * <h3>Precedence</h3>
- * built-in fixes &lt; household &lt; generated (from his notes) &lt; personal
+ * built-in fixes &lt; household &lt; generated (from the user's notes) &lt; personal
  * &lt; this phone's list &lt; edits made in an app. The phone's list is never
  * written by any of this; it stays editable on the Word lists screen and still
  * drives typed-text corrections on its own.
@@ -41,7 +41,7 @@ import java.util.regex.Pattern;
  * empties a layer. Another user's folder is removed as soon as the enrolment
  * names someone else.
  *
- * <h3>Until a NAS copy exists</h3>
+ * <h3>Until a synced copy exists</h3>
  * A phone that is not enrolled, or has never accepted a manifest from the
  * gateway, dictates exactly as 0.8.1 did ({@link DictationWords#legacy}).
  */
@@ -143,7 +143,7 @@ final class WordLists {
 
     /** The vocabulary one dictation uses, fixed when it starts. */
     static final class DictationWords {
-        /** True: the 0.8.1 behaviour (no NAS copy yet). */
+        /** True: the 0.8.1 behaviour (no synced copy yet). */
         final boolean legacy;
         final String prompt;
         final List<String> keywords;
@@ -153,7 +153,7 @@ final class WordLists {
         /**
          * 0.8.4: the tidy-up's word list ({@link TidyWords}): every word the prompt chose,
          * with their notes (0.8.5: the request itself carries only the first
-         * {@link WordPrompt#TRANSCRIBE_TERMS}). Empty in the 0.8.1 behaviour (no NAS copy yet).
+         * {@link WordPrompt#TRANSCRIBE_TERMS}). Empty in the 0.8.1 behaviour (no synced copy yet).
          */
         final TidyWords.Block tidyWords;
 
@@ -703,7 +703,7 @@ final class WordLists {
         boolean have = file.isFile();
         try {
             if (!(entry instanceof JSONObject)) {
-                // Not on the NAS. A copy read before stays until a valid file comes back.
+                // Not on the sync server. A copy read before stays until a valid file comes back.
                 layer.put("state", have ? "cached" : "missing");
                 layer.put("error", have ? "missing-on-server" : "");
                 return false;

@@ -255,7 +255,7 @@ public class WordListsTest {
                         + "\"defaults\":{\"promptTerms\":50}"));
     }
 
-    // ------------------------------------------------------------------ before any NAS copy
+    // ------------------------------------------------------------------ before any synced copy
 
     @Test
     public void notEnrolledDictatesExactlyAsBefore() {
@@ -531,7 +531,7 @@ public class WordListsTest {
         sync();
         assertEquals(fetches, count("/v1/layer/personal"));
 
-        // The personal file disappears from the NAS: the copy stays.
+        // The personal file disappears from the sync server: the copy stays.
         gateway.layers.remove("personal");
         sync();
         assertTrue(WordLists.forDictation(context, APP).prompt.contains("Milo"));
@@ -668,10 +668,10 @@ public class WordListsTest {
         WordLists.DictationWords words = WordLists.forDictation(context, APP);
         assertTrue(words.prompt.length() + " chars", words.prompt.length() <= 600);
         assertTrue(words.keywords.size() <= 50);
-        // The phone's rows are never pushed out by NAS words, even at priority 100.
+        // The phone's rows are never pushed out by sync server words, even at priority 100.
         assertTrue(words.keywords.contains("Glim"));
         assertTrue(words.keywords.contains("Kestrel"));
-        // A larger budget from the NAS is honoured by the tidy-up's list; the hard limit of
+        // A larger budget from the sync server is honoured by the tidy-up's list; the hard limit of
         // the contract still holds. 0.8.5: the request itself carries 20 words, the phone's first.
         gateway.layers.put("personal", layer("personal", "milo", "\"defaults\":{\"promptChars\":4000,\"promptTerms\":500}"));
         sync();

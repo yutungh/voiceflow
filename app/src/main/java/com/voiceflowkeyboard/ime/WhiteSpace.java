@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
  * ({@code UNICODE_CHARACTER_CLASS}) with a PatternSyntaxException, and its plain
  * {@code \s} is not the JDK's either. 0.8.2 compiled {@code "(?U)\\s+"} in a static
  * field, so the word lists' first use threw ExceptionInInitializerError on every sync
- * and the phone never reported to the NAS. JVM tests (Robolectric included) use the
+ * and the phone never reported to the sync server. JVM tests (Robolectric included) use the
  * JDK engine, so they never saw it.
  *
  * <p>This class lists the Unicode White_Space characters explicitly, the set the JDK's

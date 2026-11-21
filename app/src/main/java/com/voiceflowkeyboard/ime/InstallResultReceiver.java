@@ -51,7 +51,7 @@ public final class InstallResultReceiver extends BroadcastReceiver {
                     }
                 });
                 if (confirm != null && after.pendingSessionId == sessionId) {
-                    // He opened the app to update: Android's confirm screen comes up there
+                    // The user opened the app to update: Android's confirm screen comes up there
                     // and then. Otherwise (or if Android will not show it) a notification.
                     boolean onOpen = intent.getBooleanExtra(SelfUpdater.EXTRA_ON_OPEN, false);
                     if (!(onOpen && SettingsActivity.visible && showConfirmNow(context, confirm))) {
@@ -67,7 +67,7 @@ public final class InstallResultReceiver extends BroadcastReceiver {
             return;
         }
         // Failed or refused (Play Protect's "Don't install" included): counted, and tried
-        // again the next time he opens the app; "update ready" may be said again.
+        // again the next time the user opens the app; "update ready" may be said again.
         SyncStore.updateEvidence(context, installed, evidence -> {
             if (evidence.pendingSessionId != sessionId) {
                 return;

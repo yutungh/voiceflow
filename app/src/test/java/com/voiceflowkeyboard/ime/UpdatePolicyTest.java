@@ -61,7 +61,7 @@ public class UpdatePolicyTest {
         assertFalse(UpdatePolicy.acceptable(null, 44));
     }
 
-    // --- download on Wi-Fi; mobile data only when he allows it ---
+    // --- download on Wi-Fi; mobile data only when the user allows it ---
 
     @Test
     public void downloadsOnWifiAndOnMobileDataOnlyWhenAllowed() {
@@ -85,7 +85,7 @@ public class UpdatePolicyTest {
         assertFalse("installed signer unknown", UpdatePolicy.verified(offer(45), SHA, 1000, PKG, 45, PKG, SIGNER, null));
     }
 
-    // --- opening the app installs at once, unless he is dictating ---
+    // --- opening the app installs at once, unless the user is dictating ---
 
     @Test
     public void openingTheAppInstallsAVerifiedUpdateUnlessDictating() {

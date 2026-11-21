@@ -477,7 +477,7 @@ const stopManualRecording = defineMutation({
 		const authorization = manualRecordingTarget;
 		manualRecordingTarget = null;
 		dictation.clear();
-		// 0.9.11: the window he left his cursor in (identity only, quick).
+		// 0.9.11: the window the user left their cursor in (identity only, quick).
 		if (authorization) authorization.atStop = await captureTarget({ checkPassword: false });
 		// VoiceFlow A2: the style and expression chosen on the bar are frozen
 		// now, before the audio is read back.
@@ -1402,7 +1402,7 @@ async function tidyUpAndDeliver({
 		tidyOutput: outcome.heldBack || outcome.output,
 		models: { tidyUp: outcome.model },
 	});
-	// 0.9.13: the language guard kept his own words. They are delivered as
+	// 0.9.13: the language guard kept the user's own words. They are delivered as
 	// usual (spellings applied once); the tidy-up stays in History for "Use
 	// cleaned", and the bar says so. Nothing blocks, nothing is lost.
 	const keptWords = !!outcome.heldBack;
@@ -1451,7 +1451,7 @@ async function runTidyUpWithTimeout({
 }): Promise<
 	| {
 			ok: true;
-			/** What to deliver: the tidy-up, or his own words after the guard held it back. */
+			/** What to deliver: the tidy-up, or the user's own words after the guard held it back. */
 			output: string;
 			styleName: string;
 			/** VoiceFlow phase F: the level used (null: the style's prompt only). */
@@ -1561,7 +1561,7 @@ async function runTidyUpWithTimeout({
 	};
 
 	// 0.9.13: the language guard (Android parity): check, one strict retry,
-	// then his own words with the tidy-up held back. The style's own
+	// then the user's own words with the tidy-up held back. The style's own
 	// find-and-replace steps are applied to the transcript it is compared
 	// with, so what the style replaces never counts as drift.
 	const guarded = await guardedTidyUp({
@@ -1899,10 +1899,10 @@ export const recovery = {
 	},
 
 	/**
-	 * 0.9.13: "Use cleaned", after the language guard kept his own words:
+	 * 0.9.13: "Use cleaned", after the language guard kept the user's own words:
 	 * the tidied text it held back, with saved spellings, goes to the
 	 * clipboard and becomes the dictation's text in History. It is copied,
-	 * never pasted over his words: VoiceFlow can't be sure the field still
+	 * never pasted over the user's words: VoiceFlow can't be sure the field still
 	 * holds them, and another field is never overwritten.
 	 */
 	async useCleaned(recordingId: string): Promise<{ ok: boolean; message: string }> {
@@ -1980,7 +1980,7 @@ async function rerunTidyUpNow(
 	if (!outcome.ok) return { ok: false, message: outcome.reason };
 	const spelled = await applySavedSpellings(outcome.output, appIdOf(recording), recordingId);
 	const finalText = spelled.text;
-	// 0.9.13: the language guard may keep his words here too.
+	// 0.9.13: the language guard may keep the user's words here too.
 	const keptWords = !!outcome.heldBack;
 	await updateRecordingFields(recordingId, {
 		finalText,

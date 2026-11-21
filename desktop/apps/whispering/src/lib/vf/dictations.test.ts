@@ -102,7 +102,7 @@ describe('results and problems', () => {
 		const held = rec(0, 1, { privacy: 'held', ...hoursAgo(20) });
 		const problems = problemsOf([older, newer, dismissed, gone, held], NOW.getTime());
 		expect(problems.map((p) => p.kind)).toEqual(['transcription', 'tidy-up', 'held']);
-		// 0.9.12 (F6): History's badge counts only what he can act on.
+		// 0.9.12 (F6): History's badge counts only what the user can act on.
 		expect(hasProblem(dismissed)).toBe(false);
 		expect(hasProblem(older)).toBe(true);
 	});

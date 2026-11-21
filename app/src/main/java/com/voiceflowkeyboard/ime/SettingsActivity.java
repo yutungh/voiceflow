@@ -145,7 +145,7 @@ public class SettingsActivity extends Activity {
 
     /**
      * Installs a waiting update off the main thread, then refreshes the home.
-     * {@code retry}: he tapped Try again on a stuck install, so the old session is
+     * {@code retry}: the user tapped Try again on a stuck install, so the old session is
      * given up first.
      */
     private void installWaitingUpdate(boolean retry, boolean explicit) {
@@ -159,7 +159,7 @@ public class SettingsActivity extends Activity {
                     return;
                 }
                 if (!explicit) {
-                    // He cancelled Play Protect a moment ago: wait for him to choose Install.
+                    // The user cancelled Play Protect a moment ago: wait for the user to choose Install.
                     long last = SyncStore.evidence(app, SelfUpdater.installedVersionCode(app),
                             System.currentTimeMillis()).lastInstallAttemptAt;
                     long since = System.currentTimeMillis() - last;
@@ -174,7 +174,7 @@ public class SettingsActivity extends Activity {
                 SyncWorker.installOnOpen(app, () -> visible);
                 runOnUiThread(this::refreshForUpdate);
             } catch (RuntimeException ignored) {
-                // An update problem must never keep him out of the app.
+                // An update problem must never keep the user out of the app.
             } finally {
                 INSTALL_CHECK_RUNNING.set(false);
             }

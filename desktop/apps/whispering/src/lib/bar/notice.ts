@@ -63,7 +63,7 @@ function full(title: string, detail: string | null | undefined): string {
 /** The notice for a result phase; null while listening or working. */
 export function noticeFor(view: NoticeView): Notice | null {
 	const closable = view.actions.includes('dismiss');
-	// 0.9.13: the language guard kept his own words (pasted or copied as
+	// 0.9.13: the language guard kept the user's own words (pasted or copied as
 	// usual) and holds the tidy-up back. A quiet notice, never a question.
 	if ((view.phase === 'pasted' || view.phase === 'copied') && view.keptWords) {
 		const where =

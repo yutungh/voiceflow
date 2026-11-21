@@ -18,8 +18,10 @@ This project is intended to be a practical open-source base for Android voice di
 
 Requirements:
 
-- JDK 17+
-- Android SDK or Android Studio
+- JDK 17
+- Android SDK with platform 35 and build-tools 35.0.0 (Android Studio installs both), found through `local.properties` (`sdk.dir=...`) or the `ANDROID_HOME` environment variable. See the Build section of the [README](README.md#build).
+- Windows: clone with `git clone -c core.longpaths=true https://github.com/yutungh/voiceflow`.
+- Desktop app: see [desktop/README.md](desktop/README.md). Sync server: see [sync/README.md](sync/README.md).
 
 Build:
 
@@ -43,7 +45,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 Before opening a pull request:
 
-- Run `./gradlew assembleDebug`.
+- Run `./gradlew testDebugUnitTest assembleDebug` (and `bun test` in `desktop/apps/whispering` or `npm test` in `sync` if you touched those parts).
 - Do not commit API keys, keystores, APKs, local SDK folders, or generated build output.
 - Keep privacy implications explicit in the PR description.
 - Include screenshots for keyboard layout changes when possible.
@@ -54,9 +56,11 @@ Do not add telemetry, analytics, or server calls without clear documentation and
 
 Do not hardcode API keys. Users should provide their own keys.
 
-## Maintainer Privacy Guard
+## Maintainer Privacy Guard (optional, maintainers only)
 
-Maintainers keep a private term list outside version control and run a local pre-push hook that checks every outgoing commit against it.
+**Contributors can skip this section. Do not install the hook.** It needs a private term list that only the maintainer holds, and it blocks every push without one. Pull requests are checked by the public CI workflows instead.
+
+The maintainer keeps a private term list outside version control and runs a local pre-push hook that checks every outgoing commit against it.
 
 - `scripts/privacy-check.mjs` scans the added lines, new file names and messages of the commits being pushed, and fails any author, committer or tagger email that is not a GitHub no-reply address. `--tree` scans every tracked file instead.
 - `sh scripts/install-privacy-hook.sh` installs it as `.git/hooks/pre-push`. The hook is local and is not committed.

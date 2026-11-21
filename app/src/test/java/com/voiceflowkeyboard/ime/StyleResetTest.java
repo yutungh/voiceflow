@@ -116,7 +116,7 @@ public class StyleResetTest {
         StyleReset.Instruction reset = new StyleReset.Instruction(RESET_ID, "milo", me.device);
         assertEquals(StyleReset.APPLY, StyleReset.run(context, reset));
 
-        // He makes a new style afterwards; the same instruction arriving again must not wipe it.
+        // The user makes a new style afterwards; the same instruction arriving again must not wipe it.
         String mine = Prefs.addPromptProfile(context, "QBR notes");
         Prefs.setActivePreset(context, mine);
         assertEquals(StyleReset.ALREADY_DONE, StyleReset.run(context, reset));

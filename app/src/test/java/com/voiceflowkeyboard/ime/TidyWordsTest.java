@@ -110,7 +110,7 @@ public class TidyWordsTest {
         assertFalse(outcome.fellBack());
         assertEquals(Collections.singletonList(false), calls);
 
-        // Without the word list, the same answer is drift: retried, then his words.
+        // Without the word list, the same answer is drift: retried, then the user's words.
         calls.clear();
         TransformClient.Outcome plain = TransformClient.checkedTransform(spoken, false, strict -> {
             calls.add(strict);

@@ -11,7 +11,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Tidy-up, drift check, one strict retry, then his own words with the tidy-up
+ * Tidy-up, drift check, one strict retry, then the user's own words with the tidy-up
  * held back for "Use cleaned". The model is replaced by scripted answers.
  */
 public class CleanupFallbackTest {
@@ -71,7 +71,7 @@ public class CleanupFallbackTest {
     @Test
     public void theFallbackNeverStripsFillersByList() throws Exception {
         TransformClient.Outcome outcome = TransformClient.checkedTransform(SPOKEN, false, new Script(DRIFTED, DRIFTED));
-        // 那个 can be a real word, so his words are kept exactly as transcribed.
+        // 那个 can be a real word, so the user's words are kept exactly as transcribed.
         assertTrue(outcome.text.contains("那个"));
     }
 

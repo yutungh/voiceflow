@@ -220,7 +220,7 @@ public class SensitiveFieldServiceTest {
     @Test public void aResultIsNotTypedIntoAFieldFocusedAfterRecordingStarted() {
         startField(PLAIN_TEXT, 0);
         DeliveryGuard.Target startedIn = ReflectionHelpers.callInstanceMethod(service, "currentDeliveryTarget");
-        // He taps another field of the same app (same metadata) while it transcribes.
+        // The user taps another field of the same app (same metadata) while it transcribes.
         startField(PLAIN_TEXT, 0);
         service.connection.getEditable().clear();
         ReflectionHelpers.callInstanceMethod(service, "processTranscribedCapture",

@@ -161,7 +161,7 @@ describe('seeding', () => {
 		const result = await seedBuiltInStyles(pc.deps);
 		expect(result.added).toEqual(['ai-prompt', 'notes', 'concise', 'friends', 'work', 'family', 'partner', 'clean']);
 		expect(result.skipped.filter((s) => s.reason === 'same-name').map((s) => s.key)).toEqual(['email', 'work-chat']);
-		// Skipped ones are marked too: deleting his own Email later never brings ours.
+		// Skipped ones are marked too: deleting the user's own Email later never brings ours.
 		expect(pc.marker).toEqual(expect.arrayContaining(KEYS));
 		pc.db.delete('x1');
 		expect((await seedBuiltInStyles(pc.deps)).added).toEqual([]);
