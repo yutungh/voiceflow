@@ -184,18 +184,14 @@ SHA='$sha'
 SIZE=$size
 R='$ShareRoot/releases/android'
 IN='$incoming'
-CFG=`$(tr -d ' \t\r\n' < '$GatewayConfig')
-case "`$CFG" in
-  *'"staged":false'*)
-    echo "rollout: everyone at once (staged: false)" ;;
-  *)
-    # Canary first: refuse while no canary device is configured (the gateway would hold it anyway).
-    case "`$CFG" in
-      *'"canaryDevices":[]'*|*'"canaryDevices":null'*) echo "STOP: no canary device in the gateway config"; exit 3 ;;
-      *'"canaryDevices":['*) : ;;
-      *) echo "STOP: canaryDevices not found in the gateway config"; exit 3 ;;
-    esac
-    echo "rollout: canary first (staged)" ;;
+# The rollout mode, read the way the gateway reads it (JSON, with the container's own node).
+MODE=`$(docker exec -i $Container node -e 'let s="";process.stdin.on("data",(d)=>{s+=d}).on("end",()=>{const r=JSON.parse(s).rollout??{};const st=r.staged??true;console.log(typeof st!=="boolean"?"bad":!st?"all":Array.isArray(r.canaryDevices)&&r.canaryDevices.length>0?"canary":"nocanary")})' < '$GatewayConfig') || { echo "STOP: could not read the gateway config"; exit 3; }
+case "`$MODE" in
+  all) echo "rollout: everyone at once (staged: false)" ;;
+  canary) echo "rollout: canary first (staged)" ;;
+  # Canary first with no canary device: refuse (the gateway would hold it for everyone else).
+  nocanary) echo "STOP: staged rollout with no canary device in the gateway config"; exit 3 ;;
+  *) echo "STOP: rollout.staged in the gateway config is not true or false"; exit 3 ;;
 esac
 mkdir -p "`$R"
 # No downgrade and no reuse: newer than every release already staged, unless it is this same file.
