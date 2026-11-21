@@ -1,0 +1,18 @@
+# Patch that turns on the grammar model (librime-octagram) for a VoiceFlow
+# schema. Installed as vf_t9.custom.yaml and vf_qwerty.custom.yaml in the
+# "gram" variant only. MIT.
+#
+# The model is Wanxiang's wanxiang-lts-zh-hans.gram (CC BY 4.0, amzxyz),
+# release LTS of https://github.com/amzxyz/rime-wanxiang-data, SHA-256
+# e9ddd501b7d536bc5ea1346f8f900ae49a719a05be349e0a17cb27e717143ca5. It is
+# downloaded, never committed. The penalty values are the ones Wanxiang's own
+# nine-key schema uses with this model, left untuned.
+patch:
+  grammar:
+    language: wanxiang-lts-zh-hans
+    collocation_max_length: 6
+    collocation_min_length: 2
+    collocation_penalty: -14
+    non_collocation_penalty: -6
+    weak_collocation_penalty: -100
+    rear_penalty: -18

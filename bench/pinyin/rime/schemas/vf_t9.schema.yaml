@@ -1,0 +1,63 @@
+# Rime schema
+# encoding: utf-8
+#
+# VoiceFlow nine-key (九宫格) pinyin, slim: no Lua, no reverse lookup, no
+# punctuation or symbols. MIT, written for VoiceFlow's benchmark (phase 3).
+# Wanxiang's wanxiang_t9.schema.yaml (CC BY 4.0, amzxyz) was read as a
+# reference for how a nine-key speller is set up in Rime; nothing is copied
+# from Wanxiang's Lua or tools. Words: vf_pinyin.dict.yaml (Wanxiang data).
+#
+# Input is what VoiceFlow's buffer holds: digits 2-9 for keys, lowercase
+# letters for a syllable whose spelling she pinned, and ' between syllables.
+# Every syllable is reachable two ways: as its letters and as its key digits.
+
+schema:
+  schema_id: vf_t9
+  name: VoiceFlow 九键
+  version: "0.1"
+  author:
+    - VoiceFlow
+  description: |
+    Nine-key pinyin over the Wanxiang dictionary, for VoiceFlow's benchmark.
+
+switches:
+  - name: ascii_mode
+    reset: 0
+    states: [中, A]
+
+engine:
+  processors:
+    - speller
+    - selector
+    - navigator
+    - express_editor
+  segmentors:
+    - abc_segmentor
+    - fallback_segmentor
+  translators:
+    - script_translator
+  filters:
+    - uniquifier
+
+speller:
+  alphabet: abcdefghijklmnopqrstuvwxyz23456789
+  initials: abcdefghijklmnopqrstuvwxyz23456789
+  delimiter: "'"
+  algebra:
+    # Wanxiang readings carry tone marks: drop them, write ü as v.
+    - xlit/āáǎàōóǒòēéěèīíǐìūúǔùǖǘǚǜüńňǹ/aaaaooooeeeeiiiiuuuuvvvvvnnn/
+    - xform/ḿ/m/
+    # lüe and nüe are also typed lue and nue.
+    - derive/^([nl])ve$/$1ue/
+    # A copy of every spelling in capitals, then capitals to their keys, so
+    # "xie" stays typeable as letters and "943" reaches it as digits.
+    - derive/^([a-z]+)$/\U$1/
+    - xlit/ABCDEFGHIJKLMNOPQRSTUVWXYZ/22233344455566677778889999/
+
+translator:
+  dictionary: vf_pinyin
+  prism: vf_t9
+  enable_completion: true
+  enable_user_dict: true
+  enable_correction: false
+  contextual_suggestions: false

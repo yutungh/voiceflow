@@ -1,0 +1,51 @@
+# Rime schema
+# encoding: utf-8
+#
+# VoiceFlow full-keyboard pinyin, slim: no Lua, no reverse lookup, no
+# punctuation or symbols. MIT, written for VoiceFlow's benchmark (phase 3);
+# the control for vf_t9. Words: vf_pinyin.dict.yaml (Wanxiang data).
+
+schema:
+  schema_id: vf_qwerty
+  name: VoiceFlow 全拼
+  version: "0.1"
+  author:
+    - VoiceFlow
+  description: |
+    Full pinyin over the Wanxiang dictionary, for VoiceFlow's benchmark.
+
+switches:
+  - name: ascii_mode
+    reset: 0
+    states: [中, A]
+
+engine:
+  processors:
+    - speller
+    - selector
+    - navigator
+    - express_editor
+  segmentors:
+    - abc_segmentor
+    - fallback_segmentor
+  translators:
+    - script_translator
+  filters:
+    - uniquifier
+
+speller:
+  alphabet: abcdefghijklmnopqrstuvwxyz
+  initials: abcdefghijklmnopqrstuvwxyz
+  delimiter: " '"
+  algebra:
+    - xlit/āáǎàōóǒòēéěèīíǐìūúǔùǖǘǚǜüńňǹ/aaaaooooeeeeiiiiuuuuvvvvvnnn/
+    - xform/ḿ/m/
+    - derive/^([nl])ve$/$1ue/
+
+translator:
+  dictionary: vf_pinyin
+  prism: vf_qwerty
+  enable_completion: true
+  enable_user_dict: true
+  enable_correction: false
+  contextual_suggestions: false

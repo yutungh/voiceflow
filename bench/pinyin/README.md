@@ -131,3 +131,62 @@ grammar model has no explicit licence for that asset yet, and book-register
 2-grams (Google Books, CC BY 3.0) cannot help the case that is left (谢谢 with
 nothing before it). The final-particle bonus is the context score that
 measurably helped.
+
+## Phase 3: Rime on the same ruler
+
+Rime (librime 1.17.0 with octagram, every commit pinned) with our own slim
+schemas over the same Wanxiang tables, scored on a PC through `ExternalEngine`
+(`PinyinBenchmark external`). How it is built and run: `rime/README.md`.
+`rime-dict` is the dictionary only; `rime-gram` adds Wanxiang's 391 MB grammar
+model. Rime got no dictionary tuning; three grammar settings were tried on dev
+only and Wanxiang's own was kept. Each run starts with an empty user
+dictionary. A clean build from `rime/build.sh` reproduces the rows exactly.
+
+| Held-out (190) | 0.8.8 | 0.8.9 | rime-dict | rime-gram |
+|---|---:|---:|---:|---:|
+| Nine-key top1 | 52.6% | 66.3% | 74.7% | **75.8%** |
+| Nine-key top5 | 75.8% | 79.5% | 80.5% | 81.6% |
+| Nine-key char accuracy | 73.7% | 79.1% | 86.3% | 87.1% |
+| Nine-key corrections / phrase | 1.263 | 0.974 | 0.542 | **0.495** |
+| Nine-key failed | 4 | 3 | 0 | 0 |
+| Full pinyin top1 | 75.3% | 82.6% | 91.6% | **93.7%** |
+| Full pinyin corrections / phrase | 0.679 | 0.474 | 0.168 | **0.121** |
+
+| Dev (183) | 0.8.8 | 0.8.9 | rime-dict | rime-gram |
+|---|---:|---:|---:|---:|
+| Nine-key top1 | 54.1% | 76.0% | 74.9% | **79.8%** |
+| Nine-key corrections / phrase | 0.863 | 0.410 | 0.464 | **0.339** |
+| Full pinyin top1 | 80.9% | 92.9% | 92.9% | **95.1%** |
+| Full pinyin corrections / phrase | 0.410 | 0.153 | 0.142 | **0.093** |
+
+Paired, held-out nine-key: 0.8.9 to rime-dict top1 **+8.4 points [+3.7, +13.2]**,
+corrections **-0.43 [-0.72, -0.16]** (-44%). Without the 34 phrases holding a
+word on the Java chat list: +10.3 [+5.1, +16.0], -0.54 [-0.89, -0.22]. On dev,
+where 0.8.9 was tuned and Rime was not, they are level (-1.1 [-5.5, +3.8]).
+rime-dict to rime-gram: +1.1 [-1.1, +3.7] and -0.05 [-0.11, +0.01] (-9%)
+held out; +4.9 and -27% on dev; +2.1 and -28% on held-out full pinyin.
+
+Weak spots (nine-key): 明天见 first everywhere; 谢谢 still second behind 这些 in
+all three; 可以吗 is first in 0.8.9 (its final-particle bonus) but second
+behind 可以拿 in Rime. Rime offers one sentence candidate, so a whole phrase it
+misses is usually not in its list at all (its top5 equals its recall); it
+makes up for it with cheap word-by-word commits and never fails.
+
+On the PC (`results/rime-host.json`): nine-key per key p95 0.56 ms (Java
+0.37 ms), full keyboard 0.12 ms (0.18 ms); first candidates 25 ms from a cold
+start, 30 ms with the gram. Memory is almost all memory-mapped data: 60 MB
+resident with the dictionary, 270 MB with the gram, about 1 MB of heap.
+Compiled dictionary 54.3 MB (24 MB deflated); librime itself about 3.6 MB.
+
+**Gate verdict (plan, 2026-11-21): Rime wins.** Held-out nine-key is +8.4
+points (threshold 5) and -44% corrections (threshold 20%; the bootstrap
+interval of the relative cut is 21-61%). The top1 interval, +3.7 to +13.2,
+shows a gain but does not by itself prove 5 points. **The gram has not earned
+its 391 MB:** +1.1 points and -9% corrections on held-out nine-key, against 3
+points or 15%. Full pinyin is the control and does not decide it, and the dev
+gain came from the setting chosen on dev. More nine-key data could reopen it.
+
+Limits, from a read-only Codex review: this compares two systems (Rime gets
+all of Wanxiang, Java a 300k cut with a chat boost), not two algorithms; the
+corrections are the cheapest possible path, not real typing, deletes or
+learning; desktop timings leave out Android, JNI and the UI.

@@ -1,0 +1,7 @@
+# Rime default settings for VoiceFlow's benchmark (MIT). Only the schema list.
+config_version: "vf-0.1"
+schema_list:
+  - schema: vf_t9
+  - schema: vf_qwerty
+menu:
+  page_size: 6

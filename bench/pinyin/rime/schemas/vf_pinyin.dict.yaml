@@ -1,0 +1,25 @@
+# Rime dictionary
+# encoding: utf-8
+#
+# VoiceFlow pinyin dictionary for Rime (bench/pinyin, phase 3). This file is
+# MIT, written for VoiceFlow. It holds no words itself: it imports three tables
+# from Wanxiang (万象), https://github.com/amzxyz/rime-wanxiang by amzxyz, at
+# commit 907edf67ce6d1f5c73b9f65ce9a2de55f8d7c82d, licensed CC BY 4.0
+# (https://creativecommons.org/licenses/by/4.0/). The same three tables, at
+# the same commit, feed the Java engine's asset (0.8.9).
+#
+# The tables are fetched unchanged (build.sh checks their SHA-256):
+#   zi.dict.yaml      f321215a3aa7eef6317ec3b9e9725bf777480627488f5b6a42febaf7687e4924
+#   jichu.dict.yaml   4a4598568f9f52cafb6ff9858adad4641a235165995c8d93c83aa67fe47343c7
+#   duoyin.dict.yaml  85c2fe78121a05c50511e8defa473bd801c9697be79c4a548bb2f265c45f15f2
+
+---
+name: vf_pinyin
+version: "wanxiang-907edf67"
+sort: by_weight
+use_preset_vocabulary: false
+import_tables:
+  - zi
+  - jichu
+  - duoyin
+...
