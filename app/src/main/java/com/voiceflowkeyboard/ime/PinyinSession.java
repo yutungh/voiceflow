@@ -76,6 +76,9 @@ final class PinyinSession {
     private PinyinComposer composer;
     private final StringBuilder buffer = new StringBuilder();
     private List<PinyinCandidate> candidates = Collections.emptyList();
+    /** 9-key only: the buffer read as letters, and the spellings she can pin. */
+    private String display = "";
+    private List<PinyinKeypadLookup.SpellingOption> spellingOptions = Collections.emptyList();
 
     PinyinSession(PinyinComposer composer) {
         this.composer = composer;
@@ -102,6 +105,102 @@ final class PinyinSession {
 
     List<PinyinCandidate> candidates() {
         return candidates;
+    }
+
+    /** True when this session reads a nine-key (九宫格) buffer. */
+    boolean isKeypad() {
+        return keypad() != null;
+    }
+
+    private PinyinKeypadLookup keypad() {
+        if (composer == null) {
+            return null;
+        }
+        PinyinLookup lookup = composer.lookup();
+        return lookup instanceof PinyinKeypadLookup ? (PinyinKeypadLookup) lookup : null;
+    }
+
+    /**
+     * What the editor shows while composing: the raw letters on QWERTY, the
+     * spelling ("ni'hao") on the 9-key pad, where the digits mean nothing to read.
+     */
+    String composingText() {
+        return isKeypad() && !display.isEmpty() ? display : rawText();
+    }
+
+    /** 9-key: the spelling of the top reading, for the strip over the candidates. */
+    String spellingDisplay() {
+        return display;
+    }
+
+    /** 9-key: the spellings the first undecided digits could be (64: ni, mi, m, n, o). */
+    List<PinyinKeypadLookup.SpellingOption> spellingOptions() {
+        return spellingOptions;
+    }
+
+    /**
+     * 9-key: pins the spelling at {@code index}, so the candidates that follow
+     * all read it that way.
+     *
+     * @return false when there is no such option
+     */
+    boolean pinSpelling(int index) {
+        if (index < 0 || index >= spellingOptions.size()) {
+            return false;
+        }
+        PinyinKeypadLookup.SpellingOption option = spellingOptions.get(index);
+        if (option.start < 0 || option.end > buffer.length() || option.start >= option.end) {
+            return false;
+        }
+        String candidate = buffer.substring(0, option.start) + option.replacement + buffer.substring(option.end);
+        String normalized = composer.lookup().normalize(candidate, PinyinComposer.MAX_INPUT_LENGTH);
+        if (!normalized.equals(candidate)) {
+            // Too long once the apostrophe is added, or doubled up: keep it as is.
+            return false;
+        }
+        buffer.setLength(0);
+        buffer.append(candidate);
+        refresh();
+        return true;
+    }
+
+    /**
+     * Types one 9-key apostrophe (the 1 key, 分词), a hard syllable break.
+     * Ignored at the start of the buffer and after another apostrophe.
+     *
+     * @return true when the key was absorbed (even if it changed nothing)
+     */
+    boolean appendSeparator() {
+        if (composer == null || buffer.length() == 0) {
+            return false;
+        }
+        if (buffer.charAt(buffer.length() - 1) == PinyinKeypadLookup.SEPARATOR
+                || buffer.length() + 1 > PinyinComposer.MAX_INPUT_LENGTH) {
+            return true;
+        }
+        buffer.append(PinyinKeypadLookup.SEPARATOR);
+        refresh();
+        return true;
+    }
+
+    /**
+     * 9-key: commits the spelled letters as Latin text ("nihao"), for a word
+     * that is not Chinese. Digits nothing reads stay digits.
+     */
+    Settlement selectSpelledLetters() {
+        if (buffer.length() == 0) {
+            return Settlement.NOTHING;
+        }
+        String shown = composingText();
+        StringBuilder letters = new StringBuilder(shown.length());
+        for (int i = 0; i < shown.length(); i++) {
+            char c = shown.charAt(i);
+            if (c != PinyinKeypadLookup.SEPARATOR) {
+                letters.append(c);
+            }
+        }
+        clear();
+        return new Settlement(Action.COMMIT, letters.toString());
     }
 
     /**
@@ -176,6 +275,11 @@ final class PinyinSession {
         PinyinCandidate chosen = candidates.get(index);
         int consumed = Math.min(Math.max(chosen.consumed, 0), buffer.length());
         buffer.delete(0, consumed);
+        // What is left starts a new word; a 9-key apostrophe in front of it
+        // separated it from the part just committed.
+        while (buffer.length() > 0 && buffer.charAt(0) == PinyinKeypadLookup.SEPARATOR) {
+            buffer.deleteCharAt(0);
+        }
         refresh();
         return new Settlement(Action.COMMIT, chosen.text);
     }
@@ -223,14 +327,28 @@ final class PinyinSession {
     private void clear() {
         buffer.setLength(0);
         candidates = Collections.emptyList();
+        display = "";
+        spellingOptions = Collections.emptyList();
     }
 
     private void refresh() {
         if (buffer.length() == 0 || composer == null) {
             candidates = Collections.emptyList();
+            display = "";
+            spellingOptions = Collections.emptyList();
             return;
         }
-        List<PinyinCandidate> found = composer.candidates(buffer.toString(), CANDIDATE_LIMIT);
+        String raw = buffer.toString();
+        List<PinyinCandidate> found = composer.candidates(raw, CANDIDATE_LIMIT);
         candidates = found.isEmpty() ? Collections.<PinyinCandidate>emptyList() : new ArrayList<>(found);
+        PinyinKeypadLookup keypad = keypad();
+        if (keypad == null) {
+            display = "";
+            spellingOptions = Collections.emptyList();
+        } else {
+            PinyinCandidate top = candidates.isEmpty() ? null : candidates.get(0);
+            display = keypad.display(raw, top);
+            spellingOptions = keypad.spellingOptions(raw, top);
+        }
     }
 }

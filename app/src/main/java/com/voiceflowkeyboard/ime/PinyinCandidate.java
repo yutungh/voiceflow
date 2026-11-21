@@ -21,11 +21,24 @@ final class PinyinCandidate {
 
     final double score;
 
+    /**
+     * The letters this reading spells, one dictionary key per word with an
+     * apostrophe between words ("ni'hao" for 你+好, "nihao" for 你好), or "" when
+     * the lookup did not say. On the 9-key layout this is what the digits
+     * turned out to mean.
+     */
+    final String spelling;
+
     PinyinCandidate(String text, int consumed, boolean completion, double score) {
+        this(text, consumed, completion, score, "");
+    }
+
+    PinyinCandidate(String text, int consumed, boolean completion, double score, String spelling) {
         this.text = text;
         this.consumed = consumed;
         this.completion = completion;
         this.score = score;
+        this.spelling = spelling == null ? "" : spelling;
     }
 
     @Override

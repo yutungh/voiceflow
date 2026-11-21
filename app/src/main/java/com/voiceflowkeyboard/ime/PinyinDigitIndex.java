@@ -39,7 +39,7 @@ final class PinyinDigitIndex implements PinyinLookup {
     private final String[] digitKeys;
     private final int[] letterKeyStart;
     private final int[] letterKeyIndices;
-    private final String[] bestWord;
+    private final int[] bestKey;
     private final int[] bestFrequency;
     private final int maxSpanLength;
 
@@ -48,7 +48,7 @@ final class PinyinDigitIndex implements PinyinLookup {
             String[] digitKeys,
             int[] letterKeyStart,
             int[] letterKeyIndices,
-            String[] bestWord,
+            int[] bestKey,
             int[] bestFrequency,
             int maxSpanLength
     ) {
@@ -56,7 +56,7 @@ final class PinyinDigitIndex implements PinyinLookup {
         this.digitKeys = digitKeys;
         this.letterKeyStart = letterKeyStart;
         this.letterKeyIndices = letterKeyIndices;
-        this.bestWord = bestWord;
+        this.bestKey = bestKey;
         this.bestFrequency = bestFrequency;
         this.maxSpanLength = maxSpanLength;
     }
@@ -119,20 +119,20 @@ final class PinyinDigitIndex implements PinyinLookup {
         }
         groupStart[groupCount] = keyCount;
 
-        String[] bestWord = new String[groupCount];
+        int[] bestKey = new int[groupCount];
         int[] bestFrequency = new int[groupCount];
         for (int g = 0; g < groupCount; g++) {
             for (int p = groupStart[g]; p < groupStart[g + 1]; p++) {
                 PinyinDictionary.Entry candidate = dictionary.firstEntryAt(letterIndices[p]);
                 if (candidate != null && candidate.frequency > bestFrequency[g]) {
-                    bestWord[g] = candidate.word;
+                    bestKey[g] = letterIndices[p];
                     bestFrequency[g] = candidate.frequency;
                 }
             }
         }
 
         return new PinyinDigitIndex(
-                dictionary, digitKeys, groupStart, letterIndices, bestWord, bestFrequency, maxSpan);
+                dictionary, digitKeys, groupStart, letterIndices, bestKey, bestFrequency, maxSpan);
     }
 
     int digitKeyCount() {
@@ -188,14 +188,63 @@ final class PinyinDigitIndex implements PinyinLookup {
         if (start >= digitKeys.length || !digitKeys[start].startsWith(prefix)) {
             return Collections.emptyList();
         }
-        List<PinyinDictionary.Entry> found = new ArrayList<>();
+        // Rank the groups on their precomputed frequency and parse only the
+        // winners: a one-digit prefix spans thousands of groups.
+        List<Integer> groups = new ArrayList<>();
         for (int g = start; g < digitKeys.length && digitKeys[g].startsWith(prefix); g++) {
-            if (digitKeys[g].length() == prefix.length() || bestWord[g] == null) {
+            if (digitKeys[g].length() == prefix.length() || bestFrequency[g] <= 0) {
                 continue;
             }
-            found.add(new PinyinDictionary.Entry(bestWord[g], bestFrequency[g]));
+            groups.add(g);
         }
-        Collections.sort(found, (a, b) -> Integer.compare(b.frequency, a.frequency));
-        return found.size() > limit ? new ArrayList<>(found.subList(0, limit)) : found;
+        Collections.sort(groups, (a, b) -> Integer.compare(bestFrequency[b], bestFrequency[a]));
+        List<PinyinDictionary.Entry> found = new ArrayList<>(Math.min(limit, groups.size()));
+        for (int i = 0; i < groups.size() && found.size() < limit; i++) {
+            PinyinDictionary.Entry best = dictionary.firstEntryAt(bestKey[groups.get(i)]);
+            if (best != null) {
+                found.add(best);
+            }
+        }
+        return found;
+    }
+
+    // ------------------------------------------------- for PinyinKeypadLookup
+
+    PinyinDictionary dictionary() {
+        return dictionary;
+    }
+
+    /** Index of the digit group spelled exactly by {@code digits}, or -1. */
+    int groupOf(String digits) {
+        int group = Arrays.binarySearch(digitKeys, digits);
+        return group < 0 ? -1 : group;
+    }
+
+    /** First group whose digits start with {@code prefix}, or -1. */
+    int firstGroupWithPrefix(String prefix) {
+        int index = Arrays.binarySearch(digitKeys, prefix);
+        int start = index >= 0 ? index : -(index + 1);
+        return start < digitKeys.length && digitKeys[start].startsWith(prefix) ? start : -1;
+    }
+
+    int groupCount() {
+        return digitKeys.length;
+    }
+
+    String groupDigits(int group) {
+        return digitKeys[group];
+    }
+
+    int groupStart(int group) {
+        return letterKeyStart[group];
+    }
+
+    int groupEnd(int group) {
+        return letterKeyStart[group + 1];
+    }
+
+    /** Dictionary key index at a position inside a group's range. */
+    int keyIndexAt(int position) {
+        return letterKeyIndices[position];
     }
 }

@@ -33,4 +33,23 @@ interface PinyinLookup {
 
     /** Sum of all entry frequencies, the unigram normaliser. */
     long totalFrequency();
+
+    /**
+     * Whether the candidates should end with the words that read just the
+     * start of the buffer (你 for 64426), so a long run can be committed a word
+     * at a time. The 9-key pad does this, as Sogou's does; full QWERTY keeps
+     * its list as it was.
+     */
+    default boolean offersLeadingWords() {
+        return false;
+    }
+
+    /**
+     * Positions in the normalized {@code input} (0 to length) where a word may
+     * start or end, or null when any position may. The 9-key pad forbids the
+     * inside of a syllable she pinned whole.
+     */
+    default boolean[] spanBoundaries(String input) {
+        return null;
+    }
 }

@@ -67,6 +67,7 @@ final class Prefs {
     private static final String KEY_CANCEL_RECORDING_WHEN_HIDDEN = "cancel_recording_when_hidden";
     private static final String KEY_CHINESE_INPUT_ENABLED = "chinese_input_enabled";
     private static final String KEY_CHINESE_LAYOUT = "chinese_layout";
+    private static final String KEY_SPLIT_LARGE_SCREENS = "split_large_screens";
     private static final String KEY_ACTIVE_PRESET = "active_preset";
     private static final String KEY_PROMPTS_JSON = "prompts_json";
     private static final String KEY_REPLACEMENTS_JSON = "replacements_json";
@@ -890,7 +891,21 @@ final class Prefs {
     }
 
     static String chineseLayoutLabel(String layout) {
-        return CHINESE_LAYOUT_KEYPAD.equals(sanitizeChineseLayout(layout)) ? "9-key (九键)" : "Full pinyin (全键)";
+        return CHINESE_LAYOUT_KEYPAD.equals(sanitizeChineseLayout(layout))
+                ? "Nine-key (九宫格)" : "Full keyboard (全键)";
+    }
+
+    /**
+     * Whether the keyboard splits in two on a large screen such as the Fold's
+     * inner display (0.8.7). On by default; a phone and the cover screen never
+     * split either way.
+     */
+    static boolean splitLargeScreens(Context context) {
+        return shared(context).getBoolean(KEY_SPLIT_LARGE_SCREENS, true);
+    }
+
+    static void setSplitLargeScreens(Context context, boolean enabled) {
+        shared(context).edit().putBoolean(KEY_SPLIT_LARGE_SCREENS, enabled).apply();
     }
 
     static boolean cancelRecordingWhenHidden(Context context) {

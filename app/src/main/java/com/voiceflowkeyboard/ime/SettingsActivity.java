@@ -616,6 +616,12 @@ public class SettingsActivity extends Activity {
         keyboard.addView(Ui.divider(this, 60));
         keyboard.addView(Ui.row(this, R.drawable.ph_gear_six, Ui.Tile.NEUTRAL, "Android keyboard settings", "System settings",
                 v -> startActivity(new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))));
+        keyboard.addView(Ui.divider(this, 16));
+        CheckBox split = new CheckBox(this);
+        split.setChecked(Prefs.splitLargeScreens(this));
+        keyboard.addView(checkboxRow("Split keyboard on large screens",
+                "On a tablet or a Fold's inner screen, the keys split in two for your thumbs",
+                split, () -> Prefs.setSplitLargeScreens(this, split.isChecked())));
         column.addView(keyboard);
 
         column.addView(Ui.sectionLabel(this, "Chinese input"));
@@ -630,7 +636,7 @@ public class SettingsActivity extends Activity {
                 }));
         if (Prefs.chineseInputEnabled(this)) {
             chinese.addView(Ui.divider(this, 16));
-            LinearLayout layout = Ui.row(this, 0, Ui.Tile.NEUTRAL, "Pinyin layout",
+            LinearLayout layout = Ui.row(this, 0, Ui.Tile.NEUTRAL, "Chinese keyboard layout",
                     Prefs.chineseLayoutLabel(Prefs.chineseLayout(this)), v -> showChineseLayoutDialog());
             chineseLayoutValue = layout.findViewWithTag("subtitle");
             chinese.addView(layout);
@@ -773,7 +779,7 @@ public class SettingsActivity extends Activity {
             }
         }
         new AlertDialog.Builder(this)
-                .setTitle("Pinyin layout")
+                .setTitle("Chinese keyboard layout")
                 .setSingleChoiceItems(labels, checked, (dialog, which) -> {
                     Prefs.setChineseLayout(this, values[which]);
                     if (chineseLayoutValue != null) {
