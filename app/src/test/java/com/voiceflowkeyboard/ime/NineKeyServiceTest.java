@@ -176,6 +176,28 @@ public class NineKeyServiceTest {
         assertEquals(View.GONE, spellingLine().getVisibility());
     }
 
+    /** 0.8.8: a run over several syllables offers the whole sentence first, as full-keyboard pinyin does. */
+    @Test public void theFirstCandidateIsTheWholeSentence() {
+        type("96744");
+        assertEquals("wo'shi", composing());
+        PinyinSession session = ReflectionHelpers.getField(service, "pinyinSession");
+        assertEquals("我是", session.candidates().get(0).text);
+        tapText("我是");
+        assertEquals("我是", text());
+        assertEquals("", composing());
+
+        type(PinyinDigitIndex.project("zhongguoren"));
+        tapText("中国人");
+        assertEquals("我是中国人", text());
+    }
+
+    @Test public void spaceTakesTheWholeSentence() {
+        type(PinyinDigitIndex.project("nihaoma"));
+        ReflectionHelpers.callInstanceMethod(service, "settlePinyin",
+                ClassParameter.from(PinyinSession.SettleReason.class, PinyinSession.SettleReason.ACCEPT_TOP));
+        assertEquals("你好吗", text());
+    }
+
     @Test public void spaceTakesTheTopReading() {
         type("94664486");
         assertEquals("zhong'guo", composing());
@@ -274,7 +296,7 @@ public class NineKeyServiceTest {
     // ---------------------------------------------------------------- English
 
     @Test public void englishIsTheQwertyKeyboardAsBefore() {
-        ReflectionHelpers.callInstanceMethod(service, "toggleLanguage");
+        ReflectionHelpers.callInstanceMethod(service, "onLanguageKeyTap");
         assertEquals(InputMode.ENGLISH, ReflectionHelpers.getField(service, "inputMode"));
         assertNull(findDescription(root, "Syllable break"));
         assertTrue(findText(root, "q") != null || findText(root, "Q") != null);
@@ -282,12 +304,12 @@ public class NineKeyServiceTest {
         ReflectionHelpers.callInstanceMethod(service, "commitKey", ClassParameter.from(String.class, "i"));
         assertTrue(text(), text().endsWith("hi") || text().endsWith("Hi"));
         // And back to the nine-key pad, remembered.
-        ReflectionHelpers.callInstanceMethod(service, "toggleLanguage");
+        ReflectionHelpers.callInstanceMethod(service, "onLanguageKeyTap");
         assertEquals(InputMode.CHINESE_KEYPAD, ReflectionHelpers.getField(service, "inputMode"));
     }
 
     @Test public void theMoreMenuSwitchesBetweenTheChineseLayouts() {
-        ReflectionHelpers.callInstanceMethod(service, "setInputMode",
+        ReflectionHelpers.callInstanceMethod(service, "chooseKeyboard",
                 ClassParameter.from(InputMode.class, InputMode.CHINESE_QWERTY));
         assertEquals(Prefs.CHINESE_LAYOUT_QWERTY, Prefs.chineseLayout(service));
         assertNotNull(findText(root, "q"));
@@ -330,8 +352,10 @@ public class NineKeyServiceTest {
         service.connection = new BaseInputConnection(new View(service), true);
         startField();
         PinyinSession session = ReflectionHelpers.getField(service, "pinyinSession");
-        assertFalse(session.isComposing());
+        assertTrue(session == null || !session.isComposing());
         assertEquals("", text());
+        // 0.8.8: and the new field starts in English.
+        assertEquals(InputMode.ENGLISH, ReflectionHelpers.getField(service, "inputMode"));
     }
 
     @Test @Config(qualifiers = "w752dp-h835dp")

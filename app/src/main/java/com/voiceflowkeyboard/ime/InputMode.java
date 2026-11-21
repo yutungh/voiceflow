@@ -22,9 +22,9 @@ enum InputMode {
         return this == CHINESE_KEYPAD;
     }
 
-    /** Short label for the language key. */
+    /** Short label for the language key: EN, 中 (full keyboard) or 九 (nine-key). */
     String keyLabel() {
-        return isChinese() ? "中" : "EN";
+        return LanguageKey.keyLabel(this);
     }
 
     static InputMode chineseFor(String prefsLayout) {

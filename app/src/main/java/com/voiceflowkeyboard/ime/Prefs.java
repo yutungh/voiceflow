@@ -68,6 +68,7 @@ final class Prefs {
     private static final String KEY_CHINESE_INPUT_ENABLED = "chinese_input_enabled";
     private static final String KEY_CHINESE_LAYOUT = "chinese_layout";
     private static final String KEY_SPLIT_LARGE_SCREENS = "split_large_screens";
+    private static final String KEY_LANGUAGE_KEY = "language_key";
     private static final String KEY_ACTIVE_PRESET = "active_preset";
     private static final String KEY_PROMPTS_JSON = "prompts_json";
     private static final String KEY_REPLACEMENTS_JSON = "replacements_json";
@@ -877,7 +878,23 @@ final class Prefs {
         shared(context).edit().putBoolean(KEY_CHINESE_INPUT_ENABLED, enabled).apply();
     }
 
-    /** Which Chinese layout the 中 key returns to, remembered across sessions. */
+    /**
+     * What a tap on the language key does (0.8.8): toggle English and the
+     * second keyboard (the default), cycle through all, or show the list.
+     */
+    static LanguageKey.Behaviour languageKeyBehaviour(Context context) {
+        return LanguageKey.Behaviour.fromPrefs(shared(context).getString(KEY_LANGUAGE_KEY, ""));
+    }
+
+    static void setLanguageKeyBehaviour(Context context, LanguageKey.Behaviour behaviour) {
+        shared(context).edit().putString(KEY_LANGUAGE_KEY, behaviour.prefsValue).apply();
+    }
+
+    /**
+     * Which Chinese layout the language key switches to from English: the second
+     * keyboard. Saved only when she picks one (the list, the More menu or
+     * Settings), never by cycling past it.
+     */
     static String chineseLayout(Context context) {
         return sanitizeChineseLayout(shared(context).getString(KEY_CHINESE_LAYOUT, CHINESE_LAYOUT_QWERTY));
     }

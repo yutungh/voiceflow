@@ -629,7 +629,7 @@ public class SettingsActivity extends Activity {
         CheckBox chineseEnabled = new CheckBox(this);
         chineseEnabled.setChecked(Prefs.chineseInputEnabled(this));
         chinese.addView(checkboxRow("Chinese input",
-                "Adds a 中/EN key beside 123 for pinyin typing and Chinese dictation",
+                "Adds a language key (EN, 中 or 九) beside 123 for pinyin typing and Chinese dictation",
                 chineseEnabled, () -> {
                     Prefs.setChineseInputEnabled(this, chineseEnabled.isChecked());
                     setContentView(buildContent());
@@ -640,6 +640,10 @@ public class SettingsActivity extends Activity {
                     Prefs.chineseLayoutLabel(Prefs.chineseLayout(this)), v -> showChineseLayoutDialog());
             chineseLayoutValue = layout.findViewWithTag("subtitle");
             chinese.addView(layout);
+            // 0.8.8: what a tap on the language key does. English is always the main keyboard.
+            chinese.addView(Ui.divider(this, 16));
+            chinese.addView(Ui.row(this, 0, Ui.Tile.NEUTRAL, "Language key",
+                    languageKeySummary(), v -> showLanguageKeyDialog()));
         }
         column.addView(chinese);
 
@@ -782,10 +786,37 @@ public class SettingsActivity extends Activity {
                 .setTitle("Chinese keyboard layout")
                 .setSingleChoiceItems(labels, checked, (dialog, which) -> {
                     Prefs.setChineseLayout(this, values[which]);
-                    if (chineseLayoutValue != null) {
-                        chineseLayoutValue.setText(Prefs.chineseLayoutLabel(values[which]));
-                    }
                     dialog.dismiss();
+                    // The language key's summary names this layout too.
+                    setContentView(buildContent());
+                })
+                .show();
+    }
+
+    private String languageKeySummary() {
+        return LanguageKey.describe(Prefs.languageKeyBehaviour(this),
+                InputMode.chineseFor(Prefs.chineseLayout(this)));
+    }
+
+    private void showLanguageKeyDialog() {
+        LanguageKey.Behaviour[] values = LanguageKey.Behaviour.values();
+        InputMode secondary = InputMode.chineseFor(Prefs.chineseLayout(this));
+        String[] labels = new String[values.length];
+        int checked = 0;
+        LanguageKey.Behaviour selected = Prefs.languageKeyBehaviour(this);
+        for (int i = 0; i < values.length; i++) {
+            labels[i] = LanguageKey.describe(values[i], secondary)
+                    + (values[i] == LanguageKey.Behaviour.TOGGLE ? " (default)" : "");
+            if (values[i] == selected) {
+                checked = i;
+            }
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Language key")
+                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+                    Prefs.setLanguageKeyBehaviour(this, values[which]);
+                    dialog.dismiss();
+                    setContentView(buildContent());
                 })
                 .show();
     }

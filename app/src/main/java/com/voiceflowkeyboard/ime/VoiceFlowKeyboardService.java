@@ -45,6 +45,7 @@ import android.widget.LinearLayout;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
@@ -320,6 +321,18 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     // A configuration change (fold, unfold, rotate) rebuilds the input view and
     // restarts input on the same field; a composition survives it.
     private boolean rebuildingForConfiguration;
+    private long lastConfigurationChangeMs = -1;
+    private long lastHideRequestMs = -1;
+    // 0.8.8: English is the main keyboard. Set when the keyboard closes or a new
+    // field starts; applied before the keys are next shown (never mid-word).
+    private boolean startInEnglish = true;
+    private String languageFieldKey;
+    // The second keyboard as last read from Settings, so a change made there is noticed.
+    private String chineseLayoutSeen;
+    // The list of keyboards the language key's hold opens, drawn inside the keyboard.
+    private FrameLayout keyboardPicker;
+    // The bar and the keys under the list, hidden from TalkBack while it is open.
+    private View keyboardColumn;
     private int correctionGeneration;
     private int statusSpinnerStep;
 
@@ -377,6 +390,13 @@ public class VoiceFlowKeyboardService extends InputMethodService {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
         ));
+        keyboardColumn = column;
+        keyboardPicker = new FrameLayout(this);
+        keyboardPicker.setVisibility(View.GONE);
+        stack.addView(keyboardPicker, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+        ));
         root.addView(stack, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -397,7 +417,16 @@ public class VoiceFlowKeyboardService extends InputMethodService {
      */
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
-        rebuildingForConfiguration = composingPinyin();
+        // Always, not only mid-word (0.8.8): the rebuild must not count as a new
+        // field, so the keyboard she was on stays too.
+        rebuildingForConfiguration = true;
+        lastConfigurationChangeMs = android.os.SystemClock.uptimeMillis();
+        if (startInEnglish && lastHideRequestMs >= 0 && lastConfigurationChangeMs - lastHideRequestMs < 2_000) {
+            // The window went away just before this fold or turn: that hide was the
+            // fold's, not her closing the keyboard. A new field's request stays.
+            startInEnglish = false;
+            lastHideRequestMs = -1;
+        }
         try {
             super.onConfigurationChanged(newConfig);
         } finally {
@@ -438,6 +467,18 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             // field. What she was composing stays; the rebuilt strip shows it again.
         } else {
             settlePinyin(PinyinSession.SettleReason.EDITOR_GONE);
+        }
+        hideKeyboardPicker();
+        if (!rebuildingForConfiguration) {
+            // A new field starts in English. An app that restarts input on the
+            // same field (after a send, say) keeps the keyboard she was on. The
+            // field is tracked on restarts too, so a later fresh start of the
+            // same field is not mistaken for a new one.
+            String key = fieldKey(attribute);
+            if (!restarting && !key.equals(languageFieldKey)) {
+                startInEnglish = true;
+            }
+            languageFieldKey = key;
         }
         clearAutoCorrection();
         clearLastAutoCorrection();
@@ -493,8 +534,13 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         if (keyboardPanel == null || recording || processing) {
             return;
         }
-        if (inputMode.isChinese() && chineseAvailable() && !composingPinyin()) {
-            InputMode wanted = InputMode.chineseFor(Prefs.chineseLayout(this));
+        // Only a change made in Settings moves a Chinese keyboard to the other
+        // layout; cycling past the saved one must not be undone here (0.8.8).
+        String layoutNow = Prefs.chineseLayout(this);
+        boolean layoutChanged = chineseLayoutSeen != null && !layoutNow.equals(chineseLayoutSeen);
+        chineseLayoutSeen = layoutNow;
+        if (layoutChanged && inputMode.isChinese() && chineseAvailable() && !composingPinyin()) {
+            InputMode wanted = InputMode.chineseFor(layoutNow);
             if (wanted != inputMode) {
                 setInputMode(wanted);
             }
@@ -509,6 +555,13 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     @Override
     public void onFinishInputView(boolean finishingInput) {
         watchClipboard(false);
+        if (!finishingInput && !rebuildingForConfiguration && composingPinyin()) {
+            // The keyboard is closing on the same field, and the framework is about
+            // to end the composing span. Settle the word now (0.8.8), so the buffer
+            // and the field never disagree when it reopens. Leaving the field drops
+            // it instead (onFinishInput); a fold keeps it.
+            settlePinyin(PinyinSession.SettleReason.ACCEPT_TOP);
+        }
         super.onFinishInputView(finishingInput);
     }
 
@@ -529,6 +582,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         if (recording) {
             showCaptureRecordingState();
         } else if (!processing && keyboardPanel != null) {
+            applyStartInEnglish();
             // Some confirmation-code editors restart or advance the active
             // field after every digit, so the same field keeps the layer on
             // screen. A different field, or the same one changing type, starts
@@ -628,6 +682,9 @@ public class VoiceFlowKeyboardService extends InputMethodService {
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK && keyboardPickerOpen()) {
+            return true;
+        }
         if (emojiPicker != null) {
             if (keyCode == KeyEvent.KEYCODE_BACK) return true;
             if (emojiPicker.handleHardwareKey(keyCode, event)) return true;
@@ -637,6 +694,11 @@ public class VoiceFlowKeyboardService extends InputMethodService {
 
     @Override
     public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK && keyboardPickerOpen()) {
+            // Back closes the list first, as it does the emoji keyboard.
+            hideKeyboardPicker();
+            return true;
+        }
         if (emojiPicker != null) {
             if (keyCode == KeyEvent.KEYCODE_BACK) return emojiPicker.handleBack();
             if (emojiPicker.isSearching() && !event.isSystem()) return true;
@@ -647,6 +709,14 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     @Override
     public void onWindowHidden() {
         cancelRecordingIfKeyboardShouldReset();
+        hideKeyboardPicker();
+        // The keyboard opens in English next time (0.8.8), unless the window only
+        // went away for a fold, unfold or turn. Recorded while a dictation is busy
+        // too; it is applied when that dictation ends.
+        if (!configurationJustChanged()) {
+            startInEnglish = true;
+            lastHideRequestMs = android.os.SystemClock.uptimeMillis();
+        }
         if (!recording && !processing) {
             resetToRegularKeyboard();
         }
@@ -2445,9 +2515,10 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         if (clipboardHasText()) {
             menu.getMenu().add(0, MENU_PASTE, 4, "Paste clipboard");
         }
+        // 0.8.7: one tap between the two Chinese layouts, as Sogou offers. The
+        // other one from the layout on screen, or from the second keyboard in English.
+        final boolean keypadNext = !(inputMode.isChinese() ? inputMode : secondaryKeyboard()).isKeypad();
         if (chineseAvailable()) {
-            // 0.8.7: one tap between the two Chinese layouts, as Sogou offers.
-            boolean keypadNext = !Prefs.CHINESE_LAYOUT_KEYPAD.equals(Prefs.chineseLayout(this));
             menu.getMenu().add(1, MENU_CHINESE_LAYOUT, 5, keypadNext
                     ? "中文 九宫格 (nine-key)" : "中文 全键 (full keyboard)");
         }
@@ -2471,8 +2542,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
                     pasteClipboard();
                     return true;
                 case MENU_CHINESE_LAYOUT:
-                    setInputMode(Prefs.CHINESE_LAYOUT_KEYPAD.equals(Prefs.chineseLayout(this))
-                            ? InputMode.CHINESE_QWERTY : InputMode.CHINESE_KEYPAD);
+                    chooseKeyboard(keypadNext ? InputMode.CHINESE_KEYPAD : InputMode.CHINESE_QWERTY);
                     return true;
                 case MENU_SETTINGS:
                     openSettings();
@@ -3338,7 +3408,9 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     }
 
     private TextView spaceKey(float weight) {
-        TextView key = keyButton(chineseAvailable() ? (inputMode.isChinese() ? "中文" : "English") : "", weight, v -> {
+        // A space bar reads as a space bar (0.8.8): no language name on it. The
+        // language key shows which keyboard is on screen.
+        TextView key = keyButton("", weight, v -> {
         });
         key.setTextSize(13);
         key.setTextColor(ui.subtle);
@@ -5192,6 +5264,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     }
 
     private void setInputMode(InputMode next) {
+        hideKeyboardPicker();
         if (next == inputMode) {
             return;
         }
@@ -5205,7 +5278,6 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         lastShiftTapMs = 0;
         clearAutoCorrection();
         if (inputMode.isChinese()) {
-            Prefs.setChineseLayout(this, inputMode.prefsLayout());
             pinyinEngine().prepare(inputMode);
             PinyinComposer composer = pinyinEngine().composerFor(inputMode);
             if (composer == null) {
@@ -5232,54 +5304,219 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         showIdleChips();
     }
 
-    private void toggleLanguage() {
+    // ------------------------------------------------ the language key (0.8.8)
+
+    /** The second keyboard: the Chinese layout the toggle goes to. */
+    private InputMode secondaryKeyboard() {
+        return InputMode.chineseFor(Prefs.chineseLayout(this));
+    }
+
+    /** A tap on the language key, by the behaviour chosen in Settings. */
+    private void onLanguageKeyTap() {
         if (recording || processing) {
             return;
         }
-        setInputMode(inputMode.isChinese()
-                ? InputMode.ENGLISH
-                : InputMode.chineseFor(Prefs.chineseLayout(this)));
+        if (keyboardPickerOpen()) {
+            hideKeyboardPicker();
+            return;
+        }
+        InputMode next = LanguageKey.onTap(Prefs.languageKeyBehaviour(this), inputMode,
+                secondaryKeyboard(), chineseAvailable());
+        if (next == null) {
+            showKeyboardPicker();
+        } else {
+            setInputMode(next);
+        }
     }
 
-    private void showChineseLayoutMenu(View anchor) {
+    /**
+     * She picked a keyboard by hand (the list or the More menu): a Chinese one
+     * becomes the second keyboard, and the keyboard switches to it. English
+     * leaves the second keyboard as it was.
+     */
+    private void chooseKeyboard(InputMode chosen) {
         if (recording || processing) {
             return;
         }
-        PopupMenu menu = new PopupMenu(this, anchor);
-        menu.getMenu().add(0, 1, 0, "中文 全键 (full keyboard)");
-        menu.getMenu().add(0, 2, 1, "中文 九宫格 (nine-key)");
-        menu.getMenu().add(0, 3, 2, "English");
-        menu.setOnMenuItemClickListener(item -> {
-            switch (item.getItemId()) {
-                case 1:
-                    setInputMode(InputMode.CHINESE_QWERTY);
-                    return true;
-                case 2:
-                    setInputMode(InputMode.CHINESE_KEYPAD);
-                    return true;
-                default:
-                    setInputMode(InputMode.ENGLISH);
-                    return true;
-            }
-        });
-        menu.show();
+        if (chosen.isChinese()) {
+            Prefs.setChineseLayout(this, chosen.prefsLayout());
+            chineseLayoutSeen = Prefs.chineseLayout(this);
+        }
+        boolean already = chosen == inputMode;
+        setInputMode(chosen);
+        if (already && keyboardPanel != null && !composingPinyin()) {
+            // Same keyboard, new second keyboard: the key's description changes.
+            populateKeyboardPanel(keyboardPanel);
+        }
     }
 
-    /** The language key: tap to toggle, long-press to pick the Chinese layout. */
+    /** The language key shows the keyboard on screen now: EN, 中 or 九. */
     private TextView languageKey() {
-        return languageKey(inputMode.keyLabel());
-    }
-
-    private TextView languageKey(String label) {
-        TextView key = keyButton(label, 1.15f, v -> toggleLanguage(), true);
-        key.setContentDescription(inputMode.isChinese()
-                ? "Switch to English; hold to choose the Chinese layout"
-                : "Switch to Chinese; hold to choose the Chinese layout");
+        TextView key = keyButton(inputMode.keyLabel(), 1.15f, v -> onLanguageKeyTap(), true);
+        key.setContentDescription(LanguageKey.contentDescription(Prefs.languageKeyBehaviour(this),
+                inputMode, secondaryKeyboard(), chineseAvailable()));
         key.setOnLongClickListener(v -> {
-            showChineseLayoutMenu(v);
+            haptic(v);
+            showKeyboardPicker();
             return true;
         });
         return key;
+    }
+
+    private boolean keyboardPickerOpen() {
+        return keyboardPicker != null && keyboardPicker.getVisibility() == View.VISIBLE;
+    }
+
+    private void hideKeyboardPicker() {
+        if (keyboardPicker == null || keyboardPicker.getVisibility() != View.VISIBLE) {
+            return;
+        }
+        keyboardPicker.setVisibility(View.GONE);
+        keyboardPicker.removeAllViews();
+        if (keyboardColumn != null) {
+            keyboardColumn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
+        }
+    }
+
+    private boolean configurationJustChanged() {
+        return lastConfigurationChangeMs >= 0
+                && android.os.SystemClock.uptimeMillis() - lastConfigurationChangeMs < 2_000;
+    }
+
+    /**
+     * Puts the keyboard back on English when a new field started or the keyboard
+     * was closed. Never mid-word: a composition stays on the keyboard it was typed on.
+     */
+    private void applyStartInEnglish() {
+        if (!startInEnglish || rebuildingForConfiguration || recording || processing || keyboardPanel == null) {
+            return;
+        }
+        startInEnglish = false;
+        lastHideRequestMs = -1;
+        if (inputMode == InputMode.ENGLISH || composingPinyin()) {
+            return;
+        }
+        setInputMode(InputMode.ENGLISH);
+    }
+
+    /**
+     * The list of keyboards, drawn inside the keyboard over its keys: English,
+     * 中文 全键 and 中文 九宫格, the one on screen ticked and the second keyboard
+     * marked. Picking one switches to it. A tap outside, Back, or the language
+     * key closes it without typing anything; a composition stays as it is.
+     */
+    private void showKeyboardPicker() {
+        if (keyboardPicker == null || recording || processing || !chineseAvailable()) {
+            return;
+        }
+        hideVoiceStyleOverlay();
+        keyboardPicker.removeAllViews();
+        // The scrim: covers the bar and the keys so nothing under it is typed.
+        keyboardPicker.setBackgroundColor(withAlpha(ui.scrim, 0x55));
+        keyboardPicker.setClickable(true);
+        keyboardPicker.setOnClickListener(v -> hideKeyboardPicker());
+        keyboardPicker.setContentDescription("Close the keyboard list");
+
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setClickable(true);
+        card.setPadding(dp(6), dp(4), dp(6), dp(4));
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(ui.surface);
+        background.setCornerRadius(dp(14));
+        background.setStroke(Math.max(1, dp(1)), ui.border);
+        card.setBackground(background);
+        card.setElevation(dp(6));
+
+        TextView title = barText("Keyboards", 13, true, ui.subtle);
+        title.setPadding(dp(10), dp(4), dp(10), dp(2));
+        card.addView(title, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(26)));
+
+        LanguageKey.Behaviour behaviour = Prefs.languageKeyBehaviour(this);
+        InputMode secondary = secondaryKeyboard();
+        for (InputMode mode : LanguageKey.keyboards(chineseAvailable())) {
+            card.addView(keyboardPickerRow(mode, mode == inputMode,
+                    behaviour == LanguageKey.Behaviour.TOGGLE && mode == secondary));
+        }
+
+        TextView footer = barText(behaviour == LanguageKey.Behaviour.TOGGLE
+                ? "Tap " + inputMode.keyLabel() + ": English ⇄ " + LanguageKey.shortName(secondary)
+                : LanguageKey.describe(behaviour, secondary), 12, false, ui.muted);
+        footer.setPadding(dp(10), dp(2), dp(10), dp(4));
+        footer.setSingleLine(true);
+        footer.setEllipsize(TextUtils.TruncateAt.END);
+        card.addView(footer, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(24)));
+
+        int rows = LanguageKey.keyboards(chineseAvailable()).size();
+        int cardHeight = dp(26) + dp(44) * rows + dp(24) + dp(8);
+        int surface = keyboardSurface != null && keyboardSurface.getLayoutParams() != null
+                && keyboardSurface.getLayoutParams().height > 0
+                ? keyboardSurface.getLayoutParams().height
+                : dp(metrics.keyHeightDp * 4);
+        int available = dp(BAR_HEIGHT_DP) + surface;
+        // Just above the bottom row when it fits, so it rises from the key she held.
+        int bottomMargin = available - keyHeightPx() - dp(4) >= cardHeight ? keyHeightPx() + dp(2) : dp(4);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                Math.min(dp(280), Math.max(dp(200), getResources().getDisplayMetrics().widthPixels - dp(16))),
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM | (inputMode.isKeypad() ? Gravity.CENTER_HORIZONTAL : Gravity.START));
+        params.setMargins(dp(8), dp(4), dp(8), bottomMargin);
+        keyboardPicker.addView(card, params);
+        keyboardPicker.setVisibility(View.VISIBLE);
+        // The scrim blocks touches; TalkBack must not reach the keys under it either.
+        if (keyboardColumn != null) {
+            keyboardColumn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+        }
+        View first = card.getChildCount() > 1 ? card.getChildAt(1) : card;
+        first.performAccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
+    }
+
+    private View keyboardPickerRow(InputMode mode, boolean current, boolean secondary) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(10), 0, dp(10), 0);
+        row.setClickable(true);
+        GradientDrawable rowBackground = new GradientDrawable();
+        rowBackground.setCornerRadius(dp(10));
+        rowBackground.setColor(current ? ui.accentTint : android.graphics.Color.TRANSPARENT);
+        row.setBackground(rowBackground);
+        row.setContentDescription(LanguageKey.name(mode) + (current ? ", on screen now" : "")
+                + (secondary ? ", the language key switches to it" : ""));
+        row.setOnClickListener(v -> {
+            haptic(v);
+            hideKeyboardPicker();
+            chooseKeyboard(mode);
+        });
+
+        ImageView tick = new ImageView(this);
+        tick.setImageResource(R.drawable.ph_check);
+        tick.setColorFilter(ui.accentInk);
+        tick.setVisibility(current ? View.VISIBLE : View.INVISIBLE);
+        tick.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        row.addView(tick, new LinearLayout.LayoutParams(dp(18), dp(18)));
+
+        TextView name = barText(LanguageKey.name(mode), 15, current, current ? ui.accentInk : ui.fg);
+        name.setSingleLine(true);
+        name.setEllipsize(TextUtils.TruncateAt.END);
+        name.setPadding(dp(10), 0, dp(6), 0);
+        row.addView(name, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        if (secondary) {
+            TextView mark = barText("EN ⇄", 12, true, ui.subtle);
+            mark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            row.addView(mark);
+        }
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(44));
+        row.setLayoutParams(params);
+        return row;
+    }
+
+    private static int withAlpha(int color, int alpha) {
+        return (color & 0x00FFFFFF) | (alpha << 24);
     }
 
     /**
@@ -5369,7 +5606,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         emojiKey.setContentDescription("Open emoji keyboard");
         bottom.addView(emojiKey);
         bottom.addView(spaceKey(1.6f));
-        bottom.addView(languageKey("中/英"));
+        bottom.addView(languageKey());
         left.addView(bottom);
         pad.addView(left, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT,
                 KEYPAD_SIDE_WEIGHT + 3f));
@@ -6707,6 +6944,9 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         if (micButton != null) {
             setMicVisual(false, true);
         }
+        // A new field or a closed keyboard during the recording asked for English;
+        // settle it now, before the keys come back, not on some later restart.
+        applyStartInEnglish();
         if (chipStrip != null) {
             showIdleChips();
         }
