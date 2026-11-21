@@ -12,7 +12,8 @@
 	 * VoiceFlow phase F (B3.1): feedback on one dictation, then its fix.
 	 *
 	 * - Compose: the feedback (editable), optionally what it should have
-	 *   said, and, next to Send, exactly who it goes to and what is sent.
+	 *   said, and, under Find fixes, the provider and model it goes to (the
+	 *   one chosen in Settings > Feedback), with everything sent folded below.
 	 *   "Save as draft" keeps it on this PC only.
 	 * - Result: the corrected text (editable) with Copy (the default) and
 	 *   Paste into <app>; what changed at each step; then each problem with
@@ -64,6 +65,26 @@
 	$effect(() => {
 		if (step === 'compose') box?.focus();
 	});
+	// VoiceFlow 0.9.17: back from Settings (a key added, another model chosen),
+	// the line under Find fixes shows the model as it is now.
+	$effect(() => {
+		const onFocus = () => {
+			if (step === 'compose') void refreshSetup();
+		};
+		window.addEventListener('focus', onFocus);
+		return () => window.removeEventListener('focus', onFocus);
+	});
+
+	async function refreshSetup() {
+		const reply = await client.setup(recordingId);
+		if (reply.ok) setup = reply.setup;
+	}
+
+	async function openKeySettings() {
+		if (!setup?.keyNeeded) return;
+		const reply = await client.openSettings(setup.keyNeeded.section);
+		if (!reply.ok) error = reply.message;
+	}
 
 	const result = $derived(record?.result ?? null);
 	const issues = $derived(result ? issuesOf(result) : []);
@@ -118,8 +139,7 @@
 		take(reply);
 		if (!reply.ok) {
 			// Settings may have changed: show who it would go to now.
-			const fresh = await client.setup(recordingId);
-			if (fresh.ok) setup = fresh.setup;
+			await refreshSetup();
 		}
 		if (reply.ok && reply.record.result) {
 			corrected = reply.record.result.correctedText;
@@ -274,25 +294,39 @@
 					<Icon name="pencil-simple" class="i sm" />Add what it should have said
 				</button>
 			{/if}
-			{#if setup}
-				<p class="note"><Icon name="info" class="i sm" />{setup.disclosure}</p>
-				{#if !setup.ready}
-					<p class="note warnline">
-						<Icon name="warning" class="i sm" />Add your {setup.provider} API key in Settings to send feedback. You can still save it as a draft.
-					</p>
-				{/if}
-			{/if}
 			{#if error}
 				<p class="err" role="alert"><Icon name="warning-circle" weight="fill" class="i sm" />{error}</p>
 			{/if}
 			{#if notice}<p class="note okline" role="status"><Icon name="check-circle" weight="fill" class="i sm" />{notice}</p>{/if}
 			<div class="acts">
-				<button class="btn pri" type="submit" disabled={step === 'sending' || !setup?.ready || !setup?.subject}>
-					{#if step === 'sending'}Asking {setup?.provider ?? 'the model'}…{:else}Send to {setup?.provider ?? '…'}{/if}
+				<button
+					class="btn pri"
+					type="submit"
+					aria-describedby="fbx-sends"
+					disabled={step === 'sending' || !setup?.ready || !setup?.subject}
+				>
+					{#if step === 'sending'}Finding fixes…{:else}Find fixes{/if}
 				</button>
 				<button class="btn sec" type="button" disabled={busy || step === 'sending'} onclick={saveDraft}>Save as draft</button>
 				<button class="btn text" type="button" onclick={onClose}>Close</button>
 			</div>
+			{#if setup?.ready}
+				<p class="note sends" id="fbx-sends"><Icon name="info" class="i sm" />{setup.disclosure}</p>
+				{#if setup.details}
+					<details class="sent-detail">
+						<summary>Everything that's sent</summary>
+						<p class="sub small">{setup.details}</p>
+					</details>
+				{/if}
+			{:else if setup?.keyNeeded}
+				<div class="note warnline keyline" id="fbx-sends" role="status">
+					<Icon name="warning" class="i sm" />
+					<span>
+						{setup.keyNeeded.message} You can still save this as a draft.
+						<button class="btn text sm inl" type="button" onclick={openKeySettings}>Open Settings</button>
+					</span>
+				</div>
+			{/if}
 		</form>
 	{:else if result}
 		{#if result.explanation}<p class="diag">{result.explanation}</p>{/if}
@@ -581,5 +615,34 @@
 	}
 	.start {
 		align-self: flex-start;
+	}
+	.sends {
+		margin-top: 2px;
+	}
+	.sent-detail {
+		font-size: 12px;
+	}
+	.sent-detail summary {
+		cursor: pointer;
+		color: var(--subtle-foreground);
+		font-size: 12px;
+	}
+	.sent-detail p {
+		margin: 4px 0 0;
+	}
+	.keyline {
+		display: flex;
+		gap: 6px;
+		align-items: flex-start;
+	}
+	.keyline :global(.i) {
+		flex: none;
+		margin-top: 2px;
+	}
+	.inl {
+		display: inline;
+		padding: 0 4px;
+		height: auto;
+		text-decoration: underline;
 	}
 </style>

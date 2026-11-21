@@ -47,7 +47,16 @@ import {
 	type KeepFeedback,
 } from './log';
 import { disclosureForV2 } from './prompt';
-import { completerFor, DEFAULT_FEEDBACK_MODEL, type FeedbackProvider } from './providers';
+import { completerFor } from './providers';
+import {
+	fixModelFromSettings,
+	fixModelView,
+	keyNeeded,
+	KEY_SETTING,
+	modelName,
+	type FeedbackProvider,
+	type ResolvedFixModel,
+} from './fix-model';
 import { openAIFetchFor } from '$lib/services/isomorphic/openai-pool';
 import type { ProfileSnapshot } from '$lib/profile/types';
 
@@ -85,16 +94,14 @@ function serial<T>(id: string, task: () => Promise<T>): Promise<T> {
 	return next;
 }
 
-function provider(): { provider: FeedbackProvider; model: string } {
-	const chosen = settings.value['feedback.provider'];
-	const p: FeedbackProvider = chosen === 'Anthropic' ? 'Anthropic' : 'OpenAI';
-	const model = settings.value['feedback.model']?.trim() || DEFAULT_FEEDBACK_MODEL;
-	return { provider: p, model };
+/** VoiceFlow 0.9.17: the model Settings > Feedback says finds fixes (keys loaded first). */
+async function fixModel(): Promise<ResolvedFixModel> {
+	await settings.apiKeysReady;
+	return fixModelFromSettings(settings.value);
 }
 
-async function apiKeyFor(p: FeedbackProvider): Promise<string> {
-	await settings.apiKeysReady;
-	return p === 'Anthropic' ? settings.value['apiKeys.anthropic'] : settings.value['apiKeys.openai'];
+function apiKeyFor(p: FeedbackProvider): string {
+	return settings.value[KEY_SETTING[p]]?.trim() ?? '';
 }
 
 async function recordingOf(id: string): Promise<Recording | null> {
@@ -156,7 +163,7 @@ async function reviewContext(recording: Recording): Promise<Omit<ReviewContext, 
 
 async function setup(recordingId: string): Promise<Reply<{ setup: FeedbackSetup }>> {
 	const recording = await recordingOf(recordingId);
-	const { provider: p, model } = provider();
+	const resolved = await fixModel();
 	const setup: FeedbackSetup = {
 		subject: recording
 			? {
@@ -169,10 +176,7 @@ async function setup(recordingId: string): Promise<Reply<{ setup: FeedbackSetup 
 					canPaste: !!(recording.appExe || recording.appBundleId) && recording.privacy !== 'held',
 				}
 			: null,
-		provider: p,
-		model,
-		disclosure: disclosureForV2(p, recording?.appName, model),
-		ready: !!(await apiKeyFor(p)),
+		...fixModelView(resolved, (provider, name) => disclosureForV2(provider, recording?.appName, name)),
 	};
 	return { ok: true, setup };
 }
@@ -227,21 +231,24 @@ const service: FeedbackClient = {
 	async submit(a) {
 		if (!a.feedback.trim()) return { ok: false, message: 'Say or type what should have been different.' };
 		if (tooLong(a.wanted)) return { ok: false, message: TOO_LONG };
-		const { provider: shown, model: shownModel } = provider();
+		const before = await fixModel();
+		if (!before.ok) return { ok: false, message: keyNeeded(before).message };
+		const { provider: shown, model: shownModel } = before.choice;
 		if (a.expect && (a.expect.provider !== shown || a.expect.model !== shownModel))
 			return {
 				ok: false,
-				message: `Settings changed: this would now go to ${shown} (${shownModel}). Check it and send again.`,
+				message: `Settings changed: this would now go to ${shown} (${modelName(before.choice)}). Check it and try again.`,
 			};
 		const { recording, record } = await draftFor(a);
 		if (!recording || !record) return { ok: false, message: 'That dictation is no longer in History.' };
 		if (sending.has(record.id)) return { ok: false, message: 'This feedback is already being sent.', record };
 		sending.add(record.id);
 		return serial(record.id, async () => {
-			const { provider: p, model } = provider();
-			if (p !== shown || model !== shownModel)
-				return { ok: false as const, message: 'Settings changed while sending. Check them and send again.', record };
-			const apiKey = await apiKeyFor(p);
+			const now = await fixModel();
+			if (!now.ok || now.choice.provider !== shown || now.choice.model !== shownModel)
+				return { ok: false as const, message: 'Settings changed while sending. Check them and try again.', record };
+			const { provider: p, model } = now.choice;
+			const apiKey = apiKeyFor(p);
 			const evidence = evidenceFor(recording, await loadEvidence(recording.id), appIdOf(recording));
 			const review = await reviewContext(recording);
 			const outcome = await runFix({
@@ -350,6 +357,21 @@ const service: FeedbackClient = {
 			return { ok: true as const, message: result.message, record: saved };
 		});
 	},
+
+	/** VoiceFlow 0.9.17: the main window, at the Settings section where a key goes. */
+	async openSettings(section) {
+		if (section !== 'feedback' && section !== 'transcription') return { ok: false, message: 'Unknown section.' };
+		if (isDesktop()) {
+			const { getCurrentWindow } = await import('@tauri-apps/api/window');
+			const main = getCurrentWindow();
+			await main.show().catch(() => {});
+			await main.unminimize().catch(() => {});
+			await main.setFocus().catch(() => {});
+		}
+		const { goto } = await import('$app/navigation');
+		await goto(`/settings#${section}`);
+		return { ok: true };
+	},
 };
 
 async function handleRequest(req: FeedbackRequest): Promise<Reply<Record<string, unknown>>> {
@@ -368,6 +390,8 @@ async function handleRequest(req: FeedbackRequest): Promise<Reply<Record<string,
 			return service.copy(req);
 		case 'paste':
 			return service.paste(req);
+		case 'openSettings':
+			return service.openSettings(req.section);
 		default:
 			return { ok: false, message: 'Unknown request.' };
 	}

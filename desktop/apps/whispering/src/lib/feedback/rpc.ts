@@ -42,4 +42,5 @@ export const windowFeedbackClient: FeedbackClient = {
 	undo: (a) => call({ op: 'undo', ...a }),
 	copy: (a) => call({ op: 'copy', ...a }),
 	paste: (a) => call({ op: 'paste', ...a }),
+	openSettings: (section) => call({ op: 'openSettings', section }),
 };

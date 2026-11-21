@@ -5,6 +5,7 @@
  * record it is about.
  */
 import type { FeedbackRecord } from './log';
+import type { SettingsSection } from './fix-model';
 import type { Selection } from './validate';
 
 export type FeedbackSubjectView = {
@@ -20,12 +21,19 @@ export type FeedbackSubjectView = {
 
 export type FeedbackSetup = {
 	subject: FeedbackSubjectView | null;
+	/** The provider and model Find fixes uses now ('' when none can be used). */
 	provider: string;
 	model: string;
-	/** "Sends this dictation's text … to OpenAI." */
+	/** The model's plain name, e.g. "Claude Sonnet 5.5". */
+	modelName: string;
+	/** VoiceFlow 0.9.17: the one line under Find fixes, naming the provider and model. */
 	disclosure: string;
+	/** Everything that is sent, in full (shown folded). */
+	details: string;
 	/** A key is set for the provider. */
 	ready: boolean;
+	/** When not ready: why, and the Settings section where the key goes. */
+	keyNeeded?: { message: string; section: SettingsSection };
 };
 
 export type Reply<T> = ({ ok: true } & T) | { ok: false; message: string; record?: FeedbackRecord; stale?: boolean };
@@ -46,7 +54,9 @@ export type FeedbackRequest =
 	| { op: 'apply'; recordId: string; selections: Selection[] }
 	| { op: 'undo'; recordId: string; opId: string }
 	| { op: 'copy'; recordId: string; text: string }
-	| { op: 'paste'; recordId: string; text: string };
+	| { op: 'paste'; recordId: string; text: string }
+	/** VoiceFlow 0.9.17: show the main window at a Settings section (to add a key). */
+	| { op: 'openSettings'; section: SettingsSection };
 
 export interface FeedbackClient {
 	setup(recordingId: string): Promise<Reply<{ setup: FeedbackSetup }>>;
@@ -67,6 +77,7 @@ export interface FeedbackClient {
 	undo(a: { recordId: string; opId: string }): Promise<Reply<{ record: FeedbackRecord; message?: string }>>;
 	copy(a: { recordId: string; text: string }): Promise<Reply<{ message: string; record: FeedbackRecord }>>;
 	paste(a: { recordId: string; text: string }): Promise<Reply<{ message: string; record: FeedbackRecord }>>;
+	openSettings(section: SettingsSection): Promise<Reply<Record<never, never>>>;
 }
 
 export const FEEDBACK_REQUEST_EVENT = 'feedback://request';

@@ -123,6 +123,7 @@ The app calls no VoiceFlow, Whispering or Epicenter server: no telemetry, no upd
 | When | Host | Why |
 |---|---|---|
 | Each dictation, with a cloud service selected | The chosen provider's API (OpenAI by default; Groq, Deepgram, ElevenLabs, Mistral, Anthropic, Google, OpenRouter, or a custom endpoint if picked) | Transcription and tidy-up |
+| Only when the user clicks Find fixes in the Feedback window | The model chosen in Settings > Feedback (OpenAI or Anthropic, with the user's own key) | Suggests fixes to spellings and styles from that one dictation and the feedback |
 | Only when the user downloads a local model | `huggingface.co` (Parakeet: `istupakov/parakeet-tdt-0.6b-v3-onnx` at a pinned revision; Whisper: `ggerganov/whisper.cpp`; Moonshine: `UsefulSensors/moonshine`) | Model files |
 | Only when the user clicks a link | `github.com/yutungh/voiceflow`, provider sign-up and docs pages | Help |
 
