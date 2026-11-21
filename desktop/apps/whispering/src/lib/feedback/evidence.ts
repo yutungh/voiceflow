@@ -176,11 +176,14 @@ function parseTidyConfig(value: unknown): TidyConfig | null {
 		expression,
 		...(typeof v.model === 'string' ? { model: v.model } : {}),
 		...(typeof v.profileId === 'string' ? { profileId: v.profileId } : {}),
+		// A plain word (an earlier build kept words without their forms) reads with none.
 		words: Array.isArray(v.words)
 			? v.words.flatMap((w) =>
-					w && typeof w === 'object' && typeof (w as TidyConfigWord).text === 'string'
-						? [{ text: (w as TidyConfigWord).text, heardAs: strings((w as TidyConfigWord).heardAs) }]
-						: [],
+					typeof w === 'string'
+						? [{ text: w, heardAs: [] }]
+						: w && typeof w === 'object' && typeof (w as TidyConfigWord).text === 'string'
+							? [{ text: (w as TidyConfigWord).text, heardAs: strings((w as TidyConfigWord).heardAs) }]
+							: [],
 				)
 			: [],
 		runRevision: v.runRevision,

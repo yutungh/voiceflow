@@ -128,10 +128,12 @@ export async function runFix({
 	if (!parsed.ok) return { ok: false, message: `${parsed.message} Nothing was changed.` };
 	const issues: FixIssue[] = parsed.value.issues.map((i) => ({ ...i }));
 	const wantedText = request.data.wanted_text;
+	// Fixes are checked against the speaker's whole text, not the copy sent.
+	const wantedFull = wantedText !== null && wanted ? wanted.replace(/\r\n?/g, '\n') : null;
 	const { fixes, dropped } = reviewProposals(parsed.value.proposals, {
 		...review,
 		evidence,
-		wanted: wantedText,
+		wanted: wantedFull,
 		layers: issues.map((i) => i.layer),
 	});
 	for (const code of parsed.value.dropped) dropped.push({ reason: DROP_REASONS[code] });
@@ -141,7 +143,7 @@ export async function runFix({
 			contract: 2,
 			explanation: parsed.value.explanation,
 			// The speaker's own words, in full, are the truth; the model's version stays a suggestion.
-			correctedText: wantedText !== null && wanted ? wanted.replace(/\r\n?/g, '\n') : parsed.value.correctedText,
+			correctedText: wantedFull ?? parsed.value.correctedText,
 			...(wantedText !== null ? { suggestedText: parsed.value.correctedText } : {}),
 			issues,
 			fixes,

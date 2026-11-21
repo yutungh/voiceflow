@@ -296,6 +296,52 @@ describe('review findings (Codex, 0.9.16)', () => {
 		expect(!both.ok && both.message).toContain('compete');
 	});
 
+	test('word fixes chosen together must push out only the words their cards named', () => {
+		const lists = snapshot({ terms: FILLER.map((t, i) => term(t, 90 - i)) });
+		const c = ctx({ snapshot: lists, active: [], evidence: evidence({ rawText: 'melvin and dravin', tidyOutput: 'Melvin and Dravin.', deliveredText: 'Melvin and Dravin.', corrections: [] }) });
+		const r = reviewProposals(
+			[
+				{ type: 'add_word', from: ['Melvin'], to: 'Melvane', scope: 'app', reason: 'r', issue: 0 },
+				{ type: 'add_word', from: ['Dravin'], to: 'Draven', scope: 'app', reason: 'r', issue: 0 },
+			],
+			{ ...c, layers: ['transcriber'] },
+		);
+		const fixes = r.fixes as WordFix[];
+		// Each alone: Tirvel drops out. Together: Tirvel and Sovane.
+		expect(fixes.map((f) => f.choices.app!.effect.dropsOut)).toEqual([['Tirvel'], ['Tirvel']]);
+		const both = checkSelection(fixes, fixes.map((f) => ({ key: f.key, scope: 'app' as const })), c);
+		expect(both.ok).toBe(false);
+	});
+
+	test('a wanted word past what is sent still counts', async () => {
+		const tail = 'x '.repeat(3100);
+		const wanted = `Ask Zibbo and Kestrel to bring the deck. ${tail}Then Quorbit.`;
+		const outcome = await runFix({
+			evidence: evidence({ rawText: 'ask zebbo and castrel then quorb', tidyOutput: 'Ask Zebbo and Castrel, then Quorb.', deliveredText: 'Ask Zebbo and Kastrel, then Quorb.' }),
+			feedback: 'f',
+			wanted,
+			review: REVIEW(),
+			provider: { apiKey: 'k', model: 'm' },
+			complete: async () => ({
+				ok: true,
+				text: JSON.stringify({ explanation: 'x', corrected_text: '', issues: [{ layer: 'transcriber', summary: 's', proposals: [P('add_word', { from: ['quorb'], to: 'Quorbit', scope: 'app' })] }] }),
+			}),
+		});
+		if (!outcome.ok) throw new Error(outcome.message);
+		expect(outcome.result.fixes).toHaveLength(1);
+		expect(outcome.result.correctedText).toBe(wanted);
+	});
+
+	test('a tidy-up word kept as a plain word (an earlier build) still reads', () => {
+		const e = parseEvidence({
+			schema: 'voiceflow-dictation-evidence',
+			version: 1,
+			recordingId: 'r',
+			tidyConfig: { styleId: 's', source: 'this-pc', styleRevision: 'a', runRevision: 'b', expression: null, words: ['Zibbo'], steps: [] },
+		});
+		expect(e!.tidyConfig!.words).toEqual([{ text: 'Zibbo', heardAs: [] }]);
+	});
+
 	test('a stale review keeps the cards already applied, so their Undo stays', async () => {
 		const { writers } = memoryWriters();
 		const record = await reviewed();

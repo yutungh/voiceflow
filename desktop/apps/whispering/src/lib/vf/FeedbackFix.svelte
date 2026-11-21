@@ -263,6 +263,7 @@
 					class="inp area"
 					rows="3"
 					bind:value={wanted}
+					maxlength={20000}
 					disabled={step === 'sending'}
 				></textarea>
 				<span class="sub small">Edit it into what you wanted. VoiceFlow takes this as the right text.</span>

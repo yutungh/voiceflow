@@ -1532,7 +1532,23 @@ async function runTidyUpWithTimeout({
 	const tidyWords = isFunKind(kind)
 		? { text: '', words: [] }
 		: tidyWordsBlock(profilePins.snapshotFor(recordingId), appId);
-	const styled = withTidyWords(expressed, tidyWords.text);
+	const withWords = withTidyWords(expressed, tidyWords.text);
+	// 0.9.16: a local endpoint is fixed before the run (a step's own, else the
+	// default), so what runs is exactly what the dictation's evidence keeps.
+	// The same value the transformer would fall back to; never a key.
+	const styled: typeof withWords = {
+		...withWords,
+		steps: withWords.steps.map((step) =>
+			step['prompt_transform.inference.provider'] === 'Custom' &&
+			!step['prompt_transform.inference.provider.Custom.baseUrl']?.trim()
+				? {
+						...step,
+						'prompt_transform.inference.provider.Custom.baseUrl':
+							settings.value['completion.custom.baseUrl']?.trim() ?? '',
+					}
+				: step,
+		),
+	};
 
 	// The word lists may give tidy-up more (or less) time than the default.
 	const timeoutMs = tidyUpTimeoutMs(
@@ -1599,17 +1615,7 @@ async function runTidyUpWithTimeout({
 			styleName: transformation.title,
 			source: fromProfile ? 'word-lists' : 'this-pc',
 			styleSteps: transformation.steps,
-			// A local endpoint as it was used (a step's own, else the default); never a key.
-			runSteps: styled.steps.map((step) =>
-				step['prompt_transform.inference.provider'] === 'Custom' &&
-				!step['prompt_transform.inference.provider.Custom.baseUrl']?.trim()
-					? {
-							...step,
-							'prompt_transform.inference.provider.Custom.baseUrl':
-								settings.value['completion.custom.baseUrl']?.trim() ?? '',
-						}
-					: step,
-			),
+			runSteps: styled.steps,
 			...(profileStyle?.layer ? { styleLayer: profileStyle.layer } : {}),
 			...(profileStyle?.editIds?.length ? { styleEdits: profileStyle.editIds } : {}),
 			expression: level,

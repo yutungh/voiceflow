@@ -31,6 +31,7 @@ import type { ProfileSnapshot } from '$lib/profile/types';
 import type { Layer, ModelProposal } from './contract';
 import { spellingRefs, type DictationEvidence } from './evidence';
 import { hasWords } from './stage-diff';
+import { buildPrompt } from '../profile/prompt';
 import { ladderStep, placeOf, withWord, type LadderStep, type WordStep } from './word-ladder';
 
 export const EXPRESSION_NAMES = ['Reserved', 'Subtle', 'Natural', 'Lively', 'Expressive'] as const;
@@ -736,14 +737,27 @@ export function checkSelection(
 	if (wordPicks.length > 1 && ctx.snapshot) {
 		let lists: Pick<ProfileSnapshot, 'terms' | 'defaults'> = ctx.snapshot;
 		for (const { choice } of wordPicks) lists = withWord(lists, choice.term);
+		const compete = (key: string, word: string) => ({
+			ok: false as const,
+			key,
+			message: `Together these word fixes don’t do what each card says (they compete for the transcriber’s 20 words). Apply ${q(word)} on its own, then look at the others again.`,
+		});
 		for (const { fix, choice } of wordPicks) {
 			const place = placeOf(lists, fix.appId, choice.term.text);
 			if (place.transcriber !== choice.effect.after.transcriber || place.tidy !== choice.effect.after.tidy)
-				return {
-					ok: false,
-					key: fix.key,
-					message: `Together these word fixes don’t do what each card says (they compete for the transcriber’s 20 words). Apply ${q(fix.word)} on its own, then look at the others again.`,
-				};
+				return compete(fix.key, fix.word);
+		}
+		// And the words they push out together are the ones the cards named.
+		const own = new Set(wordPicks.map(({ choice }) => choice.term.text.toLocaleLowerCase()));
+		const byApp = new Map<string | null, typeof wordPicks>();
+		for (const pick of wordPicks) byApp.set(pick.fix.appId, [...(byApp.get(pick.fix.appId) ?? []), pick]);
+		for (const [appId, picks] of byApp) {
+			const before = buildPrompt(ctx.snapshot, appId).sent;
+			const after = new Set(buildPrompt(lists, appId).sent.map((w) => w.toLocaleLowerCase()));
+			const out = before.filter((w) => !own.has(w.toLocaleLowerCase()) && !after.has(w.toLocaleLowerCase()));
+			const named = new Set(picks.flatMap(({ choice }) => choice.effect.dropsOut.map((w) => w.toLocaleLowerCase())));
+			if (out.length !== named.size || out.some((w) => !named.has(w.toLocaleLowerCase())))
+				return compete(picks[0]!.fix.key, picks[0]!.fix.word);
 		}
 	}
 	return { ok: true };
