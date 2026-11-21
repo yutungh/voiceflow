@@ -404,15 +404,11 @@ public class PinyinKeypadTest {
     @Test
     public void keystrokesStayFastWithPins() {
         String typed = "ni'" + PinyinDigitIndex.project("haowomenjintianquchifan");
-        long worst = 0;
-        for (int i = 1; i <= typed.length(); i++) {
-            long start = System.nanoTime();
-            List<PinyinCandidate> found = composer.candidates(typed.substring(0, i), 30);
+        TimingBudget.assertWithin("pinned keystroke", typed.length(), i -> {
+            List<PinyinCandidate> found = composer.candidates(typed.substring(0, i + 1), 30);
             if (!found.isEmpty()) {
-                keypad.spellingOptions(typed.substring(0, i), found.get(0));
+                keypad.spellingOptions(typed.substring(0, i + 1), found.get(0));
             }
-            worst = Math.max(worst, (System.nanoTime() - start) / 1000);
-        }
-        assertTrue("worst pinned keystroke was " + worst + "us", worst < 60000);
+        }, 30000, 60000);
     }
 }
