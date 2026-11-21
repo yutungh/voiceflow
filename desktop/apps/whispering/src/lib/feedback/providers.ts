@@ -89,28 +89,21 @@ export function anthropicSchema(schema?: Record<string, unknown>): Record<string
 	return nullableAsAnyOf(schema ?? FIX_RESPONSE_SCHEMA) as Record<string, unknown>;
 }
 
-/** Models that take Anthropic's server-side refusal fallback ("default" routing). */
-const REFUSAL_FALLBACK_MODELS = new Set(['claude-sonnet-5-5', 'claude-opus-5-5']);
-export const REFUSAL_FALLBACK_BETA = 'server-side-fallback-2026-07-01';
-
 /**
  * The Messages API request for a fix: structured output (`output_config.format`
  * with the fix's JSON schema), adaptive thinking (the current models' default)
  * kept light with `effort: 'low'`, and room for the thinking and the answer.
- * On the models listed above, a safety decline is retried by Anthropic on
- * another Claude model in the same call (`fallbacks: 'default'`, beta).
+ * No beta features: the model named under Find fixes is the one that answers,
+ * and a safety decline is a plain error.
  */
 export function anthropicRequest(args: Pick<CompleteArgs, 'model' | 'system' | 'user' | 'schema'>) {
-	const body = {
+	return {
 		model: args.model,
 		max_tokens: 16_000,
 		system: args.system,
 		messages: [{ role: 'user' as const, content: args.user }],
 		output_config: { effort: 'low', format: { type: 'json_schema', schema: anthropicSchema(args.schema) } },
 	};
-	return REFUSAL_FALLBACK_MODELS.has(args.model)
-		? { ...body, betas: [REFUSAL_FALLBACK_BETA], fallbacks: 'default' as const }
-		: body;
 }
 
 /** The answer's text, or why there is none. Exported for tests. */
@@ -139,19 +132,11 @@ export async function completeAnthropic(args: CompleteArgs): Promise<CompleteRes
 		timeout: 90_000,
 	});
 	try {
-		// The installed SDK predates `output_config` and `fallbacks` in its
-		// types; the API takes them. A request with `betas` goes to the beta
-		// endpoint, which sends them as the `anthropic-beta` header.
-		const body = anthropicRequest(args);
-		const reply =
-			'betas' in body
-				? await client.beta.messages.create(
-						body as unknown as Parameters<typeof client.beta.messages.create>[0],
-						{ signal: args.signal },
-					)
-				: await client.messages.create(body as unknown as Parameters<typeof client.messages.create>[0], {
-						signal: args.signal,
-					});
+		// The installed SDK predates `output_config` in its types; the API takes it.
+		const reply = await client.messages.create(
+			anthropicRequest(args) as unknown as Parameters<typeof client.messages.create>[0],
+			{ signal: args.signal },
+		);
 		return anthropicAnswer(reply);
 	} catch (error) {
 		return { ok: false, message: plainError('Anthropic', error) };

@@ -156,6 +156,23 @@ describe('the setting persists, on this device only', () => {
 	});
 });
 
+describe('the Anthropic key is stored like the OpenAI key', () => {
+	test('same setting path into the OS credential store, same store label', async () => {
+		const { API_KEY_PROVIDERS, secretStoreLabel } = await import('../services/desktop/secrets');
+		expect(API_KEY_PROVIDERS['apiKeys.anthropic']).toBe('anthropic');
+		expect(secretStoreLabel('windows')).toBe('Windows Credential Manager');
+		const card = read('../vf/settings/FeedbackCard.svelte');
+		const page = read('../../routes/(app)/(config)/settings/+page.svelte');
+		const label = "settings.apiKeyStoreKind === 'loading' ? 'the credential store' : secretStoreLabel(settings.apiKeyStoreKind)";
+		expect(card).toContain(label);
+		expect(page).toContain(label);
+		expect(card).toContain("settings.updateKey('apiKeys.anthropic', newKey.trim())");
+		expect(page).toContain("settings.updateKey('apiKeys.openai', newKey.trim())");
+		// The Rust side accepts this provider name (entry api-key-anthropic).
+		expect(read('../../../src-tauri/src/secrets.rs')).toMatch(/PROVIDERS: &\[&str\] = &\[[^\]]*"anthropic"/);
+	});
+});
+
 describe('no key', () => {
 	test('names where each key goes', () => {
 		const none = keyNeeded({ ok: false, reason: 'no-key' });
@@ -297,10 +314,11 @@ describe('routing to the chosen provider', () => {
 		expect(config.format.type).toBe('json_schema');
 		expect(config.format.schema.required).toEqual(['explanation', 'corrected_text', 'issues']);
 		expect(seen[0]!.body.thinking).toBeUndefined();
-		// Anthropic's server-side refusal fallback, sent as the beta header.
-		expect(seen[0]!.body.fallbacks).toBe('default');
+		// No beta features: the named model answers, nothing reroutes it.
+		expect(seen[0]!.body.fallbacks).toBeUndefined();
 		expect(seen[0]!.body.betas).toBeUndefined();
-		expect(seen[0]!.headers.get('anthropic-beta')).toContain('server-side-fallback-2026-07-01');
+		expect(seen[0]!.headers.get('anthropic-beta')).toBeNull();
+		expect(new URL(seen[0]!.url).search).toBe('');
 		expect(seen[0]!.body.temperature).toBeUndefined();
 		if (outcome.ok) expect(outcome.result.correctedText).toBe('Ask Zibbo to bring the deck.');
 	});
@@ -361,10 +379,6 @@ describe('the Anthropic structured-output answer', () => {
 		// Nullable fields become anyOf for Anthropic; the shape is otherwise the same.
 		expect(JSON.stringify(req.output_config.format.schema)).not.toContain('"type":["');
 		expect(req.messages).toEqual([{ role: 'user', content: 'u' }]);
-		expect(req).toMatchObject({ fallbacks: 'default', betas: ['server-side-fallback-2026-07-01'] });
-	});
-	test('a model id not in the list gets no fallback (it may not take one)', () => {
-		const req = anthropicRequest({ model: 'claude-test-model', system: 's', user: 'u' });
 		expect('fallbacks' in req).toBe(false);
 		expect('betas' in req).toBe(false);
 	});

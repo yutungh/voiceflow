@@ -174,11 +174,18 @@
 	</div>
 	{#if done}<p class="sub small" role="status"><Icon name="check-circle" weight="fill" class="i sm" />{done}</p>{/if}
 	<p class="sub small">
-		Find fixes shares that one dictation's text (as heard, tidied and pasted), the spellings that
-		changed it, its style, expression and outcome, the app's name, your style names, related words
-		from your lists and your feedback with the model chosen above, using your own key. Nothing goes
-		to VoiceFlow. Window titles never leave this PC. Your choice of model stays on this PC.
+		Find fixes sends one dictation and your note to the model above, with your own key. Nothing goes to
+		VoiceFlow.
 	</p>
+	<details class="sent-detail">
+		<summary>Everything that's sent</summary>
+		<p class="sub small">
+			That one dictation's text (as heard, tidied and pasted), what changed at each step, the spellings
+			that changed it, its style, expression and outcome, the app's name, your style names, related
+			words from your lists, your feedback and what you say it should have said. Window titles and the
+			rest of your history stay on this PC, and so does your choice of model.
+		</p>
+	</details>
 </section>
 
 <style>
@@ -188,5 +195,17 @@
 	.warnline {
 		color: var(--warning);
 		margin: 0 0 6px;
+	}
+	.sent-detail {
+		font-size: 12px;
+		margin-top: 2px;
+	}
+	.sent-detail summary {
+		cursor: pointer;
+		color: var(--subtle-foreground);
+		font-size: 12px;
+	}
+	.sent-detail p {
+		margin: 4px 0 0;
 	}
 </style>
