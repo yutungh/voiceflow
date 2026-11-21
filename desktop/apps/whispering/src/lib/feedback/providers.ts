@@ -5,7 +5,7 @@
  * it outside the app with its own `fetch`.
  */
 import OpenAI from 'openai';
-import { FIX_RESPONSE_SCHEMA } from './contract';
+import { FIX_RESPONSE_SCHEMA, nullableAsAnyOf } from './contract';
 
 export const FEEDBACK_PROVIDERS = ['OpenAI', 'Anthropic'] as const;
 export type FeedbackProvider = (typeof FEEDBACK_PROVIDERS)[number];
@@ -31,6 +31,9 @@ export type CompleteArgs = {
 	signal?: AbortSignal;
 	/** For tests and the headless check; the app passes its pooled fetch. */
 	fetch?: typeof fetch;
+	/** The answer's JSON schema (default: the v1 contract) and its name. */
+	schema?: Record<string, unknown>;
+	schemaName?: string;
 };
 
 export type CompleteResult = { ok: true; text: string } | { ok: false; message: string };
@@ -65,9 +68,9 @@ export async function completeOpenAI(args: CompleteArgs): Promise<CompleteResult
 				response_format: {
 					type: 'json_schema',
 					json_schema: {
-						name: 'voiceflow_fix',
+						name: args.schemaName ?? 'voiceflow_fix',
 						strict: true,
-						schema: FIX_RESPONSE_SCHEMA as unknown as Record<string, unknown>,
+						schema: args.schema ?? (FIX_RESPONSE_SCHEMA as unknown as Record<string, unknown>),
 					},
 				},
 			},
@@ -85,27 +88,8 @@ export async function completeOpenAI(args: CompleteArgs): Promise<CompleteResult
 }
 
 /** Anthropic's structured output takes nullable fields as anyOf. */
-function anthropicSchema(): Record<string, unknown> {
-	const props = FIX_RESPONSE_SCHEMA.properties.proposals.items.properties;
-	return {
-		...FIX_RESPONSE_SCHEMA,
-		properties: {
-			...FIX_RESPONSE_SCHEMA.properties,
-			proposals: {
-				type: 'array',
-				items: {
-					...FIX_RESPONSE_SCHEMA.properties.proposals.items,
-					properties: {
-						...props,
-						to: { anyOf: [{ type: 'string' }, { type: 'null' }] },
-						scope: { anyOf: [{ type: 'string', enum: ['app', 'everywhere'] }, { type: 'null' }] },
-						expression_delta: { anyOf: [{ type: 'integer' }, { type: 'null' }] },
-						style_id: { anyOf: [{ type: 'string' }, { type: 'null' }] },
-					},
-				},
-			},
-		},
-	};
+function anthropicSchema(schema?: Record<string, unknown>): Record<string, unknown> {
+	return nullableAsAnyOf(schema ?? FIX_RESPONSE_SCHEMA) as Record<string, unknown>;
 }
 
 export async function completeAnthropic(args: CompleteArgs): Promise<CompleteResult> {
@@ -124,7 +108,7 @@ export async function completeAnthropic(args: CompleteArgs): Promise<CompleteRes
 			max_tokens: 8000,
 			system: args.system,
 			messages: [{ role: 'user' as const, content: args.user }],
-			output_config: { effort: 'low', format: { type: 'json_schema', schema: anthropicSchema() } },
+			output_config: { effort: 'low', format: { type: 'json_schema', schema: anthropicSchema(args.schema) } },
 		};
 		const reply = await client.messages.create(
 			body as unknown as Parameters<typeof client.messages.create>[0],

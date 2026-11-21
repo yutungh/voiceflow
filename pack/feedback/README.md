@@ -94,3 +94,101 @@ Undo writes a tombstone for the edit; undoing the undo writes a tombstone for th
 ## 5. Test vectors
 
 [`../vectors/feedback.json`](../vectors/feedback.json): answers and what a client must make of them (refused, or the checked proposals and the count dropped), and style changes with the edit they become. VoiceFlow Desktop runs them in `src/lib/feedback/pack-vectors.test.ts`; the Android app runs them when it gets feedback (plan phase 6).
+
+## v2: several problems at once
+
+From VoiceFlow Desktop 0.9.16. One feedback can name up to four problems ("it wrote Zebbo, and it was too formal"). For each, the model says which **layer** failed and offers that problem's own fixes. v1 stays readable: a v1 answer is one problem whose layer follows its diagnosis (`mishearing` → `transcriber`, `tidy-up-rewrite` → `style-prompt`, `style-mismatch` → `app-context`).
+
+### What the model is given (added to v1's request)
+
+| Field | What |
+|---|---|
+| `tidy_up_output` | Tidy-up's output before spellings; null when none ran. |
+| `wanted_text` | What the speaker typed it should have said, or null. It is the truth; the model's corrected text is only a suggestion. |
+| `applied_spellings` | `[{ ref, heard, written, can_turn_off }]`: the spellings that changed it, in the order applied, named `s1`, `s2`… (at most 20). `can_turn_off`: the spelling is an edit, so a tombstone can turn it off; one inside a word-list file is changed in that file. A spelling's own id is never sent. |
+| `observations` | What changed between stages, computed by code (below). |
+| `vocabulary` | As v1, each with `in_tidy_list` and `in_transcriber_list` (one of the transcriber's 20 for this app). |
+
+### Observations
+
+Computed, never asked of the model. Each pair of known stages is compared word by word and only what changed is recorded:
+
+| `stage` | Compares |
+|---|---|
+| `tidy-up` | raw → tidy-up output |
+| `spelling` | tidy-up output (raw when no tidy-up ran) → delivered; `spelling` is the ref of the applied spelling whose `heard` (case and spacing ignored) and `written` match the change, else null |
+| `tidy-up-or-spelling` | raw → delivered, for a dictation whose tidy-up output was not kept |
+| `wanted` | delivered → wanted (only when given); `origin` says where the delivered words came from |
+
+`origin`: `speech-to-text` (every delivered word in the change is unchanged since raw), `tidy-up` (tidy-up wrote them; for words only the wanted text has: every one of them is a word tidy-up took out of raw, removed or replaced), `spelling` (a spelling wrote them), `ambiguous` (mixed, or nothing explains it). An observation says what happened, never whose fault it was.
+
+The comparison, exactly:
+
+- **Words** are maximal runs of letters and digits, joined by an inner apostrophe (`’` counts as `'`): `[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*`. They are compared in Unicode lower case with no locale. Punctuation-only and case-only changes are not observations.
+- **Alignment** is the longest common subsequence of the two word lists, walked from the start: equal words match; otherwise skip the earlier text's word when the longest common subsequence of what remains is at least as long that way, else the later text's word.
+- A **change** is a run of unmatched words between matches: `replaced` (words on both sides), `removed` (earlier only) or `added` (later only). `before` and `after` are the original text from the run's first word to its last, spaces joined, cut to 120 characters (an ellipsis marks a cut).
+- **Bounds**: at most 20 observations per stage; a text of more than 1,500 words is not aligned. Either sets `truncated`.
+
+### What must come back
+
+[`../schema/voiceflow-feedback.v2.schema.json`](../schema/voiceflow-feedback.v2.schema.json): `{ explanation, corrected_text, issues: [{ layer, summary, proposals }] }`. Every proposal carries every field (`type`, `from`, `to`, `scope`, `expression_delta`, `style_id`, `spelling_ref`, `reason`), unused ones null or empty.
+
+| `layer` | Means | Fixes it may carry |
+|---|---|---|
+| `transcriber` | Speech-to-text wrote a wrong word | `spelling`, `heard_as`, `add_word`, `raise_priority` |
+| `spelling` | A saved spelling made it wrong | `disable_spelling`, `spelling` |
+| `expression` | Right content, wrong energy or formality | `style_adjust` with `expression_delta` set and `style_id` null |
+| `app-context` | Right for the style, wrong for this app | `style_adjust` |
+| `style-prompt` | The tidy-up's style itself | none yet (style rules come in a later version) |
+| `delivery-privacy` | Where or whether the text went | none |
+| `uncertain` | Not enough evidence | none |
+
+New fix types:
+
+- `heard_as`: `to` a listed word, `from` 1–5 forms speech-to-text wrote for it.
+- `add_word`: `to` a word, `from` 1–5 forms, `scope` `everywhere` or else `app`.
+- `raise_priority`: `to` a listed word, `from` 1–5 forms.
+- `disable_spelling`: `spelling_ref` an `s` followed by 1–99.
+
+Their words and forms follow v1's spelling rules (one word or name, at most 60 characters, no `<`, `>`, line break or hidden character; repeats kept once).
+
+### How a client checks a v2 answer
+
+The whole answer is refused when it is not one JSON object; `explanation` or `corrected_text` break v1's rules; `issues` is not a list, is empty or has more than 8 entries; or the issues hold more than 12 proposals in all.
+
+Then, in order, each part on its own. A left-out proposal is recorded with a code, never guessed at:
+
+1. **Issues**: after the fourth, an issue is left out with its fixes (`issue-limit` for each, a `none` aside). An issue that is not an object, has a layer not in the table, a `summary` with a control or hidden character (else joined into one line, cut to 240) or no `proposals` list is left out with its fixes (`malformed`).
+2. **Proposals**: one that fails its field rules, or has a type this version doesn't know, is `malformed` (a later version adds types without breaking readers). One its layer may not carry is `layer`. `none` is not a fix: the first one's `reason` is that issue's reason for having none.
+3. **Limits**, across issues in answer order: at most 3 word fixes (`spelling`, `heard_as`, `add_word`, `raise_priority`, `disable_spelling`) and 1 `style_adjust`; the rest are `limit`.
+
+### The evidence a fix needs
+
+Before it is shown, each fix is checked against the stage texts:
+
+- A `transcriber` fix keeps only the `from` forms that occur in raw (whole words, as in Observations); none left: left out ("speech-to-text didn't write that").
+- When the wanted text is given, a fix whose `to` is not in it (whole words) is left out.
+- `disable_spelling`: its ref must name an applied spelling that is still in force and is an edit; a spelling from a word-list file is left out with where to change it.
+- `spelling`: v1's rules. When it clashes only with a spelling the same answer turns off, it is offered tied to that one: it can be applied only with it (or after it).
+- Word fixes need word lists, never list or hear a very common word, never list a word a spelling in force rewrites, and at most one fix per word.
+
+### The word ladder
+
+For a word speech-to-text got wrong, smallest first: a **spelling**; a **heard-as form** on a listed word; **adding the word** (it joins the tidy-up's list); **raising its priority** (it joins the 20 words the transcriber is given for this app; the 20 stays 20, so a word drops out, and the card names it).
+
+Steps 2–4 write one `term` edit holding the whole entry. The merge keeps one entry per written word, the highest layer's, so the edit replaces the listed one until it is undone, which brings the listed one back:
+
+- `heard_as` and `raise_priority` copy the listed entry (its heard forms, note, kind, scope and priority) and change only the heard forms or the priority. A listed word whose scope doesn't cover this app also gets this app added.
+- `add_word`: `{ text, heardAs, priority: 50, apps }`, `apps` `["<app>"]` or `["*"]`.
+- When the asked step would change nothing, it moves: `add_word` for a listed word becomes `heard_as` (new forms) or `raise_priority`; `heard_as` with no new form becomes `raise_priority`; `heard_as` or `raise_priority` for a word not listed becomes `add_word`.
+- `raise_priority` sets the smallest priority (up to 100) that puts the word among the transcriber's words for this app, with the vocabulary prompt's own selection and ordering. When it already is one, or 100 doesn't do it, it is left out.
+
+`disable_spelling` becomes a tombstone for that spelling; its Undo is a tombstone for the tombstone, which turns the spelling back on.
+
+### What the device keeps per dictation
+
+Not part of the exchange, but what makes a later before/after check faithful: the tidy-up exactly as it ran. That is the style id, a hash of the style as stored, a word-list style's layer and edits, the expression level, the model, the word-list snapshot id, the tidy-up's word list, and the exact steps run with their hash. It stays on the device.
+
+### Test vectors
+
+[`../vectors/feedback-v2.json`](../vectors/feedback-v2.json): `answers` (parsing, limits and drop codes), `observations` (stage texts and the observations computed), `ladder` (word lists, an asked step and the entry it becomes) and `evidence` (a proposal in a layer on a dictation, kept or not). VoiceFlow Desktop runs them in `src/lib/feedback/pack-vectors-v2.test.ts`.

@@ -1,0 +1,50 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "voiceflow-feedback.v2.schema.json",
+	"title": "VoiceFlow feedback answer (voiceflow-feedback v2)",
+	"description": "What a model must answer when the speaker gives feedback on one dictation, from VoiceFlow Desktop 0.9.16: one JSON object, nothing else. One feedback can name several problems (issues), each with the layer that failed and its own fixes. Every field is present on every proposal (a field a type does not use is null or empty), so it works as strict structured output. The answer is untrusted: a client checks it as pack/feedback/README.md (v2) says before anyone sees it, and checks each proposal again against the stage observations and the word lists before it becomes an edit. Readers drop a proposal type they don't know, so a later version can add types (style rules) without a new schema version.",
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["explanation", "corrected_text", "issues"],
+	"properties": {
+		"explanation": { "type": "string", "maxLength": 400, "description": "One plain sentence for the speaker, covering every issue." },
+		"corrected_text": {
+			"type": "string",
+			"description": "The dictation as it should have been, for this one message. Empty: the delivered text stands. When the speaker typed what it should have said, a client uses that instead and keeps this as a suggestion."
+		},
+		"issues": {
+			"type": "array",
+			"description": "One per problem, most important first. A client reads at most four; more than eight refuses the answer.",
+			"items": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["layer", "summary", "proposals"],
+				"properties": {
+					"layer": {
+						"enum": ["transcriber", "spelling", "expression", "app-context", "style-prompt", "delivery-privacy", "uncertain"],
+						"description": "The stage that failed. transcriber: speech-to-text wrote a wrong word. spelling: a saved spelling made it wrong. expression: right content, wrong energy or formality. app-context: right for the style, wrong for this app. style-prompt: the tidy-up's style itself (no fixes yet). delivery-privacy: where or whether the text went (a note only). uncertain: not enough evidence (a note only)."
+					},
+					"summary": { "type": "string", "maxLength": 240, "description": "One plain line about this problem." },
+					"proposals": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"additionalProperties": false,
+							"required": ["type", "from", "to", "scope", "expression_delta", "style_id", "spelling_ref", "reason"],
+							"properties": {
+								"type": { "enum": ["spelling", "heard_as", "add_word", "raise_priority", "disable_spelling", "style_adjust", "none"] },
+								"from": { "type": "array", "items": { "type": "string" }, "description": "spelling, heard_as, add_word, raise_priority: 1 to 5 forms speech-to-text wrote." },
+								"to": { "type": ["string", "null"], "description": "spelling: how to write them. heard_as, add_word, raise_priority: the word." },
+								"scope": { "enum": ["app", "everywhere", null], "description": "spelling, add_word: the model's suggestion; the speaker chooses. Anything else counts as app." },
+								"expression_delta": { "type": ["integer", "null"], "minimum": -4, "maximum": 4, "description": "style_adjust: levels to move (negative: more reserved). 0 or null: leave the level." },
+								"style_id": { "type": ["string", "null"], "description": "style_adjust: a style id from the request's list, raw, or null to keep the style." },
+								"spelling_ref": { "type": ["string", "null"], "description": "disable_spelling: the ref (s1, s2...) of an applied spelling in the request." },
+								"reason": { "type": "string", "description": "One line: why this fix." }
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

@@ -40,9 +40,9 @@ const schema = JSON.parse(readFileSync(join(PACK, 'schema/voiceflow-feedback.v1.
 
 /** A checked proposal as the pack writes it. */
 function asPack(p: ModelProposal) {
-	return p.type === 'spelling'
-		? { type: p.type, from: p.from, to: p.to, scope: p.scope }
-		: { type: p.type, expression_delta: p.expressionDelta, style_id: p.styleId };
+	if (p.type === 'spelling') return { type: p.type, from: p.from, to: p.to, scope: p.scope };
+	if (p.type === 'style_adjust') return { type: p.type, expression_delta: p.expressionDelta, style_id: p.styleId };
+	return p;
 }
 
 describe('answers (pack/vectors/feedback.json)', () => {

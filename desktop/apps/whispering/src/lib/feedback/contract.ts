@@ -84,7 +84,30 @@ export type StyleProposal = {
 	reason: string;
 };
 
-export type ModelProposal = SpellingProposal | StyleProposal;
+/** v2: a form speech-to-text wrote for a word already in the lists (a hint, never a rewrite). */
+export type HeardAsProposal = { type: 'heard_as'; from: string[]; to: string; reason: string };
+/** v2: a word for the lists (the tidy-up's list, and the transcriber's when it ranks high enough). */
+export type AddWordProposal = {
+	type: 'add_word';
+	from: string[];
+	to: string;
+	scope: 'app' | 'everywhere';
+	reason: string;
+};
+/** v2: raise a listed word into the transcriber's 20 for this app. */
+export type PriorityProposal = { type: 'raise_priority'; from: string[]; to: string; reason: string };
+/** v2: turn off a saved spelling that changed this dictation (`s1`… from the request). */
+export type DisableSpellingProposal = { type: 'disable_spelling'; spellingRef: string; reason: string };
+
+/** A proposal, and (v2) the index of the issue it belongs to (v1: 0). */
+export type ModelProposal = (
+	| SpellingProposal
+	| StyleProposal
+	| HeardAsProposal
+	| AddWordProposal
+	| PriorityProposal
+	| DisableSpellingProposal
+) & { issue?: number };
 
 export type FixResponse = {
 	diagnosis: Diagnosis;
@@ -255,4 +278,301 @@ function parseProposal(item: unknown): ModelProposal | 'none' | null {
 		return { type: 'style_adjust', expressionDelta, styleId, reason };
 	}
 	return null;
+}
+
+// ===========================================================================
+// v2 (VoiceFlow 0.9.16): several problems in one answer
+// ===========================================================================
+
+/**
+ * The layer that failed, as the model judges it from the stage observations
+ * (`stage-diff.ts`). The app never decides the layer; it only refuses fixes
+ * the layer or the evidence doesn't support.
+ */
+export const LAYERS = [
+	'transcriber',
+	'spelling',
+	'expression',
+	'app-context',
+	'style-prompt',
+	'delivery-privacy',
+	'uncertain',
+] as const;
+export type Layer = (typeof LAYERS)[number];
+
+export const PROPOSAL_TYPES_V2 = [
+	'spelling',
+	'heard_as',
+	'add_word',
+	'raise_priority',
+	'disable_spelling',
+	'style_adjust',
+	'none',
+] as const;
+
+/** Which fixes each layer may carry. Style rules (`style-prompt`) arrive in a later version. */
+export const LAYER_FIXES: Record<Layer, readonly string[]> = {
+	transcriber: ['spelling', 'heard_as', 'add_word', 'raise_priority'],
+	spelling: ['disable_spelling', 'spelling'],
+	expression: ['style_adjust'],
+	'app-context': ['style_adjust'],
+	'style-prompt': [],
+	'delivery-privacy': [],
+	uncertain: [],
+};
+
+/** Word fixes share one budget per review. */
+export const WORD_FIX_TYPES = ['spelling', 'heard_as', 'add_word', 'raise_priority', 'disable_spelling'] as const;
+
+export const MAX_ISSUES = 4;
+/** More issues than this and the whole answer is refused. */
+export const MAX_ISSUES_LISTED = 8;
+export const MAX_WORD_FIXES = 3;
+export const MAX_STYLE_FIXES = 1;
+const MAX_SUMMARY = 240;
+
+const PROPOSAL_V2 = {
+	type: 'object',
+	additionalProperties: false,
+	required: ['type', 'from', 'to', 'scope', 'expression_delta', 'style_id', 'spelling_ref', 'reason'],
+	properties: {
+		type: { type: 'string', enum: [...PROPOSAL_TYPES_V2] },
+		from: { type: 'array', items: { type: 'string' } },
+		to: { type: ['string', 'null'] },
+		scope: { type: ['string', 'null'], enum: ['app', 'everywhere', null] },
+		expression_delta: { type: ['integer', 'null'] },
+		style_id: { type: ['string', 'null'] },
+		spelling_ref: { type: ['string', 'null'] },
+		reason: { type: 'string' },
+	},
+} as const;
+
+/** JSON Schema for v2 (OpenAI strict structured output; Anthropic via `nullableAsAnyOf`). */
+export const FIX_RESPONSE_SCHEMA_V2 = {
+	type: 'object',
+	additionalProperties: false,
+	required: ['explanation', 'corrected_text', 'issues'],
+	properties: {
+		explanation: { type: 'string' },
+		corrected_text: { type: 'string' },
+		issues: {
+			type: 'array',
+			items: {
+				type: 'object',
+				additionalProperties: false,
+				required: ['layer', 'summary', 'proposals'],
+				properties: {
+					layer: { type: 'string', enum: [...LAYERS] },
+					summary: { type: 'string' },
+					proposals: { type: 'array', items: PROPOSAL_V2 },
+				},
+			},
+		},
+	},
+} as const;
+
+/**
+ * Why a v2 proposal was left out, deterministically:
+ * `malformed` (fails its field rules or an unknown type), `layer` (not a fix
+ * its issue's layer may carry), `limit` (past the per-review limits: three
+ * word fixes, one style change), `issue-limit` (in an issue past the fourth).
+ */
+export type DropCode = 'malformed' | 'layer' | 'limit' | 'issue-limit';
+
+export type ParsedIssue = {
+	layer: Layer;
+	summary: string;
+	/** The first `none` proposal's reason in this issue. */
+	noFixReason: string | null;
+};
+
+export type FixResponseV2 = {
+	explanation: string;
+	correctedText: string;
+	issues: ParsedIssue[];
+	/** The proposals kept, each with `issue` set, in answer order. */
+	proposals: ModelProposal[];
+	dropped: DropCode[];
+	/** Issues past the fourth, left out with their proposals. */
+	droppedIssues: number;
+};
+
+export type ParseResultV2 = { ok: true; value: FixResponseV2 } | { ok: false; message: string };
+
+const SPELLING_REF = /^s[1-9][0-9]?$/;
+
+function forms(value: unknown, min: number): string[] | null {
+	if (!Array.isArray(value) || value.length < min || value.length > MAX_FORMS) return null;
+	const out: string[] = [];
+	for (const f of value) {
+		const w = word(f);
+		if (!w) return null;
+		if (!out.some((g) => g.toLocaleLowerCase() === w.toLocaleLowerCase())) out.push(w);
+	}
+	return out;
+}
+
+/** One v2 proposal on its own field rules (the v1 rules for spelling and style_adjust). */
+function parseProposalV2(item: unknown): ModelProposal | 'none' | null {
+	if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+	const p = item as Record<string, unknown>;
+	const reason = oneLine(p.reason ?? '', MAX_REASON);
+	if (reason === null) return null;
+	switch (p.type) {
+		case 'none':
+			return 'none';
+		case 'spelling':
+		case 'style_adjust':
+			return parseProposal(item);
+		case 'heard_as':
+		case 'raise_priority': {
+			const from = forms(p.from, 1);
+			const to = word(p.to);
+			if (!from || !to) return null;
+			return { type: p.type, from, to, reason };
+		}
+		case 'add_word': {
+			const from = forms(p.from, 1);
+			const to = word(p.to);
+			if (!from || !to) return null;
+			return { type: 'add_word', from, to, scope: p.scope === 'everywhere' ? 'everywhere' : 'app', reason };
+		}
+		case 'disable_spelling': {
+			if (typeof p.spelling_ref !== 'string' || !SPELLING_REF.test(p.spelling_ref)) return null;
+			return { type: 'disable_spelling', spellingRef: p.spelling_ref, reason };
+		}
+		default:
+			return null;
+	}
+}
+
+/** Whether a parsed proposal is one its issue's layer may carry. */
+function fitsLayer(layer: Layer, p: ModelProposal): boolean {
+	if (!LAYER_FIXES[layer].includes(p.type)) return false;
+	// An expression problem moves the level, never the style.
+	if (layer === 'expression' && p.type === 'style_adjust') return p.expressionDelta !== null && p.styleId === null;
+	return true;
+}
+
+/**
+ * Parses and checks a v2 answer (`pack/feedback/README.md`, v2). The whole
+ * answer is refused when it isn't the contract; a bad issue or proposal is
+ * left out on its own and recorded in `dropped`.
+ */
+export function parseFixResponseV2(raw: string, delivered: string): ParseResultV2 {
+	let value: unknown;
+	try {
+		value = JSON.parse(raw.trim());
+	} catch {
+		return { ok: false, message: 'The answer was not valid JSON.' };
+	}
+	if (!value || typeof value !== 'object' || Array.isArray(value))
+		return { ok: false, message: 'The answer was not a JSON object.' };
+	const v = value as Record<string, unknown>;
+	const explanation = oneLine(v.explanation ?? '', MAX_EXPLANATION);
+	if (explanation === null)
+		return { ok: false, message: 'The answer’s explanation had characters VoiceFlow refuses.' };
+	if (typeof v.corrected_text !== 'string') return { ok: false, message: 'The answer had no corrected text.' };
+	const correctedText = v.corrected_text.replace(/\r\n?/g, '\n');
+	if (CONTROL.test(correctedText))
+		return { ok: false, message: 'The corrected text had hidden characters, so it wasn’t used.' };
+	if (correctedText.length > maxCorrectedLength(delivered))
+		return {
+			ok: false,
+			message: 'The corrected text came back much longer than your dictation, so it wasn’t used.',
+		};
+	if (!Array.isArray(v.issues) || v.issues.length === 0)
+		return { ok: false, message: 'The answer named no problem.' };
+	if (v.issues.length > MAX_ISSUES_LISTED)
+		return { ok: false, message: 'The answer named far too many problems, so none were used.' };
+	let listed = 0;
+	for (const issue of v.issues) {
+		const ps = issue && typeof issue === 'object' ? (issue as Record<string, unknown>).proposals : null;
+		if (Array.isArray(ps)) listed += ps.length;
+	}
+	if (listed > MAX_LISTED) return { ok: false, message: 'The answer had far too many fixes, so none were used.' };
+
+	const issues: ParsedIssue[] = [];
+	const proposals: ModelProposal[] = [];
+	const dropped: DropCode[] = [];
+	let droppedIssues = 0;
+	let wordFixes = 0;
+	let styleFixes = 0;
+	for (const item of v.issues) {
+		const i = item && typeof item === 'object' && !Array.isArray(item) ? (item as Record<string, unknown>) : null;
+		const list = i && Array.isArray(i.proposals) ? i.proposals : [];
+		/** Proposals that would have been fixes (a `none` is not one). */
+		const fixesIn = list.filter((p) => !(p && typeof p === 'object' && (p as Record<string, unknown>).type === 'none')).length;
+		if (issues.length >= MAX_ISSUES) {
+			droppedIssues += 1;
+			for (let k = 0; k < fixesIn; k++) dropped.push('issue-limit');
+			continue;
+		}
+		const layer = i && typeof i.layer === 'string' && (LAYERS as readonly string[]).includes(i.layer) ? (i.layer as Layer) : null;
+		const summary = i ? oneLine(i.summary ?? '', MAX_SUMMARY) : null;
+		if (!i || !layer || summary === null || !Array.isArray(i.proposals)) {
+			// A malformed issue is left out with whatever it proposed.
+			droppedIssues += 1;
+			for (let k = 0; k < fixesIn; k++) dropped.push('malformed');
+			continue;
+		}
+		const index = issues.length;
+		const parsed: ParsedIssue = { layer, summary, noFixReason: null };
+		issues.push(parsed);
+		for (const item of list) {
+			const p = parseProposalV2(item);
+			if (p === 'none') {
+				const reason = oneLine((item as Record<string, unknown>).reason, MAX_REASON);
+				parsed.noFixReason ??= reason || null;
+				continue;
+			}
+			if (!p) {
+				dropped.push('malformed');
+				continue;
+			}
+			if (!fitsLayer(layer, p)) {
+				dropped.push('layer');
+				continue;
+			}
+			const isWord = (WORD_FIX_TYPES as readonly string[]).includes(p.type);
+			if (isWord ? wordFixes >= MAX_WORD_FIXES : styleFixes >= MAX_STYLE_FIXES) {
+				dropped.push('limit');
+				continue;
+			}
+			if (isWord) wordFixes += 1;
+			else styleFixes += 1;
+			proposals.push({ ...p, issue: index });
+		}
+	}
+	if (issues.length === 0) return { ok: false, message: 'The answer named no problem VoiceFlow can read.' };
+	return {
+		ok: true,
+		value: {
+			explanation,
+			correctedText: correctedText.trim() ? correctedText : delivered,
+			issues,
+			proposals,
+			dropped,
+			droppedIssues,
+		},
+	};
+}
+
+/**
+ * A strict JSON schema with nullable types written as `anyOf`, which
+ * Anthropic's structured output takes (OpenAI takes the schema as it is).
+ */
+export function nullableAsAnyOf(schema: unknown): unknown {
+	if (Array.isArray(schema)) return schema.map(nullableAsAnyOf);
+	if (!schema || typeof schema !== 'object') return schema;
+	const s = schema as Record<string, unknown>;
+	if (Array.isArray(s.type) && s.type.includes('null')) {
+		const types = (s.type as string[]).filter((t) => t !== 'null');
+		const base: Record<string, unknown> = { type: types.length === 1 ? types[0] : types };
+		if (Array.isArray(s.enum)) base.enum = s.enum.filter((e) => e !== null);
+		return { anyOf: [base, { type: 'null' }] };
+	}
+	const out: Record<string, unknown> = {};
+	for (const [k, val] of Object.entries(s)) out[k] = nullableAsAnyOf(val);
+	return out;
 }

@@ -287,6 +287,53 @@ export async function saveTerm(candidate: NewTerm): Promise<SaveTermResult> {
 	return { ok: true, op };
 }
 
+/** VoiceFlow 0.9.16: a word as feedback writes it, every field it keeps. */
+export type WordEdit = {
+	text: string;
+	heardAs?: string[];
+	kind?: string;
+	gloss?: string;
+	priority?: number;
+	apps?: string[];
+};
+
+/**
+ * VoiceFlow 0.9.16 (feedback): writes a word as one edit. Unlike "Add a
+ * word", the word may already be in the lists: the edit is the whole entry
+ * (its heard forms with the new one, or its raised priority), and the merge
+ * keeps the highest layer's entry for one word, so it replaces the listed
+ * one until it is undone (a tombstone brings the listed one back).
+ */
+export async function saveWord(
+	word: WordEdit,
+): Promise<{ ok: true; op: TermOp } | { ok: false; message: string }> {
+	const text = word.text.trim().replace(/\s+/g, ' ');
+	for (const w of [text, ...(word.heardAs ?? [])]) {
+		const problem = wordProblem(w);
+		if (problem) return { ok: false, message: problem };
+	}
+	if ((word.heardAs?.length ?? 0) > MAX_FORMS)
+		return { ok: false, message: `At most ${MAX_FORMS} heard forms for one word.` };
+	const term: Record<string, unknown> = { text };
+	if (word.heardAs?.length) term.heardAs = word.heardAs.map((h) => h.trim().replace(/\s+/g, ' '));
+	if (word.kind) term.kind = word.kind;
+	if (word.gloss) term.gloss = word.gloss;
+	if (word.priority !== undefined) term.priority = word.priority;
+	if (word.apps?.length) term.apps = word.apps.map((a) => (a === EVERY_APP ? a : a.toLowerCase()));
+	const op = parseOp({ ...newBase(), type: 'term', term });
+	if (!op || op.type !== 'term') return { ok: false, message: 'That word isn’t one VoiceFlow can save.' };
+	try {
+		await writeOp(op);
+	} catch (error) {
+		return {
+			ok: false,
+			message: `The word couldn't be saved (${error instanceof Error ? error.message : String(error)}).`,
+		};
+	}
+	await wordLists.editsChanged();
+	return { ok: true, op };
+}
+
 export type NewAppStyle = { app: string; style?: string; expression?: number };
 
 /**
@@ -331,7 +378,7 @@ export type FeedbackDraft = FeedbackRecord;
 
 /** Keeps a feedback draft on this device (the feedback log's first state). */
 export async function saveFeedbackDraft(
-	draft: Pick<FeedbackRecord, 'recordingId' | 'appName' | 'appId' | 'rawText' | 'finalText' | 'feedback'>,
+	draft: Pick<FeedbackRecord, 'recordingId' | 'appName' | 'appId' | 'rawText' | 'finalText' | 'feedback' | 'wanted'>,
 ): Promise<FeedbackDraft> {
 	const full: FeedbackRecord = {
 		schema: FEEDBACK_SCHEMA,

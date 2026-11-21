@@ -1,0 +1,1855 @@
+{
+	"description": "Test vectors for voiceflow-feedback v2 (pack/feedback/README.md, v2). answers: a model reply (answer, or answerText) to feedback on a dictation whose delivered text is given; expect.ok false: the whole answer is refused; otherwise the issues kept (layer, summary, noFixReason), the proposals kept (with their issue index), the drop codes in order and how many issues were left out. observations: the stage texts of one dictation and the observations a client computes from them. ladder: word lists (lists) and a word fix asked for, with the step it becomes and the entry written, or ok false. evidence: one proposal in an issue of a given layer on a dictation, and whether the stage evidence lets it through (kept) or not. Synthetic names only.",
+	"answers": [
+		{
+			"name": "two problems: a mishearing and too lively",
+			"delivered": "Ask Zebbo to file the note!!",
+			"answer": {
+				"explanation": "Zibbo was heard as Zebbo, and it was too lively.",
+				"corrected_text": "Ask Zibbo to file the note.",
+				"issues": [
+					{
+						"layer": "transcriber",
+						"summary": "Zibbo was heard as Zebbo.",
+						"proposals": [
+							{
+								"type": "spelling",
+								"from": [
+									"Zebbo"
+								],
+								"to": "Zibbo",
+								"scope": "app",
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					},
+					{
+						"layer": "expression",
+						"summary": "Too lively for this app.",
+						"proposals": [
+							{
+								"type": "style_adjust",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": -1,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					}
+				]
+			},
+			"expect": {
+				"ok": true,
+				"correctedText": "Ask Zibbo to file the note.",
+				"issues": [
+					{
+						"layer": "transcriber",
+						"summary": "Zibbo was heard as Zebbo.",
+						"noFixReason": null
+					},
+					{
+						"layer": "expression",
+						"summary": "Too lively for this app.",
+						"noFixReason": null
+					}
+				],
+				"proposals": [
+					{
+						"issue": 0,
+						"type": "spelling",
+						"from": [
+							"Zebbo"
+						],
+						"to": "Zibbo",
+						"scope": "app"
+					},
+					{
+						"issue": 1,
+						"type": "style_adjust",
+						"expression_delta": -1,
+						"style_id": null
+					}
+				],
+				"dropped": [],
+				"droppedIssues": 0
+			}
+		},
+		{
+			"name": "not JSON",
+			"delivered": "Hi.",
+			"answerText": "Here you go: Zibbo",
+			"expect": {
+				"ok": false
+			}
+		},
+		{
+			"name": "no issues at all",
+			"delivered": "Hi.",
+			"answer": {
+				"explanation": "x",
+				"corrected_text": "",
+				"issues": []
+			},
+			"expect": {
+				"ok": false
+			}
+		},
+		{
+			"name": "more than eight issues",
+			"delivered": "Hi.",
+			"answer": {
+				"explanation": "x",
+				"corrected_text": "",
+				"issues": [
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"proposals": []
+					},
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"proposals": []
+					},
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"proposals": []
+					},
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"proposals": []
+					},
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"proposals": []
+					},
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"proposals": []
+					},
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"proposals": []
+					},
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"proposals": []
+					},
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"proposals": []
+					}
+				]
+			},
+			"expect": {
+				"ok": false
+			}
+		},
+		{
+			"name": "more than twelve proposals across issues",
+			"delivered": "Hi.",
+			"answer": {
+				"explanation": "x",
+				"corrected_text": "",
+				"issues": [
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "none",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "none",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "none",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "none",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "none",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "none",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "none",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					},
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "none",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "none",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "none",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "none",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "none",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "none",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					}
+				]
+			},
+			"expect": {
+				"ok": false
+			}
+		},
+		{
+			"name": "a fifth issue is left out with its fix",
+			"delivered": "Zebbo Quorb Vantix Melo Dravin.",
+			"answer": {
+				"explanation": "x",
+				"corrected_text": "",
+				"issues": [
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "none",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "Not enough to go on."
+							}
+						]
+					},
+					{
+						"layer": "delivery-privacy",
+						"summary": "s",
+						"proposals": []
+					},
+					{
+						"layer": "style-prompt",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "none",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "Style rules come later."
+							}
+						]
+					},
+					{
+						"layer": "transcriber",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "spelling",
+								"from": [
+									"Zebbo"
+								],
+								"to": "Zibbo",
+								"scope": "app",
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					},
+					{
+						"layer": "transcriber",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "spelling",
+								"from": [
+									"Quorb"
+								],
+								"to": "Quorbit",
+								"scope": "app",
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					}
+				]
+			},
+			"expect": {
+				"ok": true,
+				"correctedText": "Zebbo Quorb Vantix Melo Dravin.",
+				"issues": [
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"noFixReason": "Not enough to go on."
+					},
+					{
+						"layer": "delivery-privacy",
+						"summary": "s",
+						"noFixReason": null
+					},
+					{
+						"layer": "style-prompt",
+						"summary": "s",
+						"noFixReason": "Style rules come later."
+					},
+					{
+						"layer": "transcriber",
+						"summary": "s",
+						"noFixReason": null
+					}
+				],
+				"proposals": [
+					{
+						"issue": 3,
+						"type": "spelling",
+						"from": [
+							"Zebbo"
+						],
+						"to": "Zibbo",
+						"scope": "app"
+					}
+				],
+				"dropped": [
+					"issue-limit"
+				],
+				"droppedIssues": 1
+			}
+		},
+		{
+			"name": "fixes that do not fit their layer are left out",
+			"delivered": "Ask Zebbo.",
+			"answer": {
+				"explanation": "x",
+				"corrected_text": "",
+				"issues": [
+					{
+						"layer": "transcriber",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "style_adjust",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": 1,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "spelling",
+								"from": [
+									"Zebbo"
+								],
+								"to": "Zibbo",
+								"scope": "app",
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					},
+					{
+						"layer": "expression",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "style_adjust",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": -1,
+								"style_id": "casual",
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					},
+					{
+						"layer": "style-prompt",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "spelling",
+								"from": [
+									"Zebbo"
+								],
+								"to": "Zibbo",
+								"scope": "app",
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					},
+					{
+						"layer": "app-context",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "style_adjust",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": "casual",
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					}
+				]
+			},
+			"expect": {
+				"ok": true,
+				"correctedText": "Ask Zebbo.",
+				"issues": [
+					{
+						"layer": "transcriber",
+						"summary": "s",
+						"noFixReason": null
+					},
+					{
+						"layer": "expression",
+						"summary": "s",
+						"noFixReason": null
+					},
+					{
+						"layer": "style-prompt",
+						"summary": "s",
+						"noFixReason": null
+					},
+					{
+						"layer": "app-context",
+						"summary": "s",
+						"noFixReason": null
+					}
+				],
+				"proposals": [
+					{
+						"issue": 0,
+						"type": "spelling",
+						"from": [
+							"Zebbo"
+						],
+						"to": "Zibbo",
+						"scope": "app"
+					},
+					{
+						"issue": 3,
+						"type": "style_adjust",
+						"expression_delta": null,
+						"style_id": "casual"
+					}
+				],
+				"dropped": [
+					"layer",
+					"layer",
+					"layer"
+				],
+				"droppedIssues": 0
+			}
+		},
+		{
+			"name": "at most three word fixes and one style change per answer",
+			"delivered": "Zebbo Quorb Vantix Melo.",
+			"answer": {
+				"explanation": "x",
+				"corrected_text": "",
+				"issues": [
+					{
+						"layer": "transcriber",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "spelling",
+								"from": [
+									"Zebbo"
+								],
+								"to": "Zibbo",
+								"scope": "app",
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "heard_as",
+								"from": [
+									"Quorb"
+								],
+								"to": "Quorbit",
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					},
+					{
+						"layer": "transcriber",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "add_word",
+								"from": [
+									"Vantix"
+								],
+								"to": "Vantyx",
+								"scope": "everywhere",
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "raise_priority",
+								"from": [
+									"Melo"
+								],
+								"to": "Mellow",
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					},
+					{
+						"layer": "app-context",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "style_adjust",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": "raw",
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "style_adjust",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": 1,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					}
+				]
+			},
+			"expect": {
+				"ok": true,
+				"correctedText": "Zebbo Quorb Vantix Melo.",
+				"issues": [
+					{
+						"layer": "transcriber",
+						"summary": "s",
+						"noFixReason": null
+					},
+					{
+						"layer": "transcriber",
+						"summary": "s",
+						"noFixReason": null
+					},
+					{
+						"layer": "app-context",
+						"summary": "s",
+						"noFixReason": null
+					}
+				],
+				"proposals": [
+					{
+						"issue": 0,
+						"type": "spelling",
+						"from": [
+							"Zebbo"
+						],
+						"to": "Zibbo",
+						"scope": "app"
+					},
+					{
+						"issue": 0,
+						"type": "heard_as",
+						"from": [
+							"Quorb"
+						],
+						"to": "Quorbit"
+					},
+					{
+						"issue": 1,
+						"type": "add_word",
+						"from": [
+							"Vantix"
+						],
+						"to": "Vantyx",
+						"scope": "everywhere"
+					},
+					{
+						"issue": 2,
+						"type": "style_adjust",
+						"expression_delta": null,
+						"style_id": "raw"
+					}
+				],
+				"dropped": [
+					"limit",
+					"limit"
+				],
+				"droppedIssues": 0
+			}
+		},
+		{
+			"name": "word fix fields: forms needed, a word needed, an odd scope counts as app",
+			"delivered": "Zebbo and Quorb.",
+			"answer": {
+				"explanation": "x",
+				"corrected_text": "",
+				"issues": [
+					{
+						"layer": "transcriber",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "heard_as",
+								"from": [],
+								"to": "Zibbo",
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "add_word",
+								"from": [
+									"Quorb",
+									"quorb"
+								],
+								"to": "Quorbit",
+								"scope": "this-app",
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "raise_priority",
+								"from": [
+									"Zebbo"
+								],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					}
+				]
+			},
+			"expect": {
+				"ok": true,
+				"correctedText": "Zebbo and Quorb.",
+				"issues": [
+					{
+						"layer": "transcriber",
+						"summary": "s",
+						"noFixReason": null
+					}
+				],
+				"proposals": [
+					{
+						"issue": 0,
+						"type": "add_word",
+						"from": [
+							"Quorb"
+						],
+						"to": "Quorbit",
+						"scope": "app"
+					}
+				],
+				"dropped": [
+					"malformed",
+					"malformed"
+				],
+				"droppedIssues": 0
+			}
+		},
+		{
+			"name": "turning a spelling off names it by its ref",
+			"delivered": "Kastrel is ready.",
+			"answer": {
+				"explanation": "x",
+				"corrected_text": "Kestrel is ready.",
+				"issues": [
+					{
+						"layer": "spelling",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "disable_spelling",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": "x1",
+								"reason": "r"
+							},
+							{
+								"type": "disable_spelling",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": "s2",
+								"reason": "r"
+							},
+							{
+								"type": "spelling",
+								"from": [
+									"Castrel"
+								],
+								"to": "Kestrel",
+								"scope": "app",
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					}
+				]
+			},
+			"expect": {
+				"ok": true,
+				"correctedText": "Kestrel is ready.",
+				"issues": [
+					{
+						"layer": "spelling",
+						"summary": "s",
+						"noFixReason": null
+					}
+				],
+				"proposals": [
+					{
+						"issue": 0,
+						"type": "disable_spelling",
+						"spelling_ref": "s2"
+					},
+					{
+						"issue": 0,
+						"type": "spelling",
+						"from": [
+							"Castrel"
+						],
+						"to": "Kestrel",
+						"scope": "app"
+					}
+				],
+				"dropped": [
+					"malformed"
+				],
+				"droppedIssues": 0
+			}
+		},
+		{
+			"name": "an issue with an unknown layer or a hidden character is left out",
+			"delivered": "Zebbo.",
+			"answer": {
+				"explanation": "x",
+				"corrected_text": "",
+				"issues": [
+					{
+						"layer": "rewrite-everything",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "spelling",
+								"from": [
+									"Zebbo"
+								],
+								"to": "Zibbo",
+								"scope": "app",
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					},
+					{
+						"layer": "transcriber",
+						"summary": "bell\u0007",
+						"proposals": [
+							{
+								"type": "spelling",
+								"from": [
+									"Zebbo"
+								],
+								"to": "Zibbo",
+								"scope": "app",
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					},
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"proposals": []
+					}
+				]
+			},
+			"expect": {
+				"ok": true,
+				"correctedText": "Zebbo.",
+				"issues": [
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"noFixReason": null
+					}
+				],
+				"proposals": [],
+				"dropped": [
+					"malformed",
+					"malformed"
+				],
+				"droppedIssues": 2
+			}
+		},
+		{
+			"name": "a type this version does not know is dropped, not refused",
+			"delivered": "Hello there.",
+			"answer": {
+				"explanation": "x",
+				"corrected_text": "  ",
+				"issues": [
+					{
+						"layer": "style-prompt",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "style_rule",
+								"from": [],
+								"to": "Drop sign-offs.",
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							},
+							{
+								"type": "none",
+								"from": [],
+								"to": null,
+								"scope": null,
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "Style changes come later."
+							}
+						]
+					}
+				]
+			},
+			"expect": {
+				"ok": true,
+				"correctedText": "Hello there.",
+				"issues": [
+					{
+						"layer": "style-prompt",
+						"summary": "s",
+						"noFixReason": "Style changes come later."
+					}
+				],
+				"proposals": [],
+				"dropped": [
+					"malformed"
+				],
+				"droppedIssues": 0
+			}
+		}
+	],
+	"observations": [
+		{
+			"name": "tidy-up drops a filler and rewrites a phrase; a spelling; one wanted fix is on a spelled word, one on a word as heard",
+			"texts": {
+				"raw": "um so ask castrel and zebbo, they gonna file the note",
+				"tidy": "Ask Castrel and Zebbo, they are going to file the note.",
+				"delivered": "Ask Kastrel and Zebbo, they are going to file the note.",
+				"wanted": "Ask Kestrel and Zibbo, they are going to file the note.",
+				"spellings": [
+					{
+						"ref": "s1",
+						"heard": "Castrel",
+						"written": "Kastrel"
+					}
+				]
+			},
+			"expect": {
+				"observations": [
+					{
+						"stage": "tidy-up",
+						"change": "removed",
+						"before": "um so",
+						"after": ""
+					},
+					{
+						"stage": "tidy-up",
+						"change": "replaced",
+						"before": "gonna",
+						"after": "are going to"
+					},
+					{
+						"stage": "spelling",
+						"change": "replaced",
+						"before": "Castrel",
+						"after": "Kastrel",
+						"spelling": "s1"
+					},
+					{
+						"stage": "wanted",
+						"change": "replaced",
+						"before": "Kastrel",
+						"after": "Kestrel",
+						"origin": "spelling"
+					},
+					{
+						"stage": "wanted",
+						"change": "replaced",
+						"before": "Zebbo",
+						"after": "Zibbo",
+						"origin": "speech-to-text"
+					}
+				],
+				"truncated": false
+			}
+		},
+		{
+			"name": "no tidy-up: only spellings, and the wanted fix undoes one",
+			"texts": {
+				"raw": "call zebbo about the deck",
+				"tidy": null,
+				"delivered": "call Zibbo about the deck",
+				"wanted": "call Zebbo about the deck",
+				"spellings": [
+					{
+						"ref": "s1",
+						"heard": "zebbo",
+						"written": "Zibbo"
+					}
+				]
+			},
+			"expect": {
+				"observations": [
+					{
+						"stage": "spelling",
+						"change": "replaced",
+						"before": "zebbo",
+						"after": "Zibbo",
+						"spelling": "s1"
+					},
+					{
+						"stage": "wanted",
+						"change": "replaced",
+						"before": "Zibbo",
+						"after": "Zebbo",
+						"origin": "spelling"
+					}
+				],
+				"truncated": false
+			}
+		},
+		{
+			"name": "an older dictation: tidy-up output not kept",
+			"texts": {
+				"raw": "well send it today",
+				"delivered": "Send it today.",
+				"wanted": null
+			},
+			"expect": {
+				"observations": [
+					{
+						"stage": "tidy-up-or-spelling",
+						"change": "removed",
+						"before": "well",
+						"after": ""
+					}
+				],
+				"truncated": false
+			}
+		},
+		{
+			"name": "the wanted text puts back words tidy-up removed",
+			"texts": {
+				"raw": "tell Milo the budget is not final",
+				"tidy": "Tell Milo the budget is final.",
+				"delivered": "Tell Milo the budget is final.",
+				"wanted": "Tell Milo the budget is not final."
+			},
+			"expect": {
+				"observations": [
+					{
+						"stage": "tidy-up",
+						"change": "removed",
+						"before": "not",
+						"after": ""
+					},
+					{
+						"stage": "wanted",
+						"change": "added",
+						"before": "",
+						"after": "not",
+						"origin": "tidy-up"
+					}
+				],
+				"truncated": false
+			}
+		},
+		{
+			"name": "punctuation and case alone are not changes",
+			"texts": {
+				"raw": "hello world how are you",
+				"tidy": "Hello, world! How are you?",
+				"delivered": "Hello, world! How are you?",
+				"wanted": "hello world, how are you"
+			},
+			"expect": {
+				"observations": [],
+				"truncated": false
+			}
+		},
+		{
+			"name": "a repeated word: the later copy is the one removed",
+			"texts": {
+				"raw": "The the cat sat",
+				"tidy": "The cat sat.",
+				"delivered": "The cat sat."
+			},
+			"expect": {
+				"observations": [
+					{
+						"stage": "tidy-up",
+						"change": "removed",
+						"before": "the",
+						"after": ""
+					}
+				],
+				"truncated": false
+			}
+		},
+		{
+			"name": "a change no applied spelling explains",
+			"texts": {
+				"raw": "meet at noon",
+				"tidy": "Meet at noon.",
+				"delivered": "Meet at twelve.",
+				"spellings": [
+					{
+						"ref": "s1",
+						"heard": "Zebbo",
+						"written": "Zibbo"
+					}
+				]
+			},
+			"expect": {
+				"observations": [
+					{
+						"stage": "spelling",
+						"change": "replaced",
+						"before": "noon",
+						"after": "twelve",
+						"spelling": null
+					}
+				],
+				"truncated": false
+			}
+		}
+	],
+	"ladder": {
+		"lists": {
+			"defaults": {
+				"promptCharsEffective": 2000,
+				"promptTermsEffective": 50,
+				"fromLayer": {}
+			},
+			"terms": [
+				{
+					"id": "abrel",
+					"text": "Abrel",
+					"heardAs": [],
+					"priority": 90,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "bexon",
+					"text": "Bexon",
+					"heardAs": [],
+					"priority": 89,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "corvia",
+					"text": "Corvia",
+					"heardAs": [],
+					"priority": 88,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "dunmar",
+					"text": "Dunmar",
+					"heardAs": [],
+					"priority": 87,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "elvaro",
+					"text": "Elvaro",
+					"heardAs": [],
+					"priority": 86,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "fintra",
+					"text": "Fintra",
+					"heardAs": [],
+					"priority": 85,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "gorvel",
+					"text": "Gorvel",
+					"heardAs": [],
+					"priority": 84,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "halvik",
+					"text": "Halvik",
+					"heardAs": [],
+					"priority": 83,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "isoral",
+					"text": "Isoral",
+					"heardAs": [],
+					"priority": 82,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "jentrix",
+					"text": "Jentrix",
+					"heardAs": [],
+					"priority": 81,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "kalvon",
+					"text": "Kalvon",
+					"heardAs": [],
+					"priority": 80,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "lorvane",
+					"text": "Lorvane",
+					"heardAs": [],
+					"priority": 79,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "mirtel",
+					"text": "Mirtel",
+					"heardAs": [],
+					"priority": 78,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "norvix",
+					"text": "Norvix",
+					"heardAs": [],
+					"priority": 77,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "ostrel",
+					"text": "Ostrel",
+					"heardAs": [],
+					"priority": 76,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "pellum",
+					"text": "Pellum",
+					"heardAs": [],
+					"priority": 75,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "quarvin",
+					"text": "Quarvin",
+					"heardAs": [],
+					"priority": 74,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "rastol",
+					"text": "Rastol",
+					"heardAs": [],
+					"priority": 73,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "sovane",
+					"text": "Sovane",
+					"heardAs": [],
+					"priority": 72,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "tirvel",
+					"text": "Tirvel",
+					"heardAs": [],
+					"priority": 71,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "zibbo",
+					"text": "Zibbo",
+					"heardAs": [
+						"Zebbo"
+					],
+					"priority": 40,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "vantyx",
+					"text": "Vantyx",
+					"heardAs": [],
+					"priority": 60,
+					"apps": [
+						"other.exe"
+					],
+					"layer": "personal"
+				},
+				{
+					"id": "quorbit",
+					"text": "Quorbit",
+					"heardAs": [],
+					"priority": 30,
+					"apps": [
+						"*"
+					],
+					"layer": "personal"
+				}
+			]
+		},
+		"cases": [
+			{
+				"name": "a new word for this app joins the transcriber first; the last every-app word drops out",
+				"asked": "add_word",
+				"word": "Melvane",
+				"heard": [
+					"Melvin"
+				],
+				"app": "kite.exe",
+				"scope": "app",
+				"expect": {
+					"ok": true,
+					"step": "add_word",
+					"entry": {
+						"text": "Melvane",
+						"heardAs": [
+							"Melvin"
+						],
+						"priority": 50,
+						"apps": [
+							"kite.exe"
+						]
+					},
+					"replaces": null,
+					"tidy": true,
+					"transcriber": true,
+					"dropsOut": [
+						"Tirvel"
+					]
+				}
+			},
+			{
+				"name": "a new word for every app at the default priority stays in the tidy-up list only",
+				"asked": "add_word",
+				"word": "Melvane",
+				"heard": [
+					"Melvin"
+				],
+				"app": "kite.exe",
+				"scope": "everywhere",
+				"expect": {
+					"ok": true,
+					"step": "add_word",
+					"entry": {
+						"text": "Melvane",
+						"heardAs": [
+							"Melvin"
+						],
+						"priority": 50,
+						"apps": [
+							"*"
+						]
+					},
+					"replaces": null,
+					"tidy": true,
+					"transcriber": false,
+					"dropsOut": []
+				}
+			},
+			{
+				"name": "a new word for this app with no app known is refused",
+				"asked": "add_word",
+				"word": "Melvane",
+				"heard": [
+					"Melvin"
+				],
+				"app": null,
+				"scope": "app",
+				"expect": {
+					"ok": false
+				}
+			},
+			{
+				"name": "a heard-as form on a listed word keeps its other forms",
+				"asked": "heard_as",
+				"word": "Zibbo",
+				"heard": [
+					"Zibboh"
+				],
+				"app": "kite.exe",
+				"scope": "app",
+				"expect": {
+					"ok": true,
+					"step": "heard_as",
+					"entry": {
+						"text": "Zibbo",
+						"heardAs": [
+							"Zebbo",
+							"Zibboh"
+						],
+						"priority": 40,
+						"apps": [
+							"*"
+						]
+					},
+					"replaces": "Zibbo",
+					"tidy": true,
+					"transcriber": false,
+					"dropsOut": []
+				}
+			},
+			{
+				"name": "a heard form it already has: up to the next step, the smallest priority that reaches the 20",
+				"asked": "heard_as",
+				"word": "Zibbo",
+				"heard": [
+					"zebbo"
+				],
+				"app": "kite.exe",
+				"scope": "app",
+				"expect": {
+					"ok": true,
+					"step": "raise_priority",
+					"entry": {
+						"text": "Zibbo",
+						"heardAs": [
+							"Zebbo"
+						],
+						"priority": 72,
+						"apps": [
+							"*"
+						]
+					},
+					"replaces": "Zibbo",
+					"tidy": true,
+					"transcriber": true,
+					"dropsOut": [
+						"Tirvel"
+					]
+				}
+			},
+			{
+				"name": "adding a word that is listed gives it the heard form instead",
+				"asked": "add_word",
+				"word": "quorbit",
+				"heard": [
+					"Quorb"
+				],
+				"app": "kite.exe",
+				"scope": "everywhere",
+				"expect": {
+					"ok": true,
+					"step": "heard_as",
+					"entry": {
+						"text": "Quorbit",
+						"heardAs": [
+							"Quorb"
+						],
+						"priority": 30,
+						"apps": [
+							"*"
+						]
+					},
+					"replaces": "Quorbit",
+					"tidy": true,
+					"transcriber": false,
+					"dropsOut": []
+				}
+			},
+			{
+				"name": "raising a word that is not listed adds it instead",
+				"asked": "raise_priority",
+				"word": "Melvane",
+				"heard": [
+					"Melvin"
+				],
+				"app": "kite.exe",
+				"scope": "app",
+				"expect": {
+					"ok": true,
+					"step": "add_word",
+					"entry": {
+						"text": "Melvane",
+						"heardAs": [
+							"Melvin"
+						],
+						"priority": 50,
+						"apps": [
+							"kite.exe"
+						]
+					},
+					"replaces": null,
+					"tidy": true,
+					"transcriber": true,
+					"dropsOut": [
+						"Tirvel"
+					]
+				}
+			},
+			{
+				"name": "a word already among the 20 cannot be raised",
+				"asked": "raise_priority",
+				"word": "Abrel",
+				"heard": [
+					"Abril"
+				],
+				"app": "kite.exe",
+				"scope": "app",
+				"expect": {
+					"ok": false
+				}
+			},
+			{
+				"name": "a word listed for another app also starts applying in this one",
+				"asked": "heard_as",
+				"word": "Vantyx",
+				"heard": [
+					"Vantix"
+				],
+				"app": "kite.exe",
+				"scope": "app",
+				"expect": {
+					"ok": true,
+					"step": "heard_as",
+					"entry": {
+						"text": "Vantyx",
+						"heardAs": [
+							"Vantix"
+						],
+						"priority": 60,
+						"apps": [
+							"other.exe",
+							"kite.exe"
+						]
+					},
+					"replaces": "Vantyx",
+					"tidy": true,
+					"transcriber": true,
+					"dropsOut": [
+						"Tirvel"
+					]
+				}
+			}
+		]
+	},
+	"evidence": [
+		{
+			"name": "a hearing fix whose form speech-to-text never wrote is left out",
+			"dictation": {
+				"raw": "ask zibbo to file it",
+				"tidy": "Ask Zebbo to file it.",
+				"delivered": "Ask Zebbo to file it.",
+				"app": "kite.exe"
+			},
+			"layer": "transcriber",
+			"proposal": {
+				"type": "spelling",
+				"from": [
+					"Zebbo"
+				],
+				"to": "Zibbo",
+				"scope": "app",
+				"expression_delta": null,
+				"style_id": null,
+				"spelling_ref": null,
+				"reason": "r"
+			},
+			"expect": {
+				"kept": false
+			}
+		},
+		{
+			"name": "a hearing fix whose form speech-to-text wrote is kept",
+			"dictation": {
+				"raw": "ask zebbo to file it",
+				"tidy": "Ask Zebbo to file it.",
+				"delivered": "Ask Zebbo to file it.",
+				"app": "kite.exe"
+			},
+			"layer": "transcriber",
+			"proposal": {
+				"type": "spelling",
+				"from": [
+					"Zebbo"
+				],
+				"to": "Zibbo",
+				"scope": "app",
+				"expression_delta": null,
+				"style_id": null,
+				"spelling_ref": null,
+				"reason": "r"
+			},
+			"expect": {
+				"kept": true
+			}
+		},
+		{
+			"name": "a fix writing a word the wanted text does not have is left out",
+			"dictation": {
+				"raw": "ask zebbo to file it",
+				"tidy": "Ask Zebbo to file it.",
+				"delivered": "Ask Zebbo to file it.",
+				"wanted": "Ask Zabbo to file it.",
+				"app": "kite.exe"
+			},
+			"layer": "transcriber",
+			"proposal": {
+				"type": "spelling",
+				"from": [
+					"Zebbo"
+				],
+				"to": "Zibbo",
+				"scope": "app",
+				"expression_delta": null,
+				"style_id": null,
+				"spelling_ref": null,
+				"reason": "r"
+			},
+			"expect": {
+				"kept": false
+			}
+		},
+		{
+			"name": "turning off a spelling made as an edit is offered",
+			"dictation": {
+				"raw": "castrel is ready",
+				"tidy": "Castrel is ready.",
+				"delivered": "Kastrel is ready.",
+				"app": "kite.exe",
+				"spellings": [
+					{
+						"id": "dev1-aaa",
+						"heard": "Castrel",
+						"written": "Kastrel",
+						"layer": "edit"
+					}
+				]
+			},
+			"layer": "spelling",
+			"proposal": {
+				"type": "disable_spelling",
+				"from": [],
+				"to": null,
+				"scope": null,
+				"expression_delta": null,
+				"style_id": null,
+				"spelling_ref": "s1",
+				"reason": "r"
+			},
+			"expect": {
+				"kept": true
+			}
+		},
+		{
+			"name": "a spelling from a word-list file is changed there, not turned off",
+			"dictation": {
+				"raw": "castrel is ready",
+				"tidy": "Castrel is ready.",
+				"delivered": "Kastrel is ready.",
+				"app": "kite.exe",
+				"spellings": [
+					{
+						"id": "g-1",
+						"heard": "Castrel",
+						"written": "Kastrel",
+						"layer": "generated"
+					}
+				]
+			},
+			"layer": "spelling",
+			"proposal": {
+				"type": "disable_spelling",
+				"from": [],
+				"to": null,
+				"scope": null,
+				"expression_delta": null,
+				"style_id": null,
+				"spelling_ref": "s1",
+				"reason": "r"
+			},
+			"expect": {
+				"kept": false
+			}
+		},
+		{
+			"name": "a ref that names no applied spelling is left out",
+			"dictation": {
+				"raw": "castrel is ready",
+				"tidy": "Castrel is ready.",
+				"delivered": "Kastrel is ready.",
+				"app": "kite.exe",
+				"spellings": [
+					{
+						"id": "dev1-aaa",
+						"heard": "Castrel",
+						"written": "Kastrel",
+						"layer": "edit"
+					}
+				]
+			},
+			"layer": "spelling",
+			"proposal": {
+				"type": "disable_spelling",
+				"from": [],
+				"to": null,
+				"scope": null,
+				"expression_delta": null,
+				"style_id": null,
+				"spelling_ref": "s2",
+				"reason": "r"
+			},
+			"expect": {
+				"kept": false
+			}
+		}
+	]
+}

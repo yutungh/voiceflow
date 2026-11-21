@@ -36,6 +36,8 @@ export type FeedbackRecord = {
 	rawText: string;
 	finalText?: string;
 	feedback: string;
+	/** VoiceFlow 0.9.16: what the person says it should have said (optional, their words). */
+	wanted?: string;
 	status?: FeedbackStatus;
 	sentAt?: string;
 	provider?: string;
@@ -65,6 +67,7 @@ export function parseFeedbackRecord(value: unknown): FeedbackRecord | null {
 	if (typeof v.feedback !== 'string') return null;
 	const record = { ...(v as unknown as FeedbackRecord) };
 	if (typeof record.rawText !== 'string') record.rawText = '';
+	if (record.wanted !== undefined && typeof record.wanted !== 'string') delete record.wanted;
 	if (!record.status || !['drafted', 'sent', 'fixed'].includes(record.status))
 		record.status = record.result ? 'sent' : 'drafted';
 	if (record.applied && !Array.isArray(record.applied)) record.applied = [];

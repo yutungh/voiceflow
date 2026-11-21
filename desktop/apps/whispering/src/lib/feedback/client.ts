@@ -32,11 +32,13 @@ export type Reply<T> = ({ ok: true } & T) | { ok: false; message: string; record
 
 export type FeedbackRequest =
 	| { op: 'setup'; recordingId: string }
-	| { op: 'saveDraft'; recordingId: string; feedback: string; recordId?: string }
+	| { op: 'saveDraft'; recordingId: string; feedback: string; wanted?: string; recordId?: string }
 	| {
 			op: 'submit';
 			recordingId: string;
 			feedback: string;
+			/** 0.9.16: what it should have said (optional). */
+			wanted?: string;
 			recordId?: string;
 			/** The provider and model the person was shown; a change is refused. */
 			expect?: { provider: string; model: string };
@@ -48,10 +50,16 @@ export type FeedbackRequest =
 
 export interface FeedbackClient {
 	setup(recordingId: string): Promise<Reply<{ setup: FeedbackSetup }>>;
-	saveDraft(a: { recordingId: string; feedback: string; recordId?: string }): Promise<Reply<{ record: FeedbackRecord }>>;
+	saveDraft(a: {
+		recordingId: string;
+		feedback: string;
+		wanted?: string;
+		recordId?: string;
+	}): Promise<Reply<{ record: FeedbackRecord }>>;
 	submit(a: {
 		recordingId: string;
 		feedback: string;
+		wanted?: string;
 		recordId?: string;
 		expect?: { provider: string; model: string };
 	}): Promise<Reply<{ record: FeedbackRecord }>>;
