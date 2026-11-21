@@ -168,7 +168,7 @@ final class WordPrompt {
             return p != 0 ? p : collator.compare(a.text, b.text);
         };
         // This phone's own rows come first, in their order: they were always sent
-        // before, and no priority from the NAS may push them out.
+        // before, and no priority from the sync server may push them out.
         List<WordLayer.Term> forPhone = new ArrayList<>(phoneTerms);
         List<WordLayer.Term> forApp = new ArrayList<>();
         List<WordLayer.Term> forAll = new ArrayList<>();

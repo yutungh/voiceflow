@@ -2,7 +2,7 @@
  * VoiceFlow 0.9.13: the language guard. After tidy-up, a drift check; if
  * part of what was said came back in the other language (a clause of mixed
  * Chinese and English speech translated), one strict retry; if that drifts
- * too, his own words are delivered and the tidied text is held back for
+ * too, the user's own words are delivered and the tidied text is held back for
  * "Use cleaned". It never asks a blocking question, and the fallback never
  * strips fillers by a list (那个, 就是 and 嗯 can be real words).
  *
@@ -331,7 +331,7 @@ export type TidyAttempt = (
 export type GuardedTidyUp =
 	| {
 			ok: true;
-			/** What to deliver: the tidy-up, or his own words after a fallback. */
+			/** What to deliver: the tidy-up, or the user's own words after a fallback. */
 			text: string;
 			/** The tidy-up held back, offered as "Use cleaned"; empty when none. */
 			heldBack: string;
@@ -344,8 +344,8 @@ export type GuardedTidyUp =
 
 /**
  * Tidy-up, then the drift check, then one strict retry. If the retry drifts
- * too, his own words win and the retry is held back. If the retry itself
- * fails (an error or a time-out), his own words win and the first tidy-up is
+ * too, the user's own words win and the retry is held back. If the retry itself
+ * fails (an error or a time-out), the user's own words win and the first tidy-up is
  * held back: nothing is lost, and nothing translated is pasted. A failure of
  * the first run is returned as it is (the usual tidy-up problem).
  *

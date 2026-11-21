@@ -82,7 +82,7 @@ final class Prefs {
     private static final String KEY_PRESET_LABEL_PREFIX = "preset_label_";
     private static final String KEY_MODEL_CHECK_TIMES_JSON = "model_check_times_json";
     private static final String KEY_MODEL_SWITCH_NOTICE = "model_switch_notice";
-    /** The styles "On the bar" in the keyboard's style sheet, in order; absent until he pins one. */
+    /** The styles "On the bar" in the keyboard's style sheet, in order; absent until the user pins one. */
     private static final String KEY_PINNED_STYLES = "pinned_styles_json";
     /** 0.8.6: the tidy-up the language check held back, by History id, for History's Use cleaned. */
     private static final String KEY_HELD_BACK_JSON = "held_back_cleanup_json";
@@ -993,7 +993,7 @@ final class Prefs {
         }
     }
 
-    /** The pinned style ids in order, or null when he has never chosen (the sheet then pins the everyday styles). */
+    /** The pinned style ids in order, or null when the user has never chosen (the sheet then pins the everyday styles). */
     static List<String> pinnedStyles(Context context) {
         String json = shared(context).getString(KEY_PINNED_STYLES, null);
         if (json == null) {
@@ -1023,7 +1023,7 @@ final class Prefs {
     }
 
     /**
-     * The tidy-up held back for a History entry (his own words were kept), or ""
+     * The tidy-up held back for a History entry (the user's own words were kept), or ""
      * (0.8.6, desktop 0.9.13's History "Use cleaned"). Only for entries History
      * still holds: one that has left History has left this store too.
      */

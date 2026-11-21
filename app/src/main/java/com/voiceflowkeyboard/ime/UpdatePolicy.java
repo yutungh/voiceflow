@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
  * <ul>
  *   <li>Take only an offer that is newer than what is installed: never a
  *       downgrade, never a reinstall.</li>
- *   <li>Download on an unmetered network (Wi-Fi), or on mobile data only when he
+ *   <li>Download on an unmetered network (Wi-Fi), or on mobile data only when the user
  *       has allowed it in Settings.</li>
  *   <li>Install only a file whose size and SHA-256 match the offer, whose package
  *       and versionCode match, and that is signed by exactly the certificate the
@@ -20,9 +20,9 @@ import java.util.regex.Pattern;
  *       sideloaded update behind its own dialog, which would wait unseen on the
  *       lock screen; so the background only checks, downloads and verifies, and
  *       says "update ready" in a quiet notification.</li>
- *   <li>Install when he opens the VoiceFlow app itself (or taps that
- *       notification), unless he is dictating. He is looking at the phone, so
- *       Play Protect's dialog, if it shows, is in front of him.</li>
+ *   <li>Install when the user opens the VoiceFlow app itself (or taps that
+ *       notification), unless the user is dictating. The user is looking at the phone, so
+ *       Play Protect's dialog, if it shows, is in front of the user.</li>
  *   <li>An install that has not finished two minutes after its commit is held
  *       by Play Protect: shown as such and counted as a hold, not an error. One
  *       still unfinished after 30 minutes, with its session gone, is lost and
@@ -106,7 +106,7 @@ final class UpdatePolicy {
         return offer != null && offer.versionCode > installedVersionCode;
     }
 
-    /** Wi-Fi always; mobile data only with his "Allow updates on mobile data" setting. */
+    /** Wi-Fi always; mobile data only with the user's "Allow updates on mobile data" setting. */
     static boolean mayDownload(boolean unmetered, boolean mobileDataAllowed) {
         return unmetered || mobileDataAllowed;
     }
@@ -131,7 +131,7 @@ final class UpdatePolicy {
                 && apkSignerSha256.equals(installedSignerSha256);
     }
 
-    /** Opening the app: install now unless the file is unverified or he is dictating. */
+    /** Opening the app: install now unless the file is unverified or the user is dictating. */
     static InstallGate mayInstallOnOpen(boolean verified, boolean dictationBusy) {
         if (!verified) {
             return InstallGate.NOT_VERIFIED;

@@ -561,7 +561,7 @@
 							</details>
 						{/if}
 						{#if selected.heldBackText && !isDeleted(selected)}
-							<!-- 0.9.13: the language guard kept his words; the tidy-up waits here. -->
+							<!-- 0.9.13: the language guard kept the user's words; the tidy-up waits here. -->
 							<div class="saved warnish">
 								<Icon name="warning" class="i sm" /><span
 									>Kept your words: {driftReasonText(selected.heldBackReason).toLowerCase()}, so

@@ -36,7 +36,7 @@ export type DeliveryRecording = {
 	/** The style that tidied the text, if any. */
 	styleName?: string;
 	/**
-	 * 0.9.13: the language guard kept his own words (the text delivered) and
+	 * 0.9.13: the language guard kept the user's own words (the text delivered) and
 	 * held the tidy-up back for "Use cleaned": why, and the style.
 	 */
 	keptWords?: KeptWords;
@@ -113,7 +113,7 @@ export function onUseCleaned(handler: (recordingId: string) => unknown) {
 	useCleanedHandler = handler;
 }
 
-/** One line on why his own words were kept. */
+/** One line on why the user's own words were kept. */
 export function keptWordsDetail(kept: KeptWords): string {
 	return `${driftReasonText(kept.reason)}, so your own words went in instead of ${kept.styleName}'s tidy-up.`;
 }
@@ -139,7 +139,7 @@ export async function reportDelivered({
 	styleName?: string | null;
 	/** No window notice (first-run setup dictates into VoiceFlow on purpose). */
 	quietToast?: boolean;
-	/** 0.9.13: his own words were kept; the bar offers Use cleaned. */
+	/** 0.9.13: the user's own words were kept; the bar offers Use cleaned. */
 	keptWords?: KeptWords;
 }): Promise<DeliveryOutcome> {
 	const notice = deliveryNotice(delivered);
@@ -333,7 +333,7 @@ async function deliver(
 		}
 	}
 	if (copied && recording?.keptWords) {
-		// 0.9.13: his own words were copied; the notice says why, with Use cleaned.
+		// 0.9.13: the user's own words were copied; the notice says why, with Use cleaned.
 		const recordingId = recording.id;
 		rpc.notify.info.execute({
 			id: toastId,

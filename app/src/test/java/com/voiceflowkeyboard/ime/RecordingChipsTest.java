@@ -37,7 +37,7 @@ public class RecordingChipsTest {
         List<String> pins = Arrays.asList("clean", "casual", "business", "family", "partner");
         String kept = RecordingChips.nextKept(ALL, pins, "fun_haiku", null);
         assertEquals("fun_haiku", kept);
-        // He then taps Clean: Haiku stays where it was, nothing moves under his thumb.
+        // The user then taps Clean: Haiku stays where it was, nothing moves under their thumb.
         String stillKept = RecordingChips.nextKept(ALL, pins, "clean", kept);
         assertEquals("fun_haiku", stillKept);
         RecordingChips.Row row = RecordingChips.row(ALL, pins, "clean", stillKept);

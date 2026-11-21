@@ -59,7 +59,7 @@ export type BarHandlers = {
 	feedback: (recordingId: string) => Promise<unknown> | unknown;
 	/** 0.9.11: the bar's close on a problem notice. */
 	dismiss?: (recordingId: string, kind: BarErrorKind | null) => Promise<unknown> | unknown;
-	/** 0.9.13: Use cleaned, after the language guard kept his own words. */
+	/** 0.9.13: Use cleaned, after the language guard kept the user's own words. */
 	useCleaned?: (recordingId: string) => Promise<unknown> | unknown;
 };
 
@@ -364,7 +364,7 @@ export const bar = {
 			styleName?: string | null;
 			/** 0.9.11: for `copied`, the paste keys and why it was not pasted. */
 			copied?: { keys: string; why: string | null };
-			/** 0.9.13: the language guard kept his own words. */
+			/** 0.9.13: the language guard kept the user's own words. */
 			keptWords?: { reason: string; styleName: string } | null;
 		},
 	) {

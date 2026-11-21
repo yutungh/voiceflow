@@ -19,12 +19,12 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Word lists: the names and words VoiceFlow spells his way. An entry whose heard
+ * Word lists: the names and words VoiceFlow spells the user's way. An entry whose heard
  * forms differ from its spelling is "Always fix" (a correction); one that is only
  * its own spelling is a "Hint" (it helps transcription hear it).
  *
  * <p>This phone's own rows are edited here, every edit saved as it is made. Words
- * from the NAS (household, from his notes, his own list and edits made on other
+ * from the sync server (household, from the user's notes, the user's own list and edits made on other
  * devices) are shown read-only with where they come from; they are changed where
  * they are kept, and reach the phone on its next sync.
  */
@@ -36,7 +36,7 @@ public class FindReplaceActivity extends Activity {
     private static final int MAX_ROWS = 200;
 
     private final List<PhraseReplacement> replacements = new ArrayList<>();
-    /** Read-only entries from the NAS, in display order. */
+    /** Read-only entries from the sync server, in display order. */
     private final List<SharedRow> shared = new ArrayList<>();
     private WordLists.View view;
     private LinearLayout list;
@@ -44,7 +44,7 @@ public class FindReplaceActivity extends Activity {
     private EditText search;
     private int filter = FILTER_ALL;
 
-    /** One read-only entry from the NAS lists. */
+    /** One read-only entry from the sync server's lists. */
     static final class SharedRow {
         final String spelling;
         final List<String> heard;
@@ -61,7 +61,7 @@ public class FindReplaceActivity extends Activity {
         }
     }
 
-    /** The NAS entries of a snapshot: words as hints, corrections as fixes. The phone's own and built-in rows are left out. */
+    /** The sync server's entries of a snapshot: words as hints, corrections as fixes. The phone's own and built-in rows are left out. */
     static List<SharedRow> sharedRows(WordMerge.Snapshot snapshot) {
         List<SharedRow> rows = new ArrayList<>();
         if (snapshot == null) {
@@ -108,7 +108,7 @@ public class FindReplaceActivity extends Activity {
         }
     }
 
-    /** One line on where the NAS words stand, or null when this phone is not enrolled. */
+    /** One line on where the sync server's words stand, or null when this phone is not enrolled. */
     private String syncSummary() {
         if (view == null || SyncStore.enrolment(this) == null) {
             return null;

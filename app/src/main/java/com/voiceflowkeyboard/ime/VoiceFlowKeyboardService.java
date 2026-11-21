@@ -195,7 +195,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     // back for it ("Use cleaned"); empty when there is none.
     private DeliveryGuard.Target lastVoiceEditor = null;
     private String lastVoiceHeldBack = "";
-    /** Why {@link #lastVoiceHeldBack} is on offer: mixed languages, or he chose Original. */
+    /** Why {@link #lastVoiceHeldBack} is on offer: mixed languages, or the user chose Original. */
     private String lastVoiceHeldBackReason = HELD_BACK_MIXED;
     // The bar above the keys (VoiceBar decides which one shows).
     private static final int BAR_HEIGHT_DP = 52;
@@ -250,7 +250,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     private boolean openAllStylesNext;
     /** The current input start was a restart of the same editor (caps lock may stay). */
     private boolean inputRestarting;
-    /** While caps lock is on: the text before the cursor after his last edit, to recognise his field. */
+    /** While caps lock is on: the text before the cursor after the user's last edit, to recognise the user's field. */
     private String capsLockTail = "";
     private boolean suggestionsShowing;
     /** The last insertion's Inserted bar is still inside its {@link VoiceBar#INSERTED_MS} window. */
@@ -595,7 +595,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             // Some apps restart their field after every change; caps lock stays on
             // for the same field, as it did before the restart.
             // Only a restart the system calls a restart, and only when the text before
-            // the cursor is what he just typed there: two fields of one WebView can share
+            // the cursor is what the user just typed there: two fields of one WebView can share
             // package, id and type and restart between each other (Codex review).
             boolean keepCapsLock = sameField && inputRestarting && capsLock
                     && layer == KeyboardLayerRules.Layer.LETTERS
@@ -2378,7 +2378,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     }
 
     /**
-     * Swaps the tidied text for his own words, over the verified last insertion
+     * Swaps the tidied text for the user's own words, over the verified last insertion
      * only, and offers the tidy-up back as "Use cleaned".
      */
     private void useOriginalWords() {
@@ -2731,7 +2731,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     }
 
     /**
-     * Swaps his own words, inserted after the drift check held the tidy-up back,
+     * Swaps the user's own words, inserted after the drift check held the tidy-up back,
      * for that tidy-up, but only over the verified last insertion. Otherwise the
      * tidy-up is kept in History and nothing in the field is touched.
      */
@@ -3140,7 +3140,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
 
     /**
      * The expression slider: five snapping stops, Reserved to Expressive, the
-     * level's name beside the title. Off for Raw, which keeps his words as said.
+     * level's name beside the title. Off for Raw, which keeps the user's words as said.
      * {@code inPanel}: the recording panel's (a choice there never redraws the
      * panel mid-drag); otherwise the style sheet's.
      */
@@ -6287,7 +6287,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     /** Fixes, at record start, where this dictation may go and which corrections it gets. */
     private void freezeRecordingTarget() {
         recordingTarget = currentDeliveryTarget();
-        // The word lists in force for this dictation: the NAS lists merged with this
+        // The word lists in force for this dictation: the sync server's lists merged with this
         // phone's own (or, before the first sync, the phone's own list as before),
         // with the words for the app it goes into.
         // Never reads or merges here (main thread): it takes the snapshot built ahead.
@@ -6669,7 +6669,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             return;
         }
 
-        // Tidy-up, drift check and one strict retry; then his words or the
+        // Tidy-up, drift check and one strict retry; then the user's words or the
         // tidy-up; then the corrections, once; then mixed-script spacing.
         String chosen = spoken;
         String finalStatus = "Inserted";
@@ -6793,7 +6793,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
      * history (incognito or a password field): there nothing is copied and the
      * bar says only where it is not.
      *
-     * @param movedAway true when he moved to another field; false when the field
+     * @param movedAway true when the user moved to another field; false when the field
      *                  itself would not take the text
      * @return the bar's message
      */
@@ -7451,7 +7451,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         }
     }
 
-    /** The styles in their own order, and his pins (the sheet's "On the bar"), for the chips. */
+    /** The styles in their own order, and the user's pins (the sheet's "On the bar"), for the chips. */
     private List<String> panelStyleIds() {
         List<String> ids = new ArrayList<>();
         for (PromptProfile style : Prefs.promptProfiles(this)) {
@@ -7471,7 +7471,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     }
 
     /**
-     * Draws the recording panel: what to do now, the style chips (his pins, at most
+     * Draws the recording panel: what to do now, the style chips (the user's pins, at most
      * five, the one in use always among them, More for the rest) and the expression
      * slider. A choice here is for this message only. After Stop the choice is fixed,
      * so the panel stays, dimmed, until the text is inserted.

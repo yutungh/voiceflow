@@ -17,7 +17,7 @@ import java.security.MessageDigest;
  * <ol>
  *   <li>ask the gateway which release this phone may install (one request, a
  *       bodiless 304 when nothing changed), and on Wi-Fi, or on mobile data when
- *       he allows it, download and verify a newer one;</li>
+ *       the user allows it, download and verify a newer one;</li>
  *   <li>note how a committed install is going (a two-minute wait is a Play
  *       Protect hold);</li>
  *   <li>write this phone's status (version, counters, errors, holds, pending update);</li>
@@ -25,7 +25,7 @@ import java.security.MessageDigest;
  * </ol>
  * It never installs. Google Play Protect stops every sideloaded update with its
  * own dialog, which in the background would wait unseen on the lock screen. The
- * install starts when he opens the app ({@link #installOnOpen}). A network
+ * install starts when the user opens the app ({@link #installOnOpen}). A network
  * failure is normal and is never counted as an error.
  */
 final class SyncWorker {
@@ -33,7 +33,7 @@ final class SyncWorker {
     enum Install {
         /** No verified update is waiting. */
         NOTHING,
-        /** He is dictating; the next open tries again. */
+        /** The user is dictating; the next open tries again. */
         WAITING,
         /** Handed to Android just now; the app restarts when it is done. */
         STARTED,
@@ -44,7 +44,7 @@ final class SyncWorker {
     }
 
     private static final Object RUN_LOCK = new Object();
-    /** How long after an install he started by opening the app it may reopen itself. */
+    /** How long after an install the user started by opening the app it may reopen itself. */
     static final long RELAUNCH_WINDOW_MS = 3 * 60_000L;
 
     private SyncWorker() {
@@ -200,7 +200,7 @@ final class SyncWorker {
     }
 
     /**
-     * The word lists from the NAS, into the offline copy. Content problems (a
+     * The word lists from the sync server, into the offline copy. Content problems (a
      * rejected file, a missing layer) go to the status file's profile block only;
      * a refused token counts like any refused request. Never stops the run.
      */
@@ -280,7 +280,7 @@ final class SyncWorker {
     }
 
     /**
-     * He tapped Try again on an install stuck behind Play Protect (its dialog was
+     * The user tapped Try again on an install stuck behind Play Protect (its dialog was
      * closed): the old session is given up, not counted as an error, so the next
      * {@link #installOnOpen} commits afresh.
      */
@@ -317,8 +317,8 @@ final class SyncWorker {
     }
 
     /**
-     * Installs the waiting update because he opened the app (or tapped "update
-     * ready"). Not while he is dictating, and never on top of an install that is
+     * Installs the waiting update because the user opened the app (or tapped "update
+     * ready"). Not while the user is dictating, and never on top of an install that is
      * still going or waiting for Play Protect: committing again would abandon the
      * session its dialog belongs to. Every hash, signature and versionCode check
      * runs again on the file first, and "not dictating" is asked again just
@@ -326,7 +326,7 @@ final class SyncWorker {
      */
     static Install installOnOpen(Context context, java.util.function.BooleanSupplier stillOpen) {
         synchronized (RUN_LOCK) {
-            // The wait for the lock (a sync run) can outlast his visit.
+            // The wait for the lock (a sync run) can outlast the user's visit.
             if (!stillOpen.getAsBoolean()) {
                 return Install.WAITING;
             }
@@ -387,7 +387,7 @@ final class SyncWorker {
                         id -> SyncStore.updateEvidence(context, installed, e -> e.pendingSessionId = id),
                         true);
             } catch (SelfUpdater.ConditionsChanged e) {
-                // He started dictating, or left the app, while the file was copied: not a failure.
+                // The user started dictating, or left the app, while the file was copied: not a failure.
                 SyncStore.updateEvidence(context, installed, ev -> {
                     ev.pendingSessionId = 0;
                     ev.pendingState = UpdatePolicy.STATE_DOWNLOADED;

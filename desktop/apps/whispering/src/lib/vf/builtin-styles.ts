@@ -7,7 +7,7 @@
  * Partner) are added the same way, with Android's names and prompts. Its five
  * fun presets (Haiku, Pirate, Shakespearean, Noir Detective, Wizard) are
  * templates only (`FUN_STYLES`), never added on their own. A style whose name
- * maps to the same Android preset (`presetKindOf`) counts as one he already
+ * maps to the same Android preset (`presetKindOf`) counts as one the user already
  * has.
  *
  * They are ordinary styles in the same format as any other: one tidy-up

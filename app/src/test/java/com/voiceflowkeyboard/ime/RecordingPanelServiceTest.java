@@ -243,7 +243,7 @@ public class RecordingPanelServiceTest {
         tap("A");
         service.onUpdateSelection(0, 0, 1, 1, -1, -1);
         // A WebView moving to its next field: same package, id and type, a restart,
-        // but not the text he just typed (Codex verification).
+        // but not the text the user just typed (Codex verification).
         service.connection = new VoiceBarServiceTest.ExtractingConnection(new View(service));
         service.onStartInput(editor, true);
         service.onStartInputView(editor, true);
@@ -500,7 +500,7 @@ public class RecordingPanelServiceTest {
         String id = Prefs.addTranscriptHistory(app, "raw mixed words", "his mixed words",
                 Prefs.PRESET_CLEAN, Prefs.EXPRESSION_NATURAL, VoiceHistoryItem.OPERATION_DICTATION, "");
         Prefs.setHeldBackCleanup(app, id, "Tidied mixed words.", Prefs.PRESET_CLEAN, Prefs.EXPRESSION_NATURAL);
-        // He switched this entry to Original from the keyboard's History first.
+        // The user switched this entry to Original from the keyboard's History first.
         Prefs.selectTranscriptHistoryVariant(app, id, Prefs.PRESET_RAW, Prefs.EXPRESSION_NATURAL);
         assertEquals("Tidied mixed words.", Prefs.heldBackCleanup(app, id));
         Intent intent = new Intent(app, TranscriptDetailActivity.class)

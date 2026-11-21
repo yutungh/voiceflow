@@ -72,10 +72,10 @@ export type Recording = {
 	/** The style that tidied it, by name, as it was then. */
 	styleName?: string;
 	/**
-	 * 0.9.13: the language guard kept his own words, because tidy-up changed
-	 * the language of part of what he said. The tidied text it held back
+	 * 0.9.13: the language guard kept the user's own words, because tidy-up changed
+	 * the language of part of what the user said. The tidied text it held back
 	 * ("Use cleaned"), the reason code, and the style that made it. Cleared
-	 * once he uses it.
+	 * once the user uses it.
 	 */
 	heldBackText?: string;
 	heldBackReason?: string;

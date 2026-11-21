@@ -3,7 +3,7 @@
  * pasted, for any reason, its text is on the clipboard and the notice says
  * so. A field check that can't answer never stops the paste and never keeps
  * the text off the clipboard. A password field or password manager is not
- * pasted into, but the text (his own words) still goes on the clipboard.
+ * pasted into, but the text (the user's own words) still goes on the clipboard.
  *
  * actions.ts and delivery.ts import `$lib` modules that `bun test` cannot
  * resolve, so their paths are checked in the source; the decisions are

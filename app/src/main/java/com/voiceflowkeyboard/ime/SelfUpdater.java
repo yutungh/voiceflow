@@ -28,7 +28,7 @@ import java.security.MessageDigest;
 final class SelfUpdater {
     static final String ACTION_INSTALL_RESULT = "com.voiceflowkeyboard.ime.action.INSTALL_RESULT";
     static final String EXTRA_VERSION_CODE = "versionCode";
-    /** Set when he started the install by opening the app, so a confirm screen is shown there. */
+    /** Set when the user started the install by opening the app, so a confirm screen is shown there. */
     static final String EXTRA_ON_OPEN = "onOpen";
 
     /** What a downloaded APK says about itself. */
@@ -253,7 +253,7 @@ final class SelfUpdater {
             if (!offer.sha256.equals(GatewayClient.hex(digest.digest()))) {
                 throw new IOException("apk-changed");
             }
-            // Copying took a while: he may have woken the phone or started dictating.
+            // Copying took a while: the user may have woken the phone or started dictating.
             if (!gate.stillAllowed()) {
                 throw new ConditionsChanged();
             }

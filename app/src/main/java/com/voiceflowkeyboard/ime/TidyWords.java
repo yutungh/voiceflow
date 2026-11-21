@@ -26,7 +26,7 @@ import java.util.Set;
  *   <li>Within {@link #TIDY_WORDS_CHARS} for the list: every word plain first, then the
  *       notes of words with heard-as forms or a pronunciation gloss, then the others,
  *       each in importance order, while they fit.</li>
- *   <li>Not for Raw and not for the fun styles; not before this phone has a NAS copy.</li>
+ *   <li>Not for Raw and not for the fun styles; not before this phone has a synced copy.</li>
  * </ul>
  * Written for this app; pure, no Android.
  */

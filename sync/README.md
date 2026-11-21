@@ -6,6 +6,140 @@ A small HTTP service that serves a VoiceFlow profile folder (the layout in [`../
 - **No dependencies.** Node 22 and its standard library only.
 - **The user and device always come from the token.** No route takes a user name, and no path is ever built from anything but fixed names and strict patterns.
 
+## Set up your own gateway
+
+This is the whole path, from nothing to a phone syncing. The gateway is optional: the desktop app and the Android keyboard both work without it. You need it only to share one set of word lists between a phone and other devices.
+
+**What you need**
+
+- A computer that stays on: a home server, a NAS that runs Docker, a small VPS or a Raspberry Pi. It needs Docker, or Node.js 22 or newer.
+- A host name that points at it, and HTTPS with a certificate Android trusts (for example from Let's Encrypt). The phone refuses plain `http://`, a path after the host name and a login in the address.
+- The VoiceFlow keyboard 0.8.2 or newer on the phone, a USB cable and `adb` on the computer you plug it into.
+
+### 1. Get the code and build it
+
+```sh
+git clone -c core.longpaths=true https://github.com/yutungh/voiceflow
+cd voiceflow
+docker build -f sync/Dockerfile -t vf-sync:0.1.0 .      # from the repository root
+```
+
+No Docker? Run it directly with Node 22 or newer: `VF_SYNC_CONFIG=/path/to/config.json node sync/bin/vf-sync.mjs`. It has no dependencies to install.
+
+### 2. Make the data folder
+
+The gateway serves one folder, `dataRoot` in the config. It is the same folder the desktop app reads as its word-list folder, in the layout described in [`../pack/README.md`](../pack/README.md):
+
+```text
+<data folder>/
+  profiles/household/profile.json             words everyone shares (optional)
+  profiles/<user>/profile.json                this user's own words
+  profiles/<user>/generated/profile.json      written by a tool, optional
+  profiles/<user>/ops/<device>-<uuid>.json    edits from devices; the gateway creates this
+  status/<user>/<device>.json                 each device's status; the gateway writes it
+  archive/<user>/                             one-time backups; the gateway creates this
+  releases/android/<versionCode>/...          optional APKs to offer phones (see below)
+```
+
+Start from the example folder: copy [`../pack/fixtures/demo/`](../pack/fixtures/demo/) and rename `sam` to your own lower-case user name, or write a minimal `profiles/<user>/profile.json` as shown in [`../docs/desktop/CONNECT-YOUR-OWN-AI.md`](../docs/desktop/CONNECT-YOUR-OWN-AI.md). The user running the container must be able to read the folder and write to `profiles/`, `status/` and `archive/`.
+
+### 3. Configure and start it
+
+```sh
+mkdir -p config state
+cp sync/config.example.json config/config.json
+touch config/tokens.txt
+```
+
+Edit `config/config.json`: the paths are the container's (`/data`, `/config/tokens.txt`, `/state`), so you normally change only `rollout.canaryUser` to your user name. `canaryDevices` can stay empty unless you use the [release rollout](#releases-and-the-rollout-rule). Then copy [`docker-compose.example.yml`](docker-compose.example.yml) next to those folders, set the data-folder path and the `user:` line, and start it:
+
+```sh
+docker compose -f docker-compose.example.yml up -d
+curl http://127.0.0.1:8790/healthz        # {"ok":true}
+```
+
+The port is bound to the server's loopback address on purpose: only the reverse proxy in the next step should reach it.
+
+### 4. Put HTTPS in front of it
+
+Any reverse proxy that terminates TLS works. Give the gateway a host name of its own (`https://sync.example.com`, not a sub-path), and pass the client address in `X-Real-IP`, which `trustProxy` reads for the sign-in rate limit. If you have no proxy that sets it, set `"trustProxy": false`.
+
+Caddy (gets its certificate automatically):
+
+```text
+sync.example.com {
+    reverse_proxy 127.0.0.1:8790 {
+        header_up X-Real-IP {remote_host}
+    }
+}
+```
+
+nginx (with a certificate you already have, for example from certbot):
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name sync.example.com;
+    ssl_certificate     /etc/letsencrypt/live/sync.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/sync.example.com/privkey.pem;
+    client_max_body_size 2m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8790;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Host $host;
+    }
+}
+```
+
+Check from another machine: `curl https://sync.example.com/healthz`.
+
+### 5. Connect a phone
+
+The phone makes its own device id the first time it is asked, so you ask it first, then issue a token for that id, then hand the token over. Plug the phone in over USB with USB debugging on and the screen unlocked. The receiver is protected by Android's `DUMP` permission, which only the adb shell holds, so no other app can enrol or reset the phone.
+
+1. Ask the phone for its device id (`ph` and 8 hex characters):
+
+   ```sh
+   adb shell am broadcast -n com.voiceflowkeyboard.ime/.SyncCommandReceiver -a com.voiceflowkeyboard.ime.action.SYNC_INFO
+   ```
+
+   The answer is in the broadcast's `data=` line: `device=ph1a2b3c4d ... enrolled=no`.
+
+2. On the server, issue a token for that user and device (this writes the token to a file and never prints it):
+
+   ```sh
+   node sync/bin/vf-sync-token.mjs issue --file config/tokens.txt --user sam --device ph1a2b3c4d --out ph1a2b3c4d.token --label phone
+   ```
+
+3. Enrol the phone. The three extras are `user`, `gateway` (the bare `https://` address from step 4) and `token` (the contents of the file):
+
+   ```sh
+   adb shell am broadcast -n com.voiceflowkeyboard.ime/.SyncCommandReceiver \
+     -a com.voiceflowkeyboard.ime.action.ENROL \
+     --es user sam --es gateway https://sync.example.com --es token "$(cat ph1a2b3c4d.token)"
+   ```
+
+   The reply is `enrolled device=ph1a2b3c4d user=sam gateway=https://sync.example.com`. It never repeats the token. A refusal names the field that was wrong, never its value. On Windows PowerShell, use `--es token (Get-Content ph1a2b3c4d.token)` and a backtick instead of `\` for line breaks.
+
+4. Delete the token file. Check the phone with the `SYNC_INFO` action again (`enrolled=yes`), or ask for an immediate run with `-a com.voiceflowkeyboard.ime.action.SYNC_NOW`. The phone then downloads the word lists, keeps an offline copy and sends edits and a status file back.
+
+Other actions the receiver understands: `RESET_STYLES` and `STYLE_DIGEST`, used for maintenance.
+
+### 6. Connect the desktop app
+
+The desktop app does not use the gateway or a token. It reads the data folder itself. In **Settings > Word lists**, turn on **Use word lists**, enter the folder (a path on the PC, or the server's share of the same folder, for example `\\server\voiceflow` or `/Volumes/voiceflow`) and your user name under **Whose words**. So the desktop needs either a profile folder it can open, or none at all (it works without word lists), and the phone needs the gateway. If the gateway's data folder is on another machine, share it with the PC (SMB or a synced folder) and give the PC write access to `profiles/<user>/` and `status/<user>/` only.
+
+### 7. Revoke a device
+
+Lost a phone, or retiring one? Revoke its token. It takes effect on the next request, with no restart:
+
+```sh
+node sync/bin/vf-sync-token.mjs revoke --file config/tokens.txt --device ph1a2b3c4d
+node sync/bin/vf-sync-token.mjs list   --file config/tokens.txt
+```
+
+The device's word lists and edits stay in the data folder. See [Tokens](#tokens) for the file format.
 ## Routes
 
 Every `/v1/` route needs `Authorization: Bearer <token>`. Without a valid one the answer is `401`, whatever the route.
@@ -22,7 +156,7 @@ Every `/v1/` route needs `Authorization: Bearer <token>`. Without a valid one th
 | `GET /v1/release/android/apk/<versionCode>` | The APK, only while it is this device's offer. |
 | `GET /healthz` | `{"ok":true}`, no token. |
 
-Files are read only when they are regular files with one link: symlinks, hard links, FIFOs and folders in place of a file are treated as missing. Only the gateway and trusted writers (the owner’s PC and scripts, NAS admins) should be able to write to the folder.
+Files are read only when they are regular files with one link: symlinks, hard links, FIFOs and folders in place of a file are treated as missing. Only the gateway and trusted writers (the owner’s PC and scripts, server admins) should be able to write to the folder.
 
 Who can see what: a token reads the household layer plus its own user's layers and edits, and writes only its own edits, its own status file and its own backups. Another user's files are never listed, hashed, read or named, including in error text.
 
@@ -71,7 +205,7 @@ Write `release.json` last. A release is offered only when its APK is there with 
   - first reported that `versionCode` at least `minAgeHours` (24) ago, by the gateway's clock;
   - sent a status within `freshHours` (2) that still shows it;
   - completed at least one dictation on it;
-  - had no errors on it: none in its status `update.errors`, and no write of its refused by the gateway (any `4xx` but `429`). The status file’s `profile.errors` (sync problems, such as the NAS being offline) do not count.
+  - had no errors on it: none in its status `update.errors`, and no write of its refused by the gateway (any `4xx` but `429`). The status file’s `profile.errors` (sync problems, such as the server being offline) do not count.
 - Missing evidence holds the release, and so does an empty `canaryDevices`. A hold beats a force. A malformed flags file holds everything.
 - The evidence lives in `<stateDir>/rollout.json`, outside the shared folder. Other devices only ever learn their own offer.
 

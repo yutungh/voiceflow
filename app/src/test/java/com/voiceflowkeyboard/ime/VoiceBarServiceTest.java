@@ -289,7 +289,7 @@ public class VoiceBarServiceTest {
     @Test public void undoNeverActsOnASelectionOrAnUnknownCursor() {
         service.connection.commitText("A hi gap", 1);
         insert("hi", " hi");
-        // He selects " gap hi" before tapping Undo: nothing may be removed.
+        // The user selects " gap hi" before tapping Undo: nothing may be removed.
         service.connection.setSelection(4, 11);
         ReflectionHelpers.callInstanceMethod(service, "undoLastVoiceInsertion");
         assertEquals("A hi gap hi", text());

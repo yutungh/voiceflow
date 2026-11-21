@@ -129,8 +129,8 @@ export type DictationState = {
 	 */
 	copied?: { keys: string; why: string | null } | null;
 	/**
-	 * 0.9.13: for `pasted` or `copied`, the language guard kept his own words
-	 * (tidy-up changed the language of part of what he said) and holds the
+	 * 0.9.13: for `pasted` or `copied`, the language guard kept the user's own words
+	 * (tidy-up changed the language of part of what the user said) and holds the
 	 * tidy-up back for Use cleaned: why, and the style.
 	 */
 	keptWords?: { reason: string; styleName: string } | null;

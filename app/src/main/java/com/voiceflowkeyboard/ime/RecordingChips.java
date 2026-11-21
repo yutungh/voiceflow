@@ -10,11 +10,11 @@ import java.util.List;
  * Pure, so the rules are unit-tested; the service draws the result.
  *
  * <ul>
- *   <li>At most {@link #MAX_CHIPS}: his pinned styles ("On the bar"), in his order.</li>
+ *   <li>At most {@link #MAX_CHIPS}: the user's pinned styles ("On the bar"), in the user's order.</li>
  *   <li>The style in use is always a chip: when it is not among the first four
  *       pinned, it takes the fifth place. A style picked from More keeps that
  *       place for the rest of the recording, so the row never reshuffles under
- *       his thumb.</li>
+ *       their thumb.</li>
  *   <li>Everything else is under More, in the styles' own order.</li>
  * </ul>
  */
@@ -39,7 +39,7 @@ final class RecordingChips {
         return new ArrayList<>(new LinkedHashSet<>(ids));
     }
 
-    /** The pinned styles that still exist, in his order, at most {@code max}. */
+    /** The pinned styles that still exist, in the user's order, at most {@code max}. */
     private static List<String> favourites(List<String> all, List<String> pinned, int max) {
         List<String> out = new ArrayList<>();
         for (String id : pinned == null ? all : pinned) {
@@ -57,7 +57,7 @@ final class RecordingChips {
      * The chip row.
      *
      * @param allIds every style, in the styles' order
-     * @param pinned his pinned styles, in his order (null: the first ones)
+     * @param pinned the user's pinned styles, in the user's order (null: the first ones)
      * @param currentId the style in use (always a chip when it exists)
      * @param keptId a style picked from More earlier in this recording, or null
      */

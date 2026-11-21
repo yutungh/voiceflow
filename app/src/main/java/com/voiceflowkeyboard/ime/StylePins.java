@@ -10,7 +10,7 @@ import java.util.Set;
  * desktop's "Show on the bar". Pure, so the rules are unit-tested.
  */
 final class StylePins {
-    /** How many styles the sheet pins when he has never chosen. */
+    /** How many styles the sheet pins when the user has never chosen. */
     static final int DEFAULT_COUNT = 6;
 
     private StylePins() {

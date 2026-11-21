@@ -1,4 +1,7 @@
 #!/bin/sh
+# OPTIONAL MAINTAINER TOOL: contributors should not run this. The guard it installs needs a
+# private term list that only the maintainer has, and it fails closed without one, so it would
+# block every push from a clone that lacks the list.
 # Install the local pre-push privacy guard (scripts/privacy-check.mjs) into this clone.
 # Works under Git for Windows (Git Bash) and on Linux/macOS. Needs Node on PATH.
 # Usage: sh scripts/install-privacy-hook.sh

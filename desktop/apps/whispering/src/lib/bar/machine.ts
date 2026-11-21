@@ -128,7 +128,7 @@ type Record_ = {
 	pastedInto: string | null;
 	/** 0.9.11: for `copied`, the paste keys and why it was not pasted. */
 	copied: { keys: string; why: string | null } | null;
-	/** 0.9.13: his own words were kept; the tidy-up is held back. */
+	/** 0.9.13: the user's own words were kept; the tidy-up is held back. */
 	keptWords: { reason: string; styleName: string } | null;
 	feedbackFor: FeedbackSubject | null;
 	snippet: string;
@@ -552,7 +552,7 @@ export function createBarMachine({
 				text: string;
 				styleName?: string | null;
 				copied?: { keys: string; why: string | null };
-				/** 0.9.13: the language guard kept his own words. */
+				/** 0.9.13: the language guard kept the user's own words. */
 				keptWords?: { reason: string; styleName: string } | null;
 			},
 		): void {

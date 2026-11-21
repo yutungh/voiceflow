@@ -528,7 +528,7 @@ public class ScreenshotsTest {
         shootActivity("word-lists", new Intent(app, FindReplaceActivity.class));
     }
 
-    /** Word lists on an enrolled phone with an offline copy from the NAS (0.8.2). */
+    /** Word lists on an enrolled phone with an offline copy from the sync server (0.8.2). */
     @Test public void wordListsSynced() throws Exception {
         assumeFalse(DIR.isEmpty());
         RuntimeEnvironment.setQualifiers(qualifiers);

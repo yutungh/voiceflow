@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
  * the JDK accepts passes every other test and then throws on the phone. That is what 0.8.2
  * did: {@code "(?U)\\s+"} in WordLayer and WordPrompt threw PatternSyntaxException in a
  * static initialiser, every sync run died with ExceptionInInitializerError, and the phone
- * never reported to the NAS or read its word lists.
+ * never reported to the sync server or read its word lists.
  */
 public class AndroidRegexPortabilityTest {
     /** An inline flag group naming UNICODE_CHARACTER_CLASS, on or off: (?U), (?iU), (?i-U), (?U: ...). ICU refuses each. */

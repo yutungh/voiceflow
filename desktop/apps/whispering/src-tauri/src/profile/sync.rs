@@ -784,7 +784,7 @@ mod tests {
         let f = fixture();
         write(&f.paths.layer_file(Layer::Personal), PERSONAL);
         let good = refresh(&f.paths, true, "t1").snapshot;
-        // The same folder, now gone (unplugged NAS).
+        // The same folder, now gone (unplugged network drive).
         let away = f.paths.source.with_file_name("share-away");
         fs::rename(&f.paths.source, &away).unwrap();
         let out = refresh(&f.paths, true, "t2");
@@ -957,7 +957,7 @@ mod tests {
         assert_eq!(s.privacy.block_apps, vec!["vault-demo.exe".to_string()]);
     }
 
-    /// A real word-list folder (for example a NAS share), read only: no edit
+    /// A real word-list folder (for example a network share), read only: no edit
     /// is uploaded and no status is written. `VOICEFLOW_PROFILE_DUMP=<file>`
     /// also saves the merged snapshot there. Run with
     /// `VOICEFLOW_PROFILE_SOURCE=<folder> VOICEFLOW_PROFILE_USER=<user>

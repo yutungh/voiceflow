@@ -2,7 +2,7 @@
  * VoiceFlow 0.9.10: the Android app's presets on the desktop.
  * - Friends, Work, Family and Partner are added once, like the 0.9.9
  *   built-ins: one that was deleted never comes back, one that was edited is
- *   never written over, and one he already has (same name, or a name that
+ *   never written over, and one the user already has (same name, or a name that
  *   maps to the same Android preset) is skipped.
  * - Haiku, Pirate, Shakespearean, Noir Detective and Wizard are templates
  *   only: offered under "Add a style", never added on their own.

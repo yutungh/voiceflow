@@ -506,7 +506,7 @@ impl Machine {
         at_ms: u64,
     ) {
         self.phase = Some(Phase::Idle);
-        // The window he left his cursor in, read before anything else moves.
+        // The window the user left their cursor in, read before anything else moves.
         let target = engine.capture_at_stop();
         engine.set_recording(false);
         match engine.stop() {

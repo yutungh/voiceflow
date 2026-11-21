@@ -253,7 +253,7 @@ export function problemsOf(recordings: readonly Recording[], now: number = Date.
 }
 
 /**
- * History's "Problems only": dictations with a problem he can still act on
+ * History's "Problems only": dictations with a problem the user can still act on
  * (0.9.12, F6). Not dismissed ones, not "Nothing heard", not failures whose
  * audio is gone, not copied ones; any age.
  */
