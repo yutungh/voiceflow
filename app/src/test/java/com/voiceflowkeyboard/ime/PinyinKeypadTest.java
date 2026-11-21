@@ -214,9 +214,10 @@ public class PinyinKeypadTest {
         List<String> words = texts(composer.candidates("mi'", 10));
         assertFalse(words.contains("你"));
         assertEquals("米", words.get(0));
-        // 7426 pinned as qian: money, not mountains.
+        // 7426 pinned as qian: money, not mountains. (0.8.9: Wanxiang counts
+        // written text, where 前 leads 钱; both read qian, and 山 never does.)
         List<String> qian = texts(composer.candidates("qian'", 10));
-        assertEquals("钱", qian.get(0));
+        assertTrue(qian.toString(), qian.indexOf("钱") >= 0 && qian.indexOf("钱") < 6);
         assertFalse(qian.contains("山"));
     }
 
@@ -228,7 +229,16 @@ public class PinyinKeypadTest {
         List<String> words = texts(composer.candidates("94'26", 10));
         assertFalse(words.toString(), words.contains("先"));
         assertTrue(words.toString(), words.contains("西安"));
-        assertEquals("xi'an", keypad.display("94'26", top("94'26")));
+        // Whatever leads (0.8.9: 一波, yi'bo, outweighs 西安 in Wanxiang), the
+        // break is shown where it was typed, and 西安 reads xi'an.
+        assertEquals(2, keypad.display("94'26", top("94'26")).indexOf('\''));
+        PinyinCandidate xian = null;
+        for (PinyinCandidate candidate : composer.candidates("94'26", 10)) {
+            if ("西安".equals(candidate.text)) {
+                xian = candidate;
+            }
+        }
+        assertEquals("xi'an", keypad.display("94'26", xian));
     }
 
     @Test

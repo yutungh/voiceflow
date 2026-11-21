@@ -71,7 +71,20 @@ final class PinyinKeypadLookup implements PinyinLookup {
      */
     private final Map<String, String> charactersBySyllable;
 
+    /**
+     * A syllable is rarely meant on the pad when it has no vowel (n, m, ng, hm:
+     * interjections) or its commonest character is used fewer times than this.
+     */
+    static final int RARE_SYLLABLE_FREQUENCY = 0;
+
+    /** Syllables {@link #rareSyllables} counts. */
+    private final java.util.Set<String> rare;
+
     PinyinKeypadLookup(PinyinDigitIndex index) {
+        this(index, RARE_SYLLABLE_FREQUENCY);
+    }
+
+    PinyinKeypadLookup(PinyinDigitIndex index, int rareBelow) {
         this.index = index;
         this.dictionary = index.dictionary();
         Map<String, Integer> frequency = new HashMap<>();
@@ -99,6 +112,32 @@ final class PinyinKeypadLookup implements PinyinLookup {
         });
         this.syllables = Collections.unmodifiableList(list);
         this.syllableFrequency = frequency;
+        java.util.Set<String> rareSet = new java.util.HashSet<>();
+        for (String syllable : dictionary.syllables()) {
+            Integer used = frequency.get(syllable);
+            if (used == null || used < rareBelow) {
+                rareSet.add(syllable);
+            }
+        }
+        this.rare = rareSet;
+    }
+
+    @Override
+    public int rareSyllables(PinyinDictionary.Entry entry) {
+        if (entry.key == null || rare.isEmpty()) {
+            return 0;
+        }
+        List<String> parts = syllablesOf(entry.key, entry.word.codePointCount(0, entry.word.length()));
+        if (parts == null) {
+            return 0;
+        }
+        int count = 0;
+        for (String part : parts) {
+            if (rare.contains(part)) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private static boolean hasVowel(String syllable) {
@@ -458,32 +497,44 @@ final class PinyinKeypadLookup implements PinyinLookup {
         if (group < 0) {
             return Collections.emptyList();
         }
-        List<PinyinDictionary.Entry> found = new ArrayList<>();
-        for (int g = group; g < index.groupCount() && index.groupDigits(g).startsWith(digits); g++) {
-            if (index.groupDigits(g).length() == digits.length()) {
+        // 0.8.9 (Codex review): a pinned letter ("s", "a'") can match tens of
+        // thousands of keys. Rank them on the frequencies read at load, without
+        // building a String per key, and parse only the strongest; a pin that
+        // also cuts syllables needs its entries checked, so it looks further.
+        boolean constrained = pattern.constrained();
+        PinyinDictionary.TopK top = new PinyinDictionary.TopK(constrained ? limit * 8 : limit);
+        for (int g = group; g < index.groupCount() && index.groupStartsWith(g, digits); g++) {
+            if (index.groupLength(g) == digits.length()) {
                 continue;
             }
             for (int p = index.groupStart(g); p < index.groupEnd(g); p++) {
                 int keyIndex = index.keyIndexAt(p);
-                String key = dictionary.keyAt(keyIndex);
-                if (!lettersAgree(key, pattern.chars)) {
-                    continue;
+                int frequency = dictionary.bestFrequencyAt(keyIndex);
+                if (frequency > 0 && dictionary.keyAgrees(keyIndex, pattern.chars)) {
+                    top.offer(keyIndex, frequency);
                 }
-                if (!pattern.constrained()) {
-                    PinyinDictionary.Entry best = dictionary.firstEntryAt(keyIndex);
-                    if (best != null) {
-                        found.add(best);
-                    }
-                } else {
-                    List<PinyinDictionary.Entry> kept = fitting(key, dictionary.entriesAt(keyIndex), pattern);
-                    if (!kept.isEmpty()) {
-                        found.add(kept.get(0));
-                    }
+            }
+        }
+        List<PinyinDictionary.Entry> found = new ArrayList<>();
+        for (int keyIndex : top.ranked()) {
+            if (found.size() >= limit) {
+                break;
+            }
+            if (!constrained) {
+                PinyinDictionary.Entry best = dictionary.firstEntryAt(keyIndex);
+                if (best != null) {
+                    found.add(best);
+                }
+            } else {
+                List<PinyinDictionary.Entry> kept =
+                        fitting(dictionary.keyAt(keyIndex), dictionary.entriesAt(keyIndex), pattern);
+                if (!kept.isEmpty()) {
+                    found.add(kept.get(0));
                 }
             }
         }
         Collections.sort(found, (a, b) -> Integer.compare(b.frequency, a.frequency));
-        return found.size() > limit ? new ArrayList<>(found.subList(0, limit)) : found;
+        return found;
     }
 
     // ------------------------------------------------------------- spellings

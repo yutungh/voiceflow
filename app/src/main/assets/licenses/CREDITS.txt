@@ -1,0 +1,22 @@
+VoiceFlow Keyboard is open source under the MIT licence:
+https://github.com/yutungh/voiceflow
+
+It ships data and artwork made by others, under these terms.
+
+Chinese pinyin dictionary: Wanxiang (万象拼音)
+by amzxyz, https://github.com/amzxyz/rime-wanxiang
+at revision 907edf67ce6d1f5c73b9f65ce9a2de55f8d7c82d
+Licence: Creative Commons Attribution 4.0 International (CC BY 4.0),
+https://creativecommons.org/licenses/by/4.0/
+Changes made: the zi, jichu and duoyin dictionaries were merged; tone marks
+were removed and ü written v; only the most frequent words were kept (plus
+chat-shaped phrases); a short list of everyday chat words was given more
+weight. The data is provided as is, with no warranties.
+
+English word frequencies: SymSpell (MIT, (c) 2018 Wolf Garbe), built from
+Google Books Ngram (CC BY 3.0) and SCOWL/ESDB ((c) Kevin Atkinson; licence
+in the source repository's third_party/symspell-en-frequency).
+
+Inter typeface: SIL Open Font License 1.1 (licenses/Inter-OFL.txt).
+Phosphor Icons: MIT (licenses/Phosphor-MIT.txt).
+Unicode emoji data: Unicode License v3 (licenses/Unicode.txt).

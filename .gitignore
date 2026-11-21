@@ -20,3 +20,7 @@ Thumbs.db
 # Evaluation-only spelling corpora. Fetched by scripts/fetch-corpora.sh,
 # never committed: their licence terms are unstated upstream.
 .corpora/
+
+# The pinned Wanxiang dictionaries (51 MB): fetched and hash-checked by
+# scripts/wanxiang-source.mjs; the generated asset is what is committed.
+third_party/rime-wanxiang/dicts/

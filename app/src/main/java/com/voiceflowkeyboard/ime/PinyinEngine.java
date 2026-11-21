@@ -12,8 +12,8 @@ import java.util.concurrent.RejectedExecutionException;
 /**
  * Owns the pinyin data and keeps loading it off the UI thread.
  *
- * <p>The dictionary is ~1 MB of text and the 9-key projection is a sort over
- * ~39k keys, so neither is built until Chinese is actually used, and the 9-key
+ * <p>The dictionary is ~9.5 MB of text (0.8.9, Wanxiang) and the 9-key projection is a sort over
+ * ~344k keys, so neither is built until Chinese is actually used, and the 9-key
  * index is built only if the keypad layout is actually chosen. Most sessions
  * never pay for either.
  *

@@ -1,0 +1,386 @@
+# VoiceFlow nine-key pinyin benchmark: phrases.
+# Self-written for this repository (MIT, like the rest of the Android project).
+# No private data and no copied text: everyday chat chunks of 2-8 characters.
+#
+# Columns: group <TAB> split <TAB> hanzi <TAB> pinyin <TAB> tags
+#   group   a conversation theme; the dev/test split is by group, never by phrase
+#   split   dev (used for tuning) or test (held out: never used to tune anything)
+#   pinyin  one toneless syllable per character, separated by spaces, ü written v
+#   tags    comma-separated: weak (a 0.8.8 weak spot), clash (keys shared by
+#           two common syllables), name, colloq, poly (polyphone in the phrase)
+#
+# Digit and letter inputs are derived from the pinyin by the harness
+# (PinyinBenchmark.java); there are no hand-written digit strings to drift.
+weak	dev	谢谢	xie xie	weak,clash
+weak	dev	明天见	ming tian jian	weak,clash
+weak	dev	可以吗	ke yi ma	weak,clash
+g01	dev	早上好	zao shang hao
+g01	dev	你好啊	ni hao a
+g01	dev	晚上好	wan shang hao
+g01	dev	好久不见	hao jiu bu jian
+g01	dev	最近怎么样	zui jin zen me yang
+g01	dev	你在干嘛	ni zai gan ma	poly
+g01	dev	吃了吗	chi le ma	poly
+g01	dev	在吗	zai ma
+g01	dev	晚安	wan an
+g01	dev	早点睡	zao dian shui
+g02	test	我们几点见	wo men ji dian jian
+g02	test	你什么时候到	ni shen me shi hou dao
+g02	test	我马上到	wo ma shang dao
+g02	test	等我一下	deng wo yi xia
+g02	test	我在门口	wo zai men kou
+g02	test	你到哪了	ni dao na le	poly
+g02	test	快到了	kuai dao le
+g02	test	路上堵车	lu shang du che
+g02	test	我先走了	wo xian zou le
+g02	test	下午见	xia wu jian	clash
+g03	dev	晚饭吃什么	wan fan chi shen me
+g03	dev	我饿了	wo e le
+g03	dev	想吃火锅	xiang chi huo guo
+g03	dev	叫外卖吧	jiao wai mai ba	clash
+g03	dev	这家店很好吃	zhe jia dian hen hao chi
+g03	dev	你吃饭了吗	ni chi fan le ma
+g03	dev	我请客	wo qing ke
+g03	dev	多吃点	duo chi dian
+g03	dev	不太辣	bu tai la
+g03	dev	再来一碗	zai lai yi wan
+g04	test	今天加班	jin tian jia ban
+g04	test	开会了	kai hui le	poly
+g04	test	老板找我	lao ban zhao wo
+g04	test	项目快完成了	xiang mu kuai wan cheng le
+g04	test	我在上班	wo zai shang ban
+g04	test	下班了吗	xia ban le ma
+g04	test	明天请假	ming tian qing jia
+g04	test	工作太忙了	gong zuo tai mang le
+g04	test	发邮件给你	fa you jian gei ni
+g04	test	报告写完了	bao gao xie wan le
+g05	dev	多少钱	duo shao qian	poly
+g05	dev	太贵了	tai gui le
+g05	dev	打折吗	da zhe ma
+g05	dev	我买了	wo mai le
+g05	dev	去超市	qu chao shi
+g05	dev	帮我带瓶水	bang wo dai ping shui
+g05	dev	网上买的	wang shang mai de
+g05	dev	快递到了	kuai di dao le
+g05	dev	退货吧	tui huo ba
+g05	dev	质量不错	zhi liang bu cuo
+g06	test	今天好冷	jin tian hao leng
+g06	test	外面下雨了	wai mian xia yu le
+g06	test	记得带伞	ji de dai san	poly
+g06	test	天气真好	tian qi zhen hao
+g06	test	明天降温	ming tian jiang wen	poly
+g06	test	多穿点衣服	duo chuan dian yi fu
+g06	test	太阳很大	tai yang hen da
+g06	test	下雪了	xia xue le
+g06	test	风好大	feng hao da
+g06	test	有点热	you dian re
+g07	dev	我感冒了	wo gan mao le
+g07	dev	头有点疼	tou you dian teng
+g07	dev	多喝热水	duo he re shui
+g07	dev	好好休息	hao hao xiu xi
+g07	dev	吃药了吗	chi yao le ma
+g07	dev	发烧了	fa shao le
+g07	dev	早日康复	zao ri kang fu
+g07	dev	去看医生	qu kan yi sheng
+g07	dev	睡不着	shui bu zhao	poly
+g07	dev	身体要紧	shen ti yao jin
+g08	test	机票订好了	ji piao ding hao le
+g08	test	几点的飞机	ji dian de fei ji
+g08	test	我到机场了	wo dao ji chang le
+g08	test	行李太重了	xing li tai zhong le	poly
+g08	test	酒店在哪里	jiu dian zai na li
+g08	test	玩得开心	wan de kai xin	poly
+g08	test	拍点照片	pai dian zhao pian
+g08	test	落地了	luo di le	poly
+g08	test	护照带了吗	hu zhao dai le ma
+g08	test	一路平安	yi lu ping an
+g09	dev	妈妈打电话了	ma ma da dian hua le
+g09	dev	爸爸在家吗	ba ba zai jia ma
+g09	dev	回家吃饭	hui jia chi fan
+g09	dev	想你了	xiang ni le
+g09	dev	周末回去	zhou mo hui qu
+g09	dev	奶奶身体好吗	nai nai shen ti hao ma
+g09	dev	孩子睡了	hai zi shui le
+g09	dev	我老公不在	wo lao gong bu zai
+g09	dev	姐姐结婚了	jie jie jie hun le
+g09	dev	一家人	yi jia ren
+g10	test	手机没电了	shou ji mei dian le
+g10	test	充电器在哪	chong dian qi zai na
+g10	test	信号不好	xin hao bu hao
+g10	test	发个微信	fa ge wei xin
+g10	test	加个好友	jia ge hao you
+g10	test	网速太慢	wang su tai man
+g10	test	密码忘了	mi ma wang le
+g10	test	截图给我	jie tu gei wo
+g10	test	重启一下	chong qi yi xia	poly
+g10	test	视频通话	shi pin tong hua
+g11	dev	几点了	ji dian le
+g11	dev	下周一	xia zhou yi
+g11	dev	星期天有空吗	xing qi tian you kong ma	poly
+g11	dev	晚点再说	wan dian zai shuo
+g11	dev	来不及了	lai bu ji le
+g11	dev	早点出发	zao dian chu fa
+g11	dev	改天吧	gai tian ba
+g11	dev	等一会儿	deng yi hui er
+g11	dev	九点半	jiu dian ban
+g11	dev	大概半小时	da gai ban xiao shi
+g12	test	谢谢你	xie xie ni	clash
+g12	test	不客气	bu ke qi
+g12	test	对不起	dui bu qi
+g12	test	没关系	mei guan xi
+g12	test	辛苦了	xin ku le
+g12	test	麻烦你了	ma fan ni le
+g12	test	不好意思	bu hao yi si
+g12	test	太感谢了	tai gan xie le
+g12	test	抱歉来晚了	bao qian lai wan le
+g12	test	别客气	bie ke qi
+g13	dev	我很开心	wo hen kai xin
+g13	dev	有点累	you dian lei
+g13	dev	好无聊	hao wu liao
+g13	dev	别担心	bie dan xin
+g13	dev	我生气了	wo sheng qi le
+g13	dev	太好了	tai hao le
+g13	dev	真的吗	zhen de ma	clash
+g13	dev	好感动	hao gan dong
+g13	dev	压力好大	ya li hao da
+g13	dev	放轻松	fang qing song
+g14	test	周末去哪玩	zhou mo qu na wan
+g14	test	去爬山吧	qu pa shan ba
+g14	test	在家休息	zai jia xiu xi
+g14	test	一起看电影	yi qi kan dian ying
+g14	test	逛街去	guang jie qu
+g14	test	睡个懒觉	shui ge lan jiao	poly
+g14	test	约了朋友	yue le peng you
+g14	test	去公园走走	qu gong yuan zou zou
+g14	test	打扫房间	da sao fang jian
+g14	test	出去玩吗	chu qu wan ma
+g15	dev	作业写完了吗	zuo ye xie wan le ma
+g15	dev	明天考试	ming tian kao shi
+g15	dev	复习一下	fu xi yi xia
+g15	dev	图书馆见	tu shu guan jian	clash
+g15	dev	老师说的	lao shi shuo de
+g15	dev	这道题不会	zhe dao ti bu hui
+g15	dev	成绩出来了	cheng ji chu lai le
+g15	dev	学英语	xue ying yu
+g15	dev	上课了	shang ke le
+g15	dev	放假了	fang jia le	poly
+g16	test	坐地铁	zuo di tie
+g16	test	打车回去	da che hui qu
+g16	test	公交来了	gong jiao lai le
+g16	test	我开车去	wo kai che qu
+g16	test	停车场	ting che chang	poly
+g16	test	走路过去	zou lu guo qu
+g16	test	堵在路上	du zai lu shang
+g16	test	换乘二号线	huan cheng er hao xian	poly
+g16	test	高铁票	gao tie piao
+g16	test	到站了	dao zhan le
+g17	dev	洗衣服	xi yi fu
+g17	dev	做饭了	zuo fan le
+g17	dev	倒垃圾	dao la ji	poly
+g17	dev	碗洗了吗	wan xi le ma
+g17	dev	买点菜	mai dian cai
+g17	dev	收拾一下	shou shi yi xia
+g17	dev	拖地	tuo di
+g17	dev	冰箱空了	bing xiang kong le	poly
+g17	dev	水电费	shui dian fei
+g17	dev	修空调	xiu kong tiao	poly
+g18	test	转账给你	zhuan zhang gei ni	poly
+g18	test	钱收到了	qian shou dao le
+g18	test	发工资了	fa gong zi le
+g18	test	省点钱	sheng dian qian
+g18	test	信用卡还了	xin yong ka huan le	poly
+g18	test	房租到期	fang zu dao qi
+g18	test	太便宜了	tai pian yi le	poly
+g18	test	花了多少	hua le duo shao
+g18	test	红包收到了	hong bao shou dao le
+g18	test	记账	ji zhang
+g19	dev	这部电影好看	zhe bu dian ying hao kan
+g19	dev	看过了	kan guo le
+g19	dev	新歌好听	xin ge hao ting
+g19	dev	演唱会门票	yan chang hui men piao
+g19	dev	电视剧更新了	dian shi ju geng xin le
+g19	dev	推荐一部	tui jian yi bu
+g19	dev	太搞笑了	tai gao xiao le
+g19	dev	结局很感人	jie ju hen gan ren
+g19	dev	一起追剧	yi qi zhui ju
+g19	dev	听歌	ting ge
+g20	test	去健身房	qu jian shen fang
+g20	test	跑了五公里	pao le wu gong li
+g20	test	打篮球	da lan qiu
+g20	test	比赛赢了	bi sai ying le
+g20	test	游泳去吗	you yong qu ma
+g20	test	腿好酸	tui hao suan
+g20	test	减肥成功	jian fei cheng gong
+g20	test	每天锻炼	mei tian duan lian
+g20	test	足球比赛	zu qiu bi sai
+g20	test	加油	jia you
+g21	dev	猫咪饿了	mao mi e le
+g21	dev	带狗出去	dai gou chu qu
+g21	dev	好可爱	hao ke ai
+g21	dev	小狗生病了	xiao gou sheng bing le
+g21	dev	猫粮没了	mao liang mei le
+g21	dev	它在睡觉	ta zai shui jiao	poly
+g21	dev	给它洗澡	gei ta xi zao
+g21	dev	宠物医院	chong wu yi yuan
+g21	dev	喂过了	wei guo le
+g21	dev	真乖	zhen guai
+g22	test	怎么做的	zen me zuo de
+g22	test	放点盐	fang dian yan
+g22	test	炒个青菜	chao ge qing cai
+g22	test	煮面条	zhu mian tiao
+g22	test	红烧肉	hong shao rou
+g22	test	米饭好了	mi fan hao le
+g22	test	有点咸	you dian xian
+g22	test	火开小一点	huo kai xiao yi dian
+g22	test	蒸鸡蛋	zheng ji dan
+g22	test	包饺子	bao jiao zi
+g23	dev	往左走	wang zuo zou
+g23	dev	在你后面	zai ni hou mian
+g23	dev	地址发我	di zhi fa wo
+g23	dev	我迷路了	wo mi lu le
+g23	dev	就在附近	jiu zai fu jin
+g23	dev	过马路	guo ma lu
+g23	dev	第二个路口	di er ge lu kou
+g23	dev	看到你了	kan dao ni le
+g23	dev	在楼下等你	zai lou xia deng ni
+g23	dev	导航一下	dao hang yi xia	poly
+g24	test	生日快乐	sheng ri kuai le	poly
+g24	test	送你礼物	song ni li wu
+g24	test	蛋糕订了	dan gao ding le
+g24	test	许个愿	xu ge yuan
+g24	test	惊喜	jing xi
+g24	test	喜欢吗	xi huan ma
+g24	test	新年快乐	xin nian kuai le	poly
+g24	test	祝你幸福	zhu ni xing fu
+g24	test	纪念日	ji nian ri
+g24	test	买束花	mai shu hua
+g25	dev	预约挂号	yu yue gua hao
+g25	dev	检查结果出来了	jian cha jie guo chu lai le	poly
+g25	dev	医生怎么说	yi sheng zen me shuo
+g25	dev	要打针吗	yao da zhen ma
+g25	dev	没什么大问题	mei shen me da wen ti
+g25	dev	按时吃药	an shi chi yao
+g25	dev	牙疼	ya teng
+g25	dev	过敏了	guo min le
+g25	dev	体检报告	ti jian bao gao
+g25	dev	排队好久	pai dui hao jiu
+g26	test	喝咖啡吗	he ka fei ma
+g26	test	奶茶少糖	nai cha shao tang	poly
+g26	test	去冰	qu bing
+g26	test	来杯热的	lai bei re de
+g26	test	帮我点一杯	bang wo dian yi bei
+g26	test	星巴克	xing ba ke	name
+g26	test	拿铁	na tie
+g26	test	喝点水	he dian shui
+g26	test	茶好了	cha hao le
+g26	test	不加糖	bu jia tang
+g27	dev	哈哈哈	ha ha ha	colloq
+g27	dev	笑死我了	xiao si wo le	colloq
+g27	dev	你真行	ni zhen xing	colloq,poly
+g27	dev	别闹了	bie nao le	colloq
+g27	dev	得了吧	de le ba	colloq,poly
+g27	dev	没事没事	mei shi mei shi	colloq
+g27	dev	随便吧	sui bian ba	colloq,poly
+g27	dev	算了	suan le	colloq
+g27	dev	好吧	hao ba	colloq
+g27	dev	厉害了	li hai le	colloq
+g28	test	北京	bei jing	name
+g28	test	上海	shang hai	name
+g28	test	小明	xiao ming	name
+g28	test	王老师	wang lao shi	name
+g28	test	张阿姨	zhang a yi	name
+g28	test	李医生	li yi sheng	name
+g28	test	广州	guang zhou	name
+g28	test	深圳	shen zhen	name
+g28	test	西安	xi an	name
+g28	test	成都	cheng du	name,poly
+g29	dev	为什么	wei shen me	poly
+g29	dev	怎么办	zen me ban
+g29	dev	你觉得呢	ni jue de ne	poly
+g29	dev	是不是	shi bu shi
+g29	dev	有没有	you mei you
+g29	dev	去不去	qu bu qu
+g29	dev	哪个好	na ge hao
+g29	dev	谁说的	shei shuo de
+g29	dev	在哪里	zai na li
+g29	dev	要不要	yao bu yao
+g30	test	好的	hao de
+g30	test	知道了	zhi dao le
+g30	test	可以	ke yi
+g30	test	没问题	mei wen ti
+g30	test	行吧	xing ba	poly
+g30	test	收到	shou dao
+g30	test	对的	dui de
+g30	test	不用了	bu yong le
+g30	test	马上	ma shang
+g30	test	等等	deng deng
+g31	dev	宝宝睡着了	bao bao shui zhao le	poly
+g31	dev	送孩子上学	song hai zi shang xue
+g31	dev	接孩子	jie hai zi
+g31	dev	幼儿园放学	you er yuan fang xue
+g31	dev	玩具	wan ju
+g31	dev	讲故事	jiang gu shi
+g31	dev	别哭了	bie ku le
+g31	dev	真听话	zhen ting hua
+g31	dev	长高了	zhang gao le	poly
+g31	dev	喝奶	he nai
+g32	test	订个房间	ding ge fang jian
+g32	test	两个人	liang ge ren
+g32	test	住三晚	zhu san wan
+g32	test	退房时间	tui fang shi jian
+g32	test	有早餐吗	you zao can ma
+g32	test	预订成功	yu ding cheng gong
+g32	test	取消订单	qu xiao ding dan
+g32	test	帮我查一下	bang wo cha yi xia
+g32	test	大床房	da chuang fang
+g32	test	入住	ru zhu
+g33	dev	服务员	fu wu yuan
+g33	dev	点菜	dian cai
+g33	dev	来一份	lai yi fen
+g33	dev	买单	mai dan
+g33	dev	打包带走	da bao dai zou
+g33	dev	有位置吗	you wei zhi ma
+g33	dev	菜单给我	cai dan gei wo
+g33	dev	不要香菜	bu yao xiang cai
+g33	dev	味道不错	wei dao bu cuo
+g33	dev	再加一个菜	zai jia yi ge cai
+g34	test	加油站	jia you zhan
+g34	test	车坏了	che huai le
+g34	test	找不到车位	zhao bu dao che wei
+g34	test	慢点开	man dian kai
+g34	test	系好安全带	ji hao an quan dai	poly
+g34	test	前面右转	qian mian you zhuan	poly
+g34	test	限速	xian su
+g34	test	洗车	xi che
+g34	test	违章了	wei zhang le
+g34	test	到楼下了	dao lou xia le
+g35	dev	收到请回复	shou dao qing hui fu
+g35	dev	方案改好了	fang an gai hao le
+g35	dev	我看一下	wo kan yi xia
+g35	dev	稍等	shao deng
+g35	dev	已经发了	yi jing fa le
+g35	dev	明天给你	ming tian gei ni
+g35	dev	没问题的	mei wen ti de
+g35	dev	需要帮忙吗	xu yao bang mang ma
+g35	dev	我来处理	wo lai chu li	poly
+g35	dev	辛苦大家	xin ku da jia
+g36	test	我也是	wo ye shi
+g36	test	一起去吧	yi qi qu ba
+g36	test	你决定	ni jue ding
+g36	test	我觉得可以	wo jue de ke yi	poly
+g36	test	听你的	ting ni de
+g36	test	到时候再说	dao shi hou zai shuo
+g36	test	我不知道	wo bu zhi dao
+g36	test	你说呢	ni shuo ne
+g36	test	就这样吧	jiu zhe yang ba
+g36	test	好主意	hao zhu yi
+g37	test	那可以吗	na ke yi ma	clash
+g37	test	谢谢大家	xie xie da jia	clash
+g37	test	周五见	zhou wu jian	clash
+g37	test	好吗	hao ma	clash
+g37	test	这些都要	zhe xie dou yao	clash
+g37	test	叫他过来	jiao ta guo lai	clash
+g37	test	你叫什么	ni jiao shen me	clash
+g37	test	真的谢谢	zhen de xie xie	clash
+g37	test	回头见	hui tou jian	clash
+g37	test	能来吗	neng lai ma	clash

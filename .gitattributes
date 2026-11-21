@@ -1,2 +1,4 @@
 # Shell scripts must keep LF endings so sh can run them on Windows checkouts too.
 *.sh text eol=lf
+# Generated dictionaries ship byte for byte as built (LF): no CRLF growth in the APK.
+app/src/main/assets/pinyin_dict.txt text eol=lf

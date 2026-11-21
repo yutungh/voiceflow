@@ -52,4 +52,13 @@ interface PinyinLookup {
     default boolean[] spanBoundaries(String input) {
         return null;
     }
+
+    /**
+     * How many syllables of {@code entry}'s spelling are rarely what was meant
+     * (0.8.9, nine-key): 64 is ni far more often than the interjection n plus i.
+     * The composer charges each one {@code Scoring.rareSyllablePenalty}.
+     */
+    default int rareSyllables(PinyinDictionary.Entry entry) {
+        return 0;
+    }
 }

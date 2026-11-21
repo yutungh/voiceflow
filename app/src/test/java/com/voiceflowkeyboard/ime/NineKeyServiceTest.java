@@ -192,10 +192,10 @@ public class NineKeyServiceTest {
     }
 
     @Test public void spaceTakesTheWholeSentence() {
-        type(PinyinDigitIndex.project("nihaoma"));
+        type(PinyinDigitIndex.project("woshizhongguoren"));
         ReflectionHelpers.callInstanceMethod(service, "settlePinyin",
                 ClassParameter.from(PinyinSession.SettleReason.class, PinyinSession.SettleReason.ACCEPT_TOP));
-        assertEquals("你好吗", text());
+        assertEquals("我是中国人", text());
     }
 
     @Test public void spaceTakesTheTopReading() {
@@ -236,7 +236,8 @@ public class NineKeyServiceTest {
         type("94");
         tapDescription("Syllable break");
         type("26");
-        assertEquals("xi'an", composing());
+        // The break shows where it was typed (0.8.9: 一波 may lead, yi'bo).
+        assertEquals(2, composing().indexOf('\''));
         assertNotNull(findText(root, "西安"));
         assertNull("先 is one syllable, the break says two", findText(root, "先"));
     }
