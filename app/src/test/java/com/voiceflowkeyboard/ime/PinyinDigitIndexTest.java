@@ -147,13 +147,6 @@ public class PinyinDigitIndexTest {
     @Test
     public void typingLongRunStaysWithinKeystrokeBudget() {
         String typed = PinyinDigitIndex.project("womenjintianwanshangquchifan");
-        // Warm the JIT on a different run first: the very first call is
-        // cold-compiled and alone took 12 ms on a desktop and over 30 ms on CI
-        // runners, which is start-up, not the per-keystroke cost this guards.
-        String warmUp = PinyinDigitIndex.project("nihaomingtianjian");
-        for (int i = 1; i <= warmUp.length(); i++) {
-            composer.candidates(warmUp.substring(0, i), 8);
-        }
         long worst = 0;
         for (int i = 1; i <= typed.length(); i++) {
             long start = System.nanoTime();
