@@ -5,6 +5,7 @@
 	"stateDir": "/state",
 	"trustProxy": true,
 	"rollout": {
+		"staged": true,
 		"canaryUser": "sam",
 		"canaryDevices": [],
 		"minAgeHours": 24,

@@ -101,6 +101,7 @@ export async function createGateway(config, { now = Date.now, log = defaultLog }
 	const ro = config.rollout ?? {};
 	const rollout = new Rollout({
 		stateDir: config.stateDir,
+		staged: ro.staged,
 		canaryUser: ro.canaryUser ?? null,
 		canaryDevices: ro.canaryDevices ?? [],
 		minAgeHours: ro.minAgeHours ?? 24,
