@@ -124,7 +124,7 @@ export async function runFix({
 		schemaName: 'voiceflow_fix_v2',
 	});
 	if (!reply.ok) return reply;
-	const parsed = parseFixResponseV2(reply.text, request.data.delivered_text);
+	const parsed = parseFixResponseV2(reply.text, request.data.delivered_text, request.data.wanted_text);
 	if (!parsed.ok) return { ok: false, message: `${parsed.message} Nothing was changed.` };
 	const issues: FixIssue[] = parsed.value.issues.map((i) => ({ ...i }));
 	const wantedText = request.data.wanted_text;
@@ -140,8 +140,8 @@ export async function runFix({
 		result: {
 			contract: 2,
 			explanation: parsed.value.explanation,
-			// His own words are the truth; the model's version stays as a suggestion.
-			correctedText: wantedText ?? parsed.value.correctedText,
+			// The speaker's own words, in full, are the truth; the model's version stays a suggestion.
+			correctedText: wantedText !== null && wanted ? wanted.replace(/\r\n?/g, '\n') : parsed.value.correctedText,
 			...(wantedText !== null ? { suggestedText: parsed.value.correctedText } : {}),
 			issues,
 			fixes,

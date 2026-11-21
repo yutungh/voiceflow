@@ -88,8 +88,11 @@ export type TidyConfig = {
 	model?: string;
 	/** The word-list snapshot pinned for this dictation. */
 	profileId?: string;
-	/** The words in the tidy-up's list, most important first. */
-	words: string[];
+	/**
+	 * The tidy-up's word list, most important first, each with the forms
+	 * speech-to-text wrote for it (the language guard credits them too).
+	 */
+	words: TidyConfigWord[];
 	/** The exact steps run (style, expression and words): sha-256, first 16 hex. */
 	runRevision: string;
 	/** The exact steps run; empty when they were too large to keep (`stepsOmitted`). */
@@ -98,6 +101,9 @@ export type TidyConfig = {
 	/** The language guard made a strict retry. */
 	retried?: boolean;
 };
+
+/** One word in the tidy-up's list as it ran. */
+export type TidyConfigWord = { text: string; heardAs: string[] };
 
 /** The largest steps kept with one dictation (characters of JSON). */
 export const MAX_TIDY_STEPS_CHARS = 60_000;
@@ -125,7 +131,7 @@ export async function tidyConfigOf(a: {
 	expression: number | null;
 	model?: string;
 	profileId?: string;
-	words: readonly string[];
+	words: readonly TidyConfigWord[];
 	retried?: boolean;
 }): Promise<TidyConfig> {
 	const run = JSON.stringify(a.runSteps);
@@ -140,7 +146,7 @@ export async function tidyConfigOf(a: {
 		expression: a.expression,
 		...(a.model ? { model: a.model } : {}),
 		...(a.profileId ? { profileId: a.profileId } : {}),
-		words: a.words.slice(0, 200),
+		words: a.words.slice(0, 200).map((w) => ({ text: w.text, heardAs: [...w.heardAs] })),
 		runRevision: await sha16(run),
 		steps: keep ? (JSON.parse(run) as unknown[]) : [],
 		...(keep ? {} : { stepsOmitted: true as const }),
@@ -170,7 +176,13 @@ function parseTidyConfig(value: unknown): TidyConfig | null {
 		expression,
 		...(typeof v.model === 'string' ? { model: v.model } : {}),
 		...(typeof v.profileId === 'string' ? { profileId: v.profileId } : {}),
-		words: strings(v.words),
+		words: Array.isArray(v.words)
+			? v.words.flatMap((w) =>
+					w && typeof w === 'object' && typeof (w as TidyConfigWord).text === 'string'
+						? [{ text: (w as TidyConfigWord).text, heardAs: strings((w as TidyConfigWord).heardAs) }]
+						: [],
+				)
+			: [],
 		runRevision: v.runRevision,
 		steps: Array.isArray(v.steps) ? v.steps : [],
 		...(v.stepsOmitted === true ? { stepsOmitted: true as const } : {}),

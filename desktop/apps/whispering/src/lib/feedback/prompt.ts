@@ -15,7 +15,6 @@
  */
 import { buildPrompt } from '../profile/prompt';
 import type { ProfileSnapshot } from '$lib/profile/types';
-import { maxCorrectedLength } from './contract';
 import { spellingRefs, type DictationEvidence } from './evidence';
 import { observe, type Observation } from './stage-diff';
 
@@ -227,10 +226,8 @@ export type FixRequestDataV2 = Omit<FixRequestData, 'applied_spellings' | 'vocab
 	vocabulary: { text: string; heard_as: string[]; in_tidy_list: boolean; in_transcriber_list: boolean }[];
 };
 
-/** Bound on the wanted text: like the corrected text, a rewrite of the dictation. */
-export function wantedCap(delivered: string): number {
-	return maxCorrectedLength(delivered);
-}
+/** Bound on the wanted text sent (the same as the dictation's texts); the speaker's full text is kept. */
+export const WANTED_CAP = TEXT_CAP;
 
 export function buildFixRequestV2({
 	evidence,
@@ -247,7 +244,7 @@ export function buildFixRequestV2({
 	const raw = evidence.rawText ?? '';
 	const delivered = evidence.deliveredText ?? evidence.tidyOutput ?? raw;
 	const refs = spellingRefs(evidence);
-	const wantedText = wanted?.trim() ? cap(wanted.replace(/\r\n?/g, '\n'), wantedCap(delivered)) : null;
+	const wantedText = wanted?.trim() ? cap(wanted.replace(/\r\n?/g, '\n'), WANTED_CAP) : null;
 	const appId = evidence.appId ?? null;
 	const built = snapshot ? buildPrompt(snapshot, appId) : null;
 	const inList = (list: readonly string[] | undefined, text: string) =>

@@ -459,7 +459,7 @@ function fitsLayer(layer: Layer, p: ModelProposal): boolean {
  * answer is refused when it isn't the contract; a bad issue or proposal is
  * left out on its own and recorded in `dropped`.
  */
-export function parseFixResponseV2(raw: string, delivered: string): ParseResultV2 {
+export function parseFixResponseV2(raw: string, delivered: string, wanted?: string | null): ParseResultV2 {
 	let value: unknown;
 	try {
 		value = JSON.parse(raw.trim());
@@ -476,7 +476,9 @@ export function parseFixResponseV2(raw: string, delivered: string): ParseResultV
 	const correctedText = v.corrected_text.replace(/\r\n?/g, '\n');
 	if (CONTROL.test(correctedText))
 		return { ok: false, message: 'The corrected text had hidden characters, so it wasn’t used.' };
-	if (correctedText.length > maxCorrectedLength(delivered))
+	// Bounded by the longer of the delivered text and what the speaker typed it should be.
+	const basis = wanted && wanted.length > delivered.length ? wanted : delivered;
+	if (correctedText.length > maxCorrectedLength(basis))
 		return {
 			ok: false,
 			message: 'The corrected text came back much longer than your dictation, so it wasn’t used.',
@@ -498,12 +500,13 @@ export function parseFixResponseV2(raw: string, delivered: string): ParseResultV
 	let droppedIssues = 0;
 	let wordFixes = 0;
 	let styleFixes = 0;
-	for (const item of v.issues) {
+	for (const [position, item] of v.issues.entries()) {
 		const i = item && typeof item === 'object' && !Array.isArray(item) ? (item as Record<string, unknown>) : null;
 		const list = i && Array.isArray(i.proposals) ? i.proposals : [];
 		/** Proposals that would have been fixes (a `none` is not one). */
 		const fixesIn = list.filter((p) => !(p && typeof p === 'object' && (p as Record<string, unknown>).type === 'none')).length;
-		if (issues.length >= MAX_ISSUES) {
+		// Only the first four entries are read, whatever is wrong with an earlier one.
+		if (position >= MAX_ISSUES) {
 			droppedIssues += 1;
 			for (let k = 0; k < fixesIn; k++) dropped.push('issue-limit');
 			continue;

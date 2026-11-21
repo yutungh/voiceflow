@@ -17,7 +17,7 @@ import { ladderStep, type WordStep } from './word-ladder';
 const PACK = join(import.meta.dir, '../../../../../../pack');
 type Json = Record<string, unknown>;
 const vectors = JSON.parse(readFileSync(join(PACK, 'vectors/feedback-v2.json'), 'utf8')) as {
-	answers: Array<{ name: string; delivered: string; answer?: unknown; answerText?: string; expect: Json & { ok: boolean } }>;
+	answers: Array<{ name: string; delivered: string; wanted?: string; answer?: unknown; answerText?: string; expect: Json & { ok: boolean } }>;
 	observations: Array<{ name: string; texts: StageTexts; expect: Json }>;
 	ladder: {
 		lists: Pick<ProfileSnapshot, 'terms' | 'defaults'>;
@@ -65,7 +65,7 @@ describe('feedback v2 answers (pack/vectors/feedback-v2.json)', () => {
 	});
 	for (const v of vectors.answers) {
 		test(v.name, () => {
-			const r = parseFixResponseV2(v.answerText ?? JSON.stringify(v.answer), v.delivered);
+			const r = parseFixResponseV2(v.answerText ?? JSON.stringify(v.answer), v.delivered, v.wanted ?? null);
 			expect(r.ok).toBe(v.expect.ok);
 			if (!r.ok || !v.expect.ok) return;
 			expect(r.value.correctedText).toBe(v.expect.correctedText as string);

@@ -287,13 +287,23 @@ const service: FeedbackClient = {
 	},
 
 	async undo(a) {
-		return serial(a.recordId, async (): Promise<Reply<{ record: FeedbackRecord }>> => {
+		return serial(a.recordId, async (): Promise<Reply<{ record: FeedbackRecord; message?: string }>> => {
 			const record = await recordById(a.recordId);
 			if (!record) return { ok: false, message: 'That feedback is gone.' };
 			try {
-				const outcome = await undoFix({ record, opId: a.opId, removeOp, revisionAfter: revision });
+				const outcome = await undoFix({
+					record,
+					opId: a.opId,
+					removeOp,
+					revisionAfter: revision,
+					listsAfter: () => wordLists.snapshot,
+				});
 				if (!outcome.ok) return outcome;
-				return { ok: true, record: await save(outcome.record) };
+				return {
+					ok: true,
+					record: await save(outcome.record),
+					...(outcome.message ? { message: outcome.message } : {}),
+				};
 			} catch (error) {
 				return { ok: false, message: `It couldn't be undone (${error instanceof Error ? error.message : String(error)}).` };
 			}

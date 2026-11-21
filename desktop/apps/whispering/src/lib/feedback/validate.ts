@@ -31,7 +31,7 @@ import type { ProfileSnapshot } from '$lib/profile/types';
 import type { Layer, ModelProposal } from './contract';
 import { spellingRefs, type DictationEvidence } from './evidence';
 import { hasWords } from './stage-diff';
-import { ladderStep, type LadderStep, type WordStep } from './word-ladder';
+import { ladderStep, placeOf, withWord, type LadderStep, type WordStep } from './word-ladder';
 
 export const EXPRESSION_NAMES = ['Reserved', 'Subtle', 'Natural', 'Lively', 'Expressive'] as const;
 const DEFAULT_LEVEL = 2;
@@ -508,6 +508,8 @@ function reviewWord(
 export function reviewProposals(
 	proposals: readonly ModelProposal[],
 	ctx: ReviewContext,
+	/** Keys already applied (and kept as they were reviewed): not reviewed again. */
+	skip: ReadonlySet<string> = new Set(),
 ): { fixes: ReviewedFix[]; dropped: Dropped[] } {
 	const fixes: ReviewedFix[] = [];
 	const dropped: Dropped[] = [];
@@ -524,7 +526,7 @@ export function reviewProposals(
 	// Spellings turned off come first: a new spelling may replace one of them.
 	const unspells = new Map<string, UnspellFix>();
 	proposals.forEach((p, i) => {
-		if (p.type !== 'disable_spelling') return;
+		if (p.type !== 'disable_spelling' || skip.has(`p${i}`)) return;
 		const issue = p.issue ?? 0;
 		const reviewed = reviewUnspell(p, ctx, `p${i}`, issue);
 		if ('kind' in reviewed) {
@@ -539,6 +541,7 @@ export function reviewProposals(
 	const words = new Set<string>();
 	proposals.forEach((p, i) => {
 		const key = `p${i}`;
+		if (skip.has(key)) return;
 		const issue = p.issue ?? 0;
 		const layer = layerOf(p);
 		if (p.type === 'disable_spelling') {
@@ -571,6 +574,17 @@ export function reviewProposals(
 		if (unwanted) {
 			dropped.push(unwanted);
 			return;
+		}
+		// A saved-spelling problem re-spells only what a saved spelling changed here.
+		if (layer === 'spelling' && p.type === 'spelling') {
+			const applied = spellingRefs(ctx.evidence);
+			if (!from.every((f) => applied.some((s) => sameForm(s.heard, f)))) {
+				dropped.push({
+					reason: `A spelling for ${q(from[0] ?? '')} was left out: no saved spelling changed that word in this dictation.`,
+					issue,
+				});
+				return;
+			}
 		}
 		if (p.type !== 'spelling') {
 			const k = p.to.trim().toLocaleLowerCase();
@@ -711,6 +725,26 @@ export function checkSelection(
 		const check = checkSpelling(fix, apps, checkCtx, chosen);
 		if (!check.ok) return { ok: false, key: sel.key, message: check.message };
 		chosen.push(pseudo(fix.from, fix.to, apps, `chosen-${chosen.length}`));
+	}
+	// Word fixes share the transcriber's 20: each was previewed alone, so
+	// together they must still do what their cards said.
+	const wordPicks = selection.flatMap((sel) => {
+		const fix = fixes.find((f): f is WordFix => f.key === sel.key && f.kind === 'word');
+		const choice = fix?.choices[sel.scope ?? fix.defaultScope];
+		return fix && choice ? [{ fix, choice }] : [];
+	});
+	if (wordPicks.length > 1 && ctx.snapshot) {
+		let lists: Pick<ProfileSnapshot, 'terms' | 'defaults'> = ctx.snapshot;
+		for (const { choice } of wordPicks) lists = withWord(lists, choice.term);
+		for (const { fix, choice } of wordPicks) {
+			const place = placeOf(lists, fix.appId, choice.term.text);
+			if (place.transcriber !== choice.effect.after.transcriber || place.tidy !== choice.effect.after.tidy)
+				return {
+					ok: false,
+					key: fix.key,
+					message: `Together these word fixes don’t do what each card says (they compete for the transcriber’s 20 words). Apply ${q(fix.word)} on its own, then look at the others again.`,
+				};
+		}
 	}
 	return { ok: true };
 }

@@ -7,7 +7,7 @@
 import { describe, expect, test } from 'bun:test';
 import { activeCorrections, parseOp, removedIds, type CorrectionOp, type ProfileOp } from '../profile/ops';
 import type { ProfileSnapshot, ProfileTerm } from '$lib/profile/types';
-import { applyFixes, undoFix, wordEditOf, type Writers } from './apply';
+import { applyFixes, stillCarried, undoFix, wordEditOf, type Writers } from './apply';
 import { FIX_RESPONSE_SCHEMA_V2, nullableAsAnyOf } from './contract';
 import { issuesOf, runFix, type FixResult } from './engine';
 import { mergeEvidence, parseEvidence, spellingRefs, tidyConfigOf, type DictationEvidence } from './evidence';
@@ -262,6 +262,130 @@ describe('several problems in one feedback', () => {
 	});
 });
 
+describe('review findings (Codex, 0.9.16)', () => {
+	const two = (a: string, b: string) => ({
+		explanation: 'x',
+		corrected_text: '',
+		issues: [
+			{
+				layer: 'transcriber',
+				summary: 's',
+				proposals: [P('raise_priority', { from: ['zebbo'], to: a }), P('raise_priority', { from: ['quorb'], to: b })],
+			},
+		],
+	});
+	const listsWith = () =>
+		snapshot({ terms: [...FILLER.map((t, i) => term(t, 90 - i)), term('Zibbo', 40, { heardAs: ['Zebbo'] }), term('Quorbit', 40, { heardAs: ['Quorb'] })] });
+
+	test('word fixes chosen together must still do what their cards say', async () => {
+		const outcome = await runFix({
+			evidence: evidence({ rawText: 'zebbo and quorb', tidyOutput: 'Zebbo and Quorb.', deliveredText: 'Zebbo and Quorb.', corrections: [] }),
+			feedback: 'f',
+			review: { snapshot: listsWith(), active: [], history: [], revision: 'r' },
+			provider: { apiKey: 'k', model: 'm' },
+			complete: async () => ({ ok: true, text: JSON.stringify(two('Zibbo', 'Quorbit')) }),
+		});
+		if (!outcome.ok) throw new Error(outcome.message);
+		const fixes = outcome.result.fixes as WordFix[];
+		// Alone, each passes Tirvel (71): Zibbo at 72, Quorbit at 71 (it wins the tie by name).
+		expect(fixes.map((f) => f.choices[f.defaultScope]!.priority!.to)).toEqual([72, 71]);
+		const c = ctx({ snapshot: listsWith(), active: [] });
+		expect(checkSelection(fixes, [{ key: fixes[0]!.key }], c).ok).toBe(true);
+		const both = checkSelection(fixes, fixes.map((f) => ({ key: f.key })), c);
+		expect(both.ok).toBe(false);
+		expect(!both.ok && both.message).toContain('compete');
+	});
+
+	test('a stale review keeps the cards already applied, so their Undo stays', async () => {
+		const { writers } = memoryWriters();
+		const record = await reviewed();
+		const unspell = record.result!.fixes.find((f) => f.kind === 'unspell')!;
+		const first = await applyFixes({ record, selections: [{ key: unspell.key }], evidence: evidence(), review: REVIEW(), revisionAfter: async () => 'rev-2', writers });
+		expect(first.ok).toBe(true);
+		const style = first.record.result!.fixes.find((f) => f.kind === 'style')!;
+		// Meanwhile the lists changed, and the spelling turned off is no longer in force.
+		const stale = await applyFixes({
+			record: first.record,
+			selections: [{ key: style.key }],
+			evidence: evidence(),
+			review: { ...REVIEW(), active: [], revision: 'rev-9' },
+			revisionAfter: async () => 'rev-9',
+			writers,
+		});
+		expect(!stale.ok && stale.stale).toBe(true);
+		expect(stale.record.result!.fixes.some((f) => f.key === unspell.key && f.kind === 'unspell')).toBe(true);
+		expect(stale.record.result!.dropped.some((d) => d.reason.includes('already off'))).toBe(false);
+	});
+
+	test('a spelling problem re-spells only what a saved spelling changed here', () => {
+		const e = evidence({ rawText: 'meet zibbo', tidyOutput: 'Meet Zebbo.', deliveredText: 'Meet Zebbo.', corrections: [] });
+		const r = reviewProposals(
+			[{ type: 'spelling', from: ['Zebbo'], to: 'Zibbo', scope: 'app', reason: 'r', issue: 0 }],
+			{ ...ctx({ evidence: e, snapshot: snapshot({ terms: [] }) }), layers: ['spelling'] },
+		);
+		expect(r.fixes).toEqual([]);
+		expect(r.dropped[0]!.reason).toContain('no saved spelling changed');
+	});
+
+	test('a long wanted text is kept whole and does not get the answer refused', async () => {
+		const wanted = `Ask Zibbo and Kestrel to bring the deck. ${'Then add the part I forgot to say. '.repeat(20)}`.trim();
+		const record = await reviewed({ ...THREE, corrected_text: wanted }, wanted);
+		expect(record.result!.correctedText).toBe(wanted);
+	});
+
+	test('undoing a word fix that a later edit still carries says so', () => {
+		const record: FeedbackRecord = {
+			schema: 'voiceflow-feedback-draft',
+			version: 2,
+			id: 'fb-00000003',
+			device: 'd',
+			createdAt: 'x',
+			recordingId: 'r',
+			rawText: '',
+			feedback: 'f',
+			result: {
+				contract: 2,
+				explanation: 'e',
+				correctedText: 'c',
+				fixes: [
+					{
+						kind: 'word',
+						key: 'p0',
+						issue: 0,
+						reason: 'r',
+						step: 'heard_as',
+						adjusted: null,
+						word: 'Zibbo',
+						appId: 'kite.exe',
+						appName: 'Kite',
+						defaultScope: 'everywhere',
+						choices: {
+							everywhere: {
+								ok: true,
+								step: 'heard_as',
+								term: term('Zibbo', 40, { heardAs: ['Zebbo', 'Zibboh'] }),
+								replaces: term('Zibbo', 40, { heardAs: ['Zebbo'] }),
+								added: ['Zibboh'],
+								priority: null,
+								widened: false,
+								effect: { before: { tidy: true, transcriber: false }, after: { tidy: true, transcriber: false }, dropsOut: [] },
+							},
+						},
+					},
+				],
+				dropped: [],
+				proposals: [],
+				reviewedAgainst: '',
+			},
+			applied: [{ key: 'p0', opId: 'dev1-a', appliedAt: 'x' }],
+		};
+		const later = { terms: [term('Zibbo', 72, { id: 'dev1-b', layer: 'edit', heardAs: ['Zebbo', 'Zibboh'] })] };
+		expect(stillCarried(record, 'p0', 'dev1-a', later)).toContain('later change');
+		const gone = { terms: [term('Zibbo', 40, { heardAs: ['Zebbo'] })] };
+		expect(stillCarried(record, 'p0', 'dev1-a', gone)).toBeNull();
+	});
+});
+
 describe('the evidence a fix needs', () => {
 	const one = (layer: string, proposal: unknown, over: Partial<ReviewContext> = {}) => {
 		const c = ctx(over);
@@ -357,8 +481,9 @@ describe('the tidy-up kept with each dictation', () => {
 			expression: 2,
 			model: 'OpenAI gpt-5.4-mini',
 			profileId: 'snap-1',
-			words: ['Zibbo'],
+			words: [{ text: 'Zibbo', heardAs: ['Zebbo'] }],
 		});
+		expect(config.words).toEqual([{ text: 'Zibbo', heardAs: ['Zebbo'] }]);
 		expect(config.styleRevision).toMatch(/^[0-9a-f]{16}$/);
 		expect(config.runRevision).not.toBe(config.styleRevision);
 		expect(config.steps).toEqual(run);

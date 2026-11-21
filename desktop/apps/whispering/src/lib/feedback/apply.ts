@@ -16,6 +16,7 @@
  */
 import { EVERY_APP } from '../profile/ops';
 import type { WordEdit } from '../profile/op-store';
+import type { ProfileSnapshot } from '../profile/types';
 import { issuesOf } from './engine';
 import type { DictationEvidence } from './evidence';
 import type { AppliedFix, FeedbackRecord } from './log';
@@ -85,7 +86,14 @@ export async function applyFixes({
 	if (unique.length === 0) return { ok: false, message: 'Tick a fix to apply first.', record };
 	const ctx = contextFor(record, evidence, review);
 	if (review.revision !== result.reviewedAgainst) {
-		const again = reviewProposals(result.proposals ?? [], ctx);
+		// Fixes in force keep their cards as reviewed, so their Undo stays;
+		// the others (undone ones too) are checked again.
+		const kept = live;
+		const again = reviewProposals(result.proposals ?? [], ctx, kept);
+		const order = (key: string) => Number(key.slice(1));
+		const fixes = [...result.fixes.filter((f) => kept.has(f.key)), ...again.fixes].sort(
+			(a, b) => order(a.key) - order(b.key),
+		);
 		return {
 			ok: false,
 			stale: true,
@@ -93,7 +101,7 @@ export async function applyFixes({
 				'Your word lists changed since these fixes were checked. Look them over again, then apply.',
 			record: {
 				...record,
-				result: { ...result, fixes: again.fixes, dropped: again.dropped, reviewedAgainst: review.revision },
+				result: { ...result, fixes, dropped: again.dropped, reviewedAgainst: review.revision },
 			},
 		};
 	}
@@ -158,22 +166,51 @@ export async function applyFixes({
 	return { ok: true, record: next };
 }
 
+/**
+ * A word edit is the whole entry, so a later edit of the same word (another
+ * feedback, "Add a word") may carry what this one added. Undo removes this
+ * edit only; when the word in force still has what it added, say so.
+ */
+export function stillCarried(
+	record: FeedbackRecord,
+	key: string,
+	opId: string,
+	lists: Pick<ProfileSnapshot, 'terms'> | null,
+): string | null {
+	const fix = record.result?.fixes.find((f) => f.key === key);
+	if (!fix || fix.kind !== 'word' || !lists) return null;
+	const applied = record.applied?.find((a) => a.opId === opId);
+	const choice = fix.choices[applied?.scope ?? fix.defaultScope];
+	if (!choice) return null;
+	const now = lists.terms.find((t) => t.text.toLocaleLowerCase() === choice.term.text.toLocaleLowerCase());
+	if (!now || now.id === opId) return null;
+	const forms = choice.added.filter((h) => now.heardAs.some((g) => g.toLocaleLowerCase() === h.toLocaleLowerCase()));
+	const raised = !!choice.priority && now.priority >= choice.priority.to && now.priority > choice.priority.from;
+	if (forms.length === 0 && !raised) return null;
+	return `Undone. A later change to “${choice.term.text}” still includes ${raised && forms.length === 0 ? 'its higher priority' : 'it'}; undo that change too to remove it.`;
+}
+
 export async function undoFix({
 	record,
 	opId,
 	removeOp,
 	revisionAfter,
+	listsAfter,
 }: {
 	record: FeedbackRecord;
 	opId: string;
 	removeOp: Writers['removeOp'];
 	revisionAfter: () => Promise<string>;
-}): Promise<{ ok: true; record: FeedbackRecord } | { ok: false; message: string }> {
+	/** The word lists once the undo is in (to say when a later edit still carries a word fix). */
+	listsAfter?: () => Pick<ProfileSnapshot, 'terms'> | null;
+}): Promise<{ ok: true; record: FeedbackRecord; message?: string } | { ok: false; message: string }> {
 	const entry = record.applied?.find((x) => x.opId === opId && !x.undoneAt);
 	if (!entry) return { ok: false, message: 'That fix is not applied.' };
 	const tombstone = await removeOp(entry.opId);
+	const note = listsAfter ? stillCarried(record, entry.key, entry.opId, listsAfter()) : null;
 	return {
 		ok: true,
+		...(note ? { message: note } : {}),
 		record: {
 			...record,
 			applied: (record.applied ?? []).map((x) =>

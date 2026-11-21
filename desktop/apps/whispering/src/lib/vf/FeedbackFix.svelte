@@ -187,7 +187,7 @@
 		const reply = await client.undo({ recordId: record.id, opId });
 		busy = false;
 		take(reply);
-		if (reply.ok) notice = 'Undone.';
+		if (reply.ok) notice = reply.message ?? 'Undone.';
 	}
 
 	const q = (s: string) => `“${s}”`;

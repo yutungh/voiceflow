@@ -64,7 +64,7 @@ export interface FeedbackClient {
 		expect?: { provider: string; model: string };
 	}): Promise<Reply<{ record: FeedbackRecord }>>;
 	apply(a: { recordId: string; selections: Selection[] }): Promise<Reply<{ record: FeedbackRecord }>>;
-	undo(a: { recordId: string; opId: string }): Promise<Reply<{ record: FeedbackRecord }>>;
+	undo(a: { recordId: string; opId: string }): Promise<Reply<{ record: FeedbackRecord; message?: string }>>;
 	copy(a: { recordId: string; text: string }): Promise<Reply<{ message: string; record: FeedbackRecord }>>;
 	paste(a: { recordId: string; text: string }): Promise<Reply<{ message: string; record: FeedbackRecord }>>;
 }

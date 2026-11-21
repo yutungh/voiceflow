@@ -438,6 +438,110 @@
 			}
 		},
 		{
+			"name": "only the first four entries are read, even when an earlier one is malformed",
+			"delivered": "Zebbo Quorb.",
+			"answer": {
+				"explanation": "x",
+				"corrected_text": "",
+				"issues": [
+					{
+						"layer": "rewrite-everything",
+						"summary": "s",
+						"proposals": []
+					},
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"proposals": []
+					},
+					{
+						"layer": "delivery-privacy",
+						"summary": "s",
+						"proposals": []
+					},
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"proposals": []
+					},
+					{
+						"layer": "transcriber",
+						"summary": "s",
+						"proposals": [
+							{
+								"type": "spelling",
+								"from": [
+									"Zebbo"
+								],
+								"to": "Zibbo",
+								"scope": "app",
+								"expression_delta": null,
+								"style_id": null,
+								"spelling_ref": null,
+								"reason": "r"
+							}
+						]
+					}
+				]
+			},
+			"expect": {
+				"ok": true,
+				"correctedText": "Zebbo Quorb.",
+				"issues": [
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"noFixReason": null
+					},
+					{
+						"layer": "delivery-privacy",
+						"summary": "s",
+						"noFixReason": null
+					},
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"noFixReason": null
+					}
+				],
+				"proposals": [],
+				"dropped": [
+					"issue-limit"
+				],
+				"droppedIssues": 2
+			}
+		},
+		{
+			"name": "a corrected text as long as what the speaker typed is not refused",
+			"delivered": "Short.",
+			"wanted": "Short. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say.",
+			"answer": {
+				"explanation": "x",
+				"corrected_text": "Short. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say.",
+				"issues": [
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"proposals": []
+					}
+				]
+			},
+			"expect": {
+				"ok": true,
+				"correctedText": "Short. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say. And the part I forgot to say.",
+				"issues": [
+					{
+						"layer": "uncertain",
+						"summary": "s",
+						"noFixReason": null
+					}
+				],
+				"proposals": [],
+				"dropped": [],
+				"droppedIssues": 0
+			}
+		},
+		{
 			"name": "fixes that do not fit their layer are left out",
 			"delivered": "Ask Zebbo.",
 			"answer": {

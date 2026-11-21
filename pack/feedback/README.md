@@ -104,7 +104,7 @@ From VoiceFlow Desktop 0.9.16. One feedback can name up to four problems ("it wr
 | Field | What |
 |---|---|
 | `tidy_up_output` | Tidy-up's output before spellings; null when none ran. |
-| `wanted_text` | What the speaker typed it should have said, or null. It is the truth; the model's corrected text is only a suggestion. |
+| `wanted_text` | What the speaker typed it should have said, or null (sent up to 6,000 characters, like the other texts). It is the truth: a client keeps the speaker's whole text as the corrected text; the model's is only a suggestion. |
 | `applied_spellings` | `[{ ref, heard, written, can_turn_off }]`: the spellings that changed it, in the order applied, named `s1`, `s2`… (at most 20). `can_turn_off`: the spelling is an edit, so a tombstone can turn it off; one inside a word-list file is changed in that file. A spelling's own id is never sent. |
 | `observations` | What changed between stages, computed by code (below). |
 | `vocabulary` | As v1, each with `in_tidy_list` and `in_transcriber_list` (one of the transcriber's 20 for this app). |
@@ -154,11 +154,11 @@ Their words and forms follow v1's spelling rules (one word or name, at most 60 c
 
 ### How a client checks a v2 answer
 
-The whole answer is refused when it is not one JSON object; `explanation` or `corrected_text` break v1's rules; `issues` is not a list, is empty or has more than 8 entries; or the issues hold more than 12 proposals in all.
+The whole answer is refused when it is not one JSON object; `explanation` or `corrected_text` break v1's rules (with one change: `corrected_text` may be as long as `max(400, 2 × L + 200)` where L is the longer of the delivered text and the wanted text, so a speaker who typed more than was delivered isn't refused); `issues` is not a list, is empty or has more than 8 entries; or the issues hold more than 12 proposals in all.
 
 Then, in order, each part on its own. A left-out proposal is recorded with a code, never guessed at:
 
-1. **Issues**: after the fourth, an issue is left out with its fixes (`issue-limit` for each, a `none` aside). An issue that is not an object, has a layer not in the table, a `summary` with a control or hidden character (else joined into one line, cut to 240) or no `proposals` list is left out with its fixes (`malformed`).
+1. **Issues**: only the first four entries of `issues` are read, whatever is wrong with an earlier one; a later entry is left out with its fixes (`issue-limit` for each, a `none` aside). An issue that is not an object, has a layer not in the table, a `summary` with a control or hidden character (else joined into one line, cut to 240) or no `proposals` list is left out with its fixes (`malformed`).
 2. **Proposals**: one that fails its field rules, or has a type this version doesn't know, is `malformed` (a later version adds types without breaking readers). One its layer may not carry is `layer`. `none` is not a fix: the first one's `reason` is that issue's reason for having none.
 3. **Limits**, across issues in answer order: at most 3 word fixes (`spelling`, `heard_as`, `add_word`, `raise_priority`, `disable_spelling`) and 1 `style_adjust`; the rest are `limit`.
 
@@ -187,7 +187,7 @@ Steps 2–4 write one `term` edit holding the whole entry. The merge keeps one e
 
 ### What the device keeps per dictation
 
-Not part of the exchange, but what makes a later before/after check faithful: the tidy-up exactly as it ran. That is the style id, a hash of the style as stored, a word-list style's layer and edits, the expression level, the model, the word-list snapshot id, the tidy-up's word list, and the exact steps run with their hash. It stays on the device.
+Not part of the exchange, but what makes a later before/after check faithful: the tidy-up exactly as it ran. That is the style id, a hash of the style as stored, a word-list style's layer and edits, the expression level, the model, the word-list snapshot id, the tidy-up's word list (each word with the forms speech-to-text wrote for it, which the language guard also credits), and the exact steps run with their hash (a local endpoint as it was used, never a key). It stays on the device.
 
 ### Test vectors
 

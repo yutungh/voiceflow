@@ -1599,13 +1599,23 @@ async function runTidyUpWithTimeout({
 			styleName: transformation.title,
 			source: fromProfile ? 'word-lists' : 'this-pc',
 			styleSteps: transformation.steps,
-			runSteps: styled.steps,
+			// A local endpoint as it was used (a step's own, else the default); never a key.
+			runSteps: styled.steps.map((step) =>
+				step['prompt_transform.inference.provider'] === 'Custom' &&
+				!step['prompt_transform.inference.provider.Custom.baseUrl']?.trim()
+					? {
+							...step,
+							'prompt_transform.inference.provider.Custom.baseUrl':
+								settings.value['completion.custom.baseUrl']?.trim() ?? '',
+						}
+					: step,
+			),
 			...(profileStyle?.layer ? { styleLayer: profileStyle.layer } : {}),
 			...(profileStyle?.editIds?.length ? { styleEdits: profileStyle.editIds } : {}),
 			expression: level,
 			model: tidyModelOf(transformation),
 			profileId: pinned?.id,
-			words: tidyWords.words.map((w) => w.text),
+			words: tidyWords.words,
 			retried: guarded.retried,
 		}),
 	};
