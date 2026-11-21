@@ -134,26 +134,20 @@ public class PinyinDigitIndexTest {
     @Test
     public void singleDigitPrefixStaysFast() {
         for (char digit = '2'; digit <= '9'; digit++) {
-            String typed = String.valueOf(digit);
-            long start = System.nanoTime();
-            List<PinyinCandidate> candidates = composer.candidates(typed, 8);
-            long micros = (System.nanoTime() - start) / 1000;
-            assertFalse("digit " + typed + " produced nothing", candidates.isEmpty());
-            assertTrue("digit " + typed + " took " + micros + "us, over the keystroke budget",
-                    micros < 20000);
+            assertFalse("digit " + digit + " produced nothing",
+                    composer.candidates(String.valueOf(digit), 8).isEmpty());
         }
+        TimingBudget.assertWithin("single-digit prefix", 8,
+                i -> composer.candidates(String.valueOf((char) ('2' + i)), 8),
+                10000, 20000);
     }
 
     @Test
     public void typingLongRunStaysWithinKeystrokeBudget() {
         String typed = PinyinDigitIndex.project("womenjintianwanshangquchifan");
-        long worst = 0;
-        for (int i = 1; i <= typed.length(); i++) {
-            long start = System.nanoTime();
-            composer.candidates(typed.substring(0, i), 8);
-            worst = Math.max(worst, (System.nanoTime() - start) / 1000);
-        }
-        assertTrue("worst 9-key keystroke was " + worst + "us", worst < 30000);
+        TimingBudget.assertWithin("digit-index keystroke", typed.length(),
+                i -> composer.candidates(typed.substring(0, i + 1), 8),
+                15000, 30000);
     }
 
     @Test
