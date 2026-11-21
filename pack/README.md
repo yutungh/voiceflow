@@ -11,6 +11,7 @@ Everything here is MIT (see [`LICENSE`](LICENSE)). Every word in the fixtures is
 | [`schema/voiceflow-op.v1.schema.json`](schema/voiceflow-op.v1.schema.json) | One edit made in the app |
 | [`schema/voiceflow-status.v1.schema.json`](schema/voiceflow-status.v1.schema.json) | The status file each device writes |
 | [`schema/voiceflow-feedback.v1.schema.json`](schema/voiceflow-feedback.v1.schema.json) | What a model answers to feedback on a dictation ([`feedback/`](feedback/README.md)) |
+| [`schema/voiceflow-feedback.v2.schema.json`](schema/voiceflow-feedback.v2.schema.json) | v2 (VoiceFlow Desktop 0.9.16): several problems in one answer, each with the layer that failed and its own fixes ([`feedback/`](feedback/README.md#v2-several-problems-at-once)) |
 | [`builtin/styles.json`](builtin/styles.json) | The built-in tidy-up styles both apps ship, one stable id each. Today: **Clean** (`clean`), which turns speech into the message the speaker meant to send, in their own voice |
 | [`feedback/README.md`](feedback/README.md) | The feedback contract: what goes to the model, what must come back, how it is checked, and the edit each fix becomes |
 | [`fixtures/demo/`](fixtures/demo/) | A complete example folder: household + one user (`sam`) with all three layers and some edits |
@@ -19,6 +20,7 @@ Everything here is MIT (see [`LICENSE`](LICENSE)). Every word in the fixtures is
 | [`vectors/styles.json`](vectors/styles.json) | Style vectors: version 2 fields, style and default edits, pins and per-app levels, compared in full |
 | [`vectors/drift.json`](vectors/drift.json) | The language guard after tidy-up: what counts as drift, and the retry and fallback |
 | [`vectors/feedback.json`](vectors/feedback.json) | Feedback answers and the fixes they become |
+| [`vectors/feedback-v2.json`](vectors/feedback-v2.json) | Feedback v2: answers, stage observations, the word ladder and the evidence a fix needs |
 | [`../docs/desktop/CONNECT-YOUR-OWN-AI.md`](../docs/desktop/CONNECT-YOUR-OWN-AI.md) | How an assistant edits these files safely |
 
 ## The folder

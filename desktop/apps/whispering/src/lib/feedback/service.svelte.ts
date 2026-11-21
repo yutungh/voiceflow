@@ -22,6 +22,7 @@ import {
 	saveAppStyle,
 	saveCorrection,
 	saveFeedbackDraft,
+	saveWord,
 } from '$lib/profile/op-store';
 import { wordLists } from '$lib/profile/service.svelte';
 import { appIdOf } from '$lib/privacy/history';
@@ -45,7 +46,7 @@ import {
 	type FeedbackStatus,
 	type KeepFeedback,
 } from './log';
-import { disclosureFor } from './prompt';
+import { disclosureForV2 } from './prompt';
 import { completerFor, DEFAULT_FEEDBACK_MODEL, type FeedbackProvider } from './providers';
 import { openAIFetchFor } from '$lib/services/isomorphic/openai-pool';
 import type { ProfileSnapshot } from '$lib/profile/types';
@@ -170,18 +171,32 @@ async function setup(recordingId: string): Promise<Reply<{ setup: FeedbackSetup 
 			: null,
 		provider: p,
 		model,
-		disclosure: disclosureFor(p, recording?.appName, model),
+		disclosure: disclosureForV2(p, recording?.appName, model),
 		ready: !!(await apiKeyFor(p)),
 	};
 	return { ok: true, setup };
 }
 
-async function draftFor(a: { recordingId: string; feedback: string; recordId?: string }) {
+/** The longest "what it should have said" kept (a rewrite of one dictation). */
+const WANTED_CAP = 20_000;
+
+/** Longer than this is refused, never cut. */
+const tooLong = (text: string | undefined) => (text?.length ?? 0) > WANTED_CAP;
+const TOO_LONG = `What it should have said is too long (${WANTED_CAP.toLocaleString('en')} characters at most).`;
+
+function wantedOf(text: string | undefined): string | undefined {
+	const t = text?.replace(/\r\n?/g, '\n');
+	return t?.trim() ? t : undefined;
+}
+
+async function draftFor(a: { recordingId: string; feedback: string; wanted?: string; recordId?: string }) {
 	const recording = await recordingOf(a.recordingId);
 	if (!recording) return { recording: null, record: null };
 	const existing = a.recordId ? await recordById(a.recordId) : null;
+	const wanted = wantedOf(a.wanted);
 	if (existing && existing.recordingId === recording.id) {
-		return { recording, record: { ...existing, feedback: a.feedback.trim() } };
+		const { wanted: _old, ...rest } = existing;
+		return { recording, record: { ...rest, feedback: a.feedback.trim(), ...(wanted ? { wanted } : {}) } };
 	}
 	const record = await saveFeedbackDraft({
 		recordingId: recording.id,
@@ -190,6 +205,7 @@ async function draftFor(a: { recordingId: string; feedback: string; recordId?: s
 		rawText: recording.transcribedText,
 		finalText: recording.finalText,
 		feedback: a.feedback.trim(),
+		...(wanted ? { wanted } : {}),
 	});
 	upsert(record);
 	return { recording, record };
@@ -200,6 +216,7 @@ const service: FeedbackClient = {
 
 	async saveDraft(a) {
 		if (!a.feedback.trim()) return { ok: false, message: 'Say what should have been different.' };
+		if (tooLong(a.wanted)) return { ok: false, message: TOO_LONG };
 		return serial(a.recordId ?? `new:${a.recordingId}`, async () => {
 			const { record } = await draftFor(a);
 			if (!record) return { ok: false as const, message: 'That dictation is no longer in History.' };
@@ -209,6 +226,7 @@ const service: FeedbackClient = {
 
 	async submit(a) {
 		if (!a.feedback.trim()) return { ok: false, message: 'Say or type what should have been different.' };
+		if (tooLong(a.wanted)) return { ok: false, message: TOO_LONG };
 		const { provider: shown, model: shownModel } = provider();
 		if (a.expect && (a.expect.provider !== shown || a.expect.model !== shownModel))
 			return {
@@ -229,18 +247,21 @@ const service: FeedbackClient = {
 			const outcome = await runFix({
 				evidence,
 				feedback: record.feedback,
+				wanted: record.wanted ?? null,
 				review,
 				provider: { apiKey, model, fetch: transportFor(p) },
 				complete: completerFor(p),
 			});
-			const latest = (await recordById(record.id)) ?? record;
+			const { wanted: _stored, ...latest } = (await recordById(record.id)) ?? record;
+			const wanted = record.wanted ? { wanted: record.wanted } : {};
 			if (!outcome.ok) {
-				const kept = await save({ ...latest, feedback: record.feedback });
+				const kept = await save({ ...latest, feedback: record.feedback, ...wanted });
 				return { ok: false as const, message: outcome.message, record: kept };
 			}
 			const next = await save({
 				...latest,
 				feedback: record.feedback,
+				...wanted,
 				version: 2,
 				sentAt: new Date().toISOString(),
 				provider: p,
@@ -263,7 +284,8 @@ const service: FeedbackClient = {
 				evidence: evidenceFor(recording, await loadEvidence(recording.id), appIdOf(recording)),
 				review: await reviewContext(recording),
 				revisionAfter: revision,
-				writers: { saveCorrection, saveAppStyle, removeOp },
+				reviewAfter: () => reviewContext(recording),
+				writers: { saveCorrection, saveAppStyle, saveWord, removeOp },
 			});
 			const saved = outcome.record === record ? record : await save(outcome.record);
 			if (outcome.ok) return { ok: true, record: saved };
@@ -272,13 +294,31 @@ const service: FeedbackClient = {
 	},
 
 	async undo(a) {
-		return serial(a.recordId, async (): Promise<Reply<{ record: FeedbackRecord }>> => {
+		return serial(a.recordId, async (): Promise<Reply<{ record: FeedbackRecord; message?: string }>> => {
 			const record = await recordById(a.recordId);
 			if (!record) return { ok: false, message: 'That feedback is gone.' };
 			try {
-				const outcome = await undoFix({ record, opId: a.opId, removeOp, revisionAfter: revision });
+				const outcome = await undoFix({
+					record,
+					opId: a.opId,
+					removeOp,
+					revisionAfter: revision,
+					listsAfter: () => wordLists.snapshot,
+					reviewAfter: async () => {
+						const recording = await recordingOf(record.recordingId);
+						if (!recording) return null;
+						return {
+							evidence: evidenceFor(recording, await loadEvidence(recording.id), appIdOf(recording)),
+							review: await reviewContext(recording),
+						};
+					},
+				});
 				if (!outcome.ok) return outcome;
-				return { ok: true, record: await save(outcome.record) };
+				return {
+					ok: true,
+					record: await save(outcome.record),
+					...(outcome.message ? { message: outcome.message } : {}),
+				};
 			} catch (error) {
 				return { ok: false, message: `It couldn't be undone (${error instanceof Error ? error.message : String(error)}).` };
 			}

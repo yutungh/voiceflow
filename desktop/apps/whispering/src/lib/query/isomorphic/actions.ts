@@ -43,6 +43,7 @@ import {
 import { applySavedSpellings, updateRecordingFields } from './outcome';
 // VoiceFlow phase F: stage evidence for feedback, kept with each dictation.
 import { noteEvidence } from '$lib/feedback/evidence-store';
+import { tidyConfigOf, type TidyConfig } from '$lib/feedback/evidence';
 import { tidyModelOf, transcriptionModelOf } from '$lib/feedback/models';
 import { removeAudioIfOff } from '$lib/vf/audio-cleanup';
 import { EMPTY_RETRY_KEEP_MS } from '$lib/vf/audio-retention';
@@ -1301,6 +1302,7 @@ async function transcribeAndDeliver({
 		models: { transcription: transcriptionModelOf(settings.value) },
 		profileId: profilePins.snapshotFor(recording.id)?.id,
 		tidyOutput: undefined,
+		tidyConfig: undefined,
 		deliveredText: undefined,
 		corrections: undefined,
 		outcome: undefined,
@@ -1379,6 +1381,7 @@ async function tidyUpAndDeliver({
 			styleId: transformationId,
 			outcome: 'tidy-failed',
 			tidyOutput: undefined,
+			tidyConfig: undefined,
 		});
 		dictationTiming.finish(recordingId, { outcome: 'tidy-failed' });
 		await reportTidyUpFailure({
@@ -1401,6 +1404,8 @@ async function tidyUpAndDeliver({
 		expression: outcome.expression,
 		tidyOutput: outcome.heldBack || outcome.output,
 		models: { tidyUp: outcome.model },
+		// 0.9.16: the tidy-up exactly as it ran, for a faithful re-run later.
+		tidyConfig: await outcome.config.catch(() => undefined),
 	});
 	// 0.9.13: the language guard kept his own words. They are delivered as
 	// usual (spellings applied once); the tidy-up stays in History for "Use
@@ -1463,6 +1468,8 @@ async function runTidyUpWithTimeout({
 			fallbackReason: string;
 			/** 0.9.13: a strict retry was made. */
 			retried: boolean;
+			/** 0.9.16: the tidy-up exactly as it ran (stage evidence). */
+			config: Promise<TidyConfig>;
 	  }
 	| { ok: false; reason: string; timedOut?: boolean }
 > {
@@ -1525,7 +1532,23 @@ async function runTidyUpWithTimeout({
 	const tidyWords = isFunKind(kind)
 		? { text: '', words: [] }
 		: tidyWordsBlock(profilePins.snapshotFor(recordingId), appId);
-	const styled = withTidyWords(expressed, tidyWords.text);
+	const withWords = withTidyWords(expressed, tidyWords.text);
+	// 0.9.16: a local endpoint is fixed before the run (a step's own, else the
+	// default), so what runs is exactly what the dictation's evidence keeps.
+	// The same value the transformer would fall back to; never a key.
+	const styled: typeof withWords = {
+		...withWords,
+		steps: withWords.steps.map((step) =>
+			step['prompt_transform.inference.provider'] === 'Custom' &&
+			!step['prompt_transform.inference.provider.Custom.baseUrl']?.trim()
+				? {
+						...step,
+						'prompt_transform.inference.provider.Custom.baseUrl':
+							settings.value['completion.custom.baseUrl']?.trim() ?? '',
+					}
+				: step,
+		),
+	};
 
 	// The word lists may give tidy-up more (or less) time than the default.
 	const timeoutMs = tidyUpTimeoutMs(
@@ -1577,6 +1600,7 @@ async function runTidyUpWithTimeout({
 		console.info(
 			`[tidy] language guard: mixed=${guarded.mixed} retried=${guarded.retried} fallback=${guarded.fallbackReason || 'none'}`,
 		);
+	const pinned = profilePins.snapshotFor(recordingId);
 	return {
 		ok: true,
 		output: guarded.text,
@@ -1586,6 +1610,20 @@ async function runTidyUpWithTimeout({
 		heldBack: guarded.heldBack,
 		fallbackReason: guarded.fallbackReason,
 		retried: guarded.retried,
+		config: tidyConfigOf({
+			styleId: transformationId,
+			styleName: transformation.title,
+			source: fromProfile ? 'word-lists' : 'this-pc',
+			styleSteps: transformation.steps,
+			runSteps: styled.steps,
+			...(profileStyle?.layer ? { styleLayer: profileStyle.layer } : {}),
+			...(profileStyle?.editIds?.length ? { styleEdits: profileStyle.editIds } : {}),
+			expression: level,
+			model: tidyModelOf(transformation),
+			profileId: pinned?.id,
+			words: tidyWords.words,
+			retried: guarded.retried,
+		}),
 	};
 }
 
@@ -2001,6 +2039,7 @@ async function rerunTidyUpNow(
 			outcome: 'copied',
 			pastedInto: undefined,
 			models: { tidyUp: outcome.model },
+			tidyConfig: await outcome.config.catch(() => undefined),
 		});
 		await text.copyToClipboard.execute({ text: finalText });
 		return {
@@ -2018,6 +2057,7 @@ async function rerunTidyUpNow(
 		outcome: 'copied',
 		pastedInto: undefined,
 		models: { tidyUp: outcome.model },
+		tidyConfig: await outcome.config.catch(() => undefined),
 	});
 	await text.copyToClipboard.execute({ text: finalText });
 	return { ok: true, message: `Tidied with ${outcome.styleName} and copied` };

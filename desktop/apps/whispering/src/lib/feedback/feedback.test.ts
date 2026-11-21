@@ -107,6 +107,13 @@ const GOOD = {
 	corrected_text: 'Ask Zibbo to file the note.',
 	proposals: [SPELLING],
 };
+/** v2 (0.9.16): the same answer as one issue. */
+const SPELLING2 = { ...SPELLING, spelling_ref: null };
+const GOOD2 = {
+	explanation: 'Zibbo was heard as Zebbo.',
+	corrected_text: 'Ask Zibbo to file the note.',
+	issues: [{ layer: 'transcriber', summary: 'Zibbo was heard as Zebbo.', proposals: [SPELLING2] }],
+};
 
 // ---------------------------------------------------------------------------
 // the model's reply: schema validation
@@ -316,7 +323,7 @@ describe('the fix request', () => {
 			provider: { apiKey: 'k', model: 'm' },
 			complete: async (args) => {
 				sent.push(args.system, args.user);
-				return { ok: true, text: reply(GOOD) };
+				return { ok: true, text: reply(GOOD2) };
 			},
 		});
 		expect(outcome.ok).toBe(true);
@@ -332,11 +339,14 @@ describe('the fix request', () => {
 				'delivery_outcome',
 				'expression',
 				'feedback',
+				'observations',
+				'observations_truncated',
 				'raw_transcript',
 				'style',
 				'styles_available',
 				'tidy_up_output',
 				'vocabulary',
+				'wanted_text',
 			].sort(),
 		);
 		// Related words only: Zibbo (heard as Zebbo), not Quibbit or another app's word.
@@ -361,7 +371,16 @@ describe('the fix request', () => {
 			provider: { apiKey: 'k', model: 'm' },
 			complete: async () => ({
 				ok: true,
-				text: reply({ ...GOOD, proposals: [{ ...SPELLING, from: ['the'], to: 'pwned', scope: 'everywhere' }] }),
+				text: reply({
+					...GOOD2,
+					issues: [
+						{
+							layer: 'transcriber',
+							summary: 'x',
+							proposals: [{ ...SPELLING2, from: ['the'], to: 'pwned', scope: 'everywhere' }],
+						},
+					],
+				}),
 			}),
 		});
 		expect(outcome.ok && outcome.result.fixes).toEqual([]);
@@ -428,6 +447,12 @@ function memoryWriters() {
 			ops.push(op);
 			return { ok: true, op };
 		},
+		async saveWord(w) {
+			const op = parseOp({ ...base(), type: 'term', term: w });
+			if (!op) return { ok: false, message: 'bad' };
+			ops.push(op);
+			return { ok: true, op };
+		},
 		async removeOp(target) {
 			const op = parseOp({ ...base(), type: 'tombstone', target })!;
 			ops.push(op);
@@ -446,10 +471,14 @@ async function reviewedRecord(): Promise<FeedbackRecord> {
 		complete: async () => ({
 			ok: true,
 			text: reply({
-				...GOOD,
-				proposals: [
-					SPELLING,
-					{ ...SPELLING, type: 'style_adjust', from: [], to: null, scope: null, expression_delta: -1 },
+				...GOOD2,
+				issues: [
+					{ layer: 'transcriber', summary: 'Misheard.', proposals: [SPELLING2] },
+					{
+						layer: 'expression',
+						summary: 'Too lively.',
+						proposals: [{ ...SPELLING2, type: 'style_adjust', from: [], to: null, scope: null, expression_delta: -1 }],
+					},
 				],
 			}),
 		}),

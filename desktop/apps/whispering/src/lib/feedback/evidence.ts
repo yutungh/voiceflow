@@ -63,7 +63,135 @@ export type DictationEvidence = {
 	profileId?: string;
 	/** Built from History alone (a dictation from before VoiceFlow 0.9.7). */
 	partial?: boolean;
+	/** VoiceFlow 0.9.16: the tidy-up as it ran (absent: no tidy-up, or an older dictation). */
+	tidyConfig?: TidyConfig;
 };
+
+/**
+ * VoiceFlow 0.9.16 (feedback v2): the tidy-up exactly as it ran for this
+ * dictation, so it can be re-run the same way later (phase 2's before/after
+ * check). Kept on this PC with the evidence; never sent with feedback.
+ */
+export type TidyConfig = {
+	/** The style run: `profile:<id>` for a word-list style, else this PC's style id. */
+	styleId: string;
+	styleName?: string;
+	source: 'word-lists' | 'this-pc';
+	/** The style as stored (steps before expression and words): sha-256, first 16 hex. */
+	styleRevision: string;
+	/** A word-list style's layer and the style edits in force on it. */
+	styleLayer?: string;
+	styleEdits?: string[];
+	/** The level used, 0–4; null: the style's own prompt only. */
+	expression: number | null;
+	/** The first AI step's provider and model. */
+	model?: string;
+	/** The word-list snapshot pinned for this dictation. */
+	profileId?: string;
+	/**
+	 * The tidy-up's word list, most important first, each with the forms
+	 * speech-to-text wrote for it (the language guard credits them too).
+	 */
+	words: TidyConfigWord[];
+	/** The exact steps run (style, expression and words): sha-256, first 16 hex. */
+	runRevision: string;
+	/** The exact steps run; empty when they were too large to keep (`stepsOmitted`). */
+	steps: unknown[];
+	stepsOmitted?: true;
+	/** The language guard made a strict retry. */
+	retried?: boolean;
+};
+
+/** One word in the tidy-up's list as it ran. */
+export type TidyConfigWord = { text: string; heardAs: string[] };
+
+/** The largest steps kept with one dictation (characters of JSON). */
+export const MAX_TIDY_STEPS_CHARS = 60_000;
+
+async function sha16(text: string): Promise<string> {
+	const bytes = new TextEncoder().encode(text);
+	const digest = await crypto.subtle.digest('SHA-256', bytes);
+	return [...new Uint8Array(digest)]
+		.slice(0, 8)
+		.map((b) => b.toString(16).padStart(2, '0'))
+		.join('');
+}
+
+/** Builds the tidy configuration from what the pipeline ran. */
+export async function tidyConfigOf(a: {
+	styleId: string;
+	styleName?: string;
+	source: TidyConfig['source'];
+	/** The style as stored (before expression and words). */
+	styleSteps: readonly unknown[];
+	/** The steps actually run. */
+	runSteps: readonly unknown[];
+	styleLayer?: string;
+	styleEdits?: readonly string[];
+	expression: number | null;
+	model?: string;
+	profileId?: string;
+	words: readonly TidyConfigWord[];
+	retried?: boolean;
+}): Promise<TidyConfig> {
+	const run = JSON.stringify(a.runSteps);
+	const keep = run.length <= MAX_TIDY_STEPS_CHARS;
+	return {
+		styleId: a.styleId,
+		...(a.styleName ? { styleName: a.styleName } : {}),
+		source: a.source,
+		styleRevision: await sha16(JSON.stringify(a.styleSteps)),
+		...(a.styleLayer ? { styleLayer: a.styleLayer } : {}),
+		...(a.styleEdits?.length ? { styleEdits: [...a.styleEdits] } : {}),
+		expression: a.expression,
+		...(a.model ? { model: a.model } : {}),
+		...(a.profileId ? { profileId: a.profileId } : {}),
+		words: a.words.slice(0, 200).map((w) => ({ text: w.text, heardAs: [...w.heardAs] })),
+		runRevision: await sha16(run),
+		steps: keep ? (JSON.parse(run) as unknown[]) : [],
+		...(keep ? {} : { stepsOmitted: true as const }),
+		...(a.retried ? { retried: true } : {}),
+	};
+}
+
+function parseTidyConfig(value: unknown): TidyConfig | null {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+	const v = value as Record<string, unknown>;
+	if (typeof v.styleId !== 'string' || !v.styleId) return null;
+	if (v.source !== 'word-lists' && v.source !== 'this-pc') return null;
+	if (typeof v.styleRevision !== 'string' || typeof v.runRevision !== 'string') return null;
+	const expression =
+		typeof v.expression === 'number' && Number.isInteger(v.expression)
+			? Math.max(0, Math.min(4, v.expression))
+			: null;
+	const strings = (x: unknown) =>
+		Array.isArray(x) ? x.filter((s): s is string => typeof s === 'string') : [];
+	return {
+		styleId: v.styleId,
+		...(typeof v.styleName === 'string' ? { styleName: v.styleName } : {}),
+		source: v.source,
+		styleRevision: v.styleRevision,
+		...(typeof v.styleLayer === 'string' ? { styleLayer: v.styleLayer } : {}),
+		...(Array.isArray(v.styleEdits) ? { styleEdits: strings(v.styleEdits) } : {}),
+		expression,
+		...(typeof v.model === 'string' ? { model: v.model } : {}),
+		...(typeof v.profileId === 'string' ? { profileId: v.profileId } : {}),
+		// A plain word (an earlier build kept words without their forms) reads with none.
+		words: Array.isArray(v.words)
+			? v.words.flatMap((w) =>
+					typeof w === 'string'
+						? [{ text: w, heardAs: [] }]
+						: w && typeof w === 'object' && typeof (w as TidyConfigWord).text === 'string'
+							? [{ text: (w as TidyConfigWord).text, heardAs: strings((w as TidyConfigWord).heardAs) }]
+							: [],
+				)
+			: [],
+		runRevision: v.runRevision,
+		steps: Array.isArray(v.steps) ? v.steps : [],
+		...(v.stepsOmitted === true ? { stepsOmitted: true as const } : {}),
+		...(v.retried === true ? { retried: true } : {}),
+	};
+}
 
 /** Fields the pipeline may set. */
 export type EvidencePatch = Partial<
@@ -162,7 +290,21 @@ export function parseEvidence(value: unknown): DictationEvidence | null {
 		if (isString(m.tidyUp)) out.models.tidyUp = m.tidyUp;
 	}
 	if (v.partial === true) out.partial = true;
+	const tidyConfig = parseTidyConfig(v.tidyConfig);
+	if (tidyConfig) out.tidyConfig = tidyConfig;
 	return out;
+}
+
+/** The spellings a feedback request names, at most this many. */
+export const MAX_SPELLING_REFS = 20;
+
+/**
+ * The spellings that changed a dictation, each with the short ref the fix
+ * request names it by (`s1`, `s2`…), in the order they were applied. The
+ * spelling's own id stays on this PC.
+ */
+export function spellingRefs(evidence: Pick<DictationEvidence, 'corrections'>): Array<AppliedSpelling & { ref: string }> {
+	return (evidence.corrections ?? []).slice(0, MAX_SPELLING_REFS).map((c, i) => ({ ...c, ref: `s${i + 1}` }));
 }
 
 const OUTCOME_OF_RESULT: Record<NonNullable<Recording['result']>, EvidenceOutcome> = {

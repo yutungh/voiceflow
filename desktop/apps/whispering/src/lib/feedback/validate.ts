@@ -28,8 +28,11 @@ import {
 	type CorrectionOp,
 } from '../profile/ops';
 import type { ProfileSnapshot } from '$lib/profile/types';
-import type { ModelProposal } from './contract';
-import type { DictationEvidence } from './evidence';
+import type { Layer, ModelProposal } from './contract';
+import { spellingRefs, type DictationEvidence } from './evidence';
+import { hasWords } from './stage-diff';
+import { buildPrompt } from '../profile/prompt';
+import { ladderStep, placeOf, withWord, type LadderStep, type WordStep } from './word-ladder';
 
 export const EXPRESSION_NAMES = ['Reserved', 'Subtle', 'Natural', 'Lively', 'Expressive'] as const;
 const DEFAULT_LEVEL = 2;
@@ -57,6 +60,13 @@ export type ScopeCheck =
 export type SpellingFix = {
 	kind: 'spelling';
 	key: string;
+	/** v2: the issue it fixes (v1 answers: 0). */
+	issue?: number;
+	/**
+	 * v2: it replaces a spelling this review also offers to turn off: it can
+	 * only be applied with that one (its keys).
+	 */
+	requires?: string[];
 	from: string[];
 	to: string;
 	reason: string;
@@ -71,6 +81,7 @@ export type SpellingFix = {
 export type StyleFix = {
 	kind: 'style';
 	key: string;
+	issue?: number;
 	reason: string;
 	app: string;
 	appName: string | null;
@@ -82,9 +93,42 @@ export type StyleFix = {
 	label: string;
 };
 
-export type ReviewedFix = SpellingFix | StyleFix;
+export type WordChoice = Extract<LadderStep, { ok: true }>;
 
-export type Dropped = { reason: string };
+/** v2: a word fix up the ladder (a heard-as form, a new word, a raised priority). */
+export type WordFix = {
+	kind: 'word';
+	key: string;
+	issue: number;
+	reason: string;
+	/** The step every choice takes (the same step in each scope). */
+	step: WordStep;
+	/** When the model asked for another step: why this one instead. */
+	adjusted: string | null;
+	word: string;
+	appId: string | null;
+	appName: string | null;
+	/** A new word's scope is chosen; a listed word keeps its own (one choice). */
+	defaultScope: 'app' | 'everywhere';
+	choices: Partial<Record<'app' | 'everywhere', WordChoice>>;
+};
+
+/** v2: turn off a saved spelling that changed this dictation (an edit's tombstone). */
+export type UnspellFix = {
+	kind: 'unspell';
+	key: string;
+	issue: number;
+	reason: string;
+	/** The spelling's id (the edit the tombstone removes). */
+	target: string;
+	heard: string;
+	written: string;
+	label: string;
+};
+
+export type ReviewedFix = SpellingFix | StyleFix | WordFix | UnspellFix;
+
+export type Dropped = { reason: string; issue?: number };
 
 export type HistoryText = { recordingId: string; appId: string | null; text: string };
 
@@ -98,6 +142,10 @@ export type ReviewContext = {
 	localAppRules?: ReadonlyMap<string, { style?: string; expression?: number }>;
 	/** Recent dictations, newest first (the subject is skipped). */
 	history: readonly HistoryText[];
+	/** v2: what the person said it should have said (their words, the truth). */
+	wanted?: string | null;
+	/** v2: the layer of each issue in the answer, by index. */
+	layers?: readonly Layer[];
 };
 
 function pseudo(from: string[], to: string, apps: string[], id = 'candidate'): CorrectionOp {
@@ -313,54 +361,289 @@ function reviewStyle(
 	};
 }
 
+const isCommon = (form: string) => {
+	const words = form.toLocaleLowerCase().split(/[^\p{L}\p{N}'’]+/u).filter(Boolean);
+	const common = (w: string) => {
+		const plain = w.replace(/’/g, "'");
+		return COMMON.has(plain) || COMMON.has(plain.replace(/'s$/, ''));
+	};
+	return form.length < 2 || words.every(common);
+};
+
+const q = (s: string) => `“${s}”`;
+
+const LAYER_NAMES: Record<string, string> = {
+	household: 'household list',
+	generated: 'list made from your notes',
+	personal: 'personal list',
+	default: 'built-in list',
+};
+
+/** The spelling's layer: from the merged lists, or this device's edits when they are off. */
+function layerOfSpelling(ctx: ReviewContext, id: string): string | null {
+	if (!ctx.snapshot) return ctx.active.some((c) => c.id === id) ? 'edit' : null;
+	return ctx.snapshot.corrections.find((c) => c.id === id)?.layer ?? null;
+}
+
+function reviewUnspell(
+	p: Extract<ModelProposal, { type: 'disable_spelling' }>,
+	ctx: ReviewContext,
+	key: string,
+	issue: number,
+): UnspellFix | Dropped {
+	const applied = spellingRefs(ctx.evidence).find((s) => s.ref === p.spellingRef);
+	if (!applied) return { reason: 'A suggestion named a spelling that didn’t change this dictation, so it was left out.', issue };
+	const label = `${q(applied.heard)} → ${q(applied.written)}`;
+	if (!ctx.active.some((c) => c.id === applied.id))
+		return { reason: `The spelling ${label} is already off.`, issue };
+	const layer = layerOfSpelling(ctx, applied.id);
+	if (layer !== 'edit')
+		return {
+			reason: `The spelling ${label} comes from your ${LAYER_NAMES[layer ?? ''] ?? 'word lists'}, so it is changed there, not here.`,
+			issue,
+		};
+	return {
+		kind: 'unspell',
+		key,
+		issue,
+		reason: p.reason,
+		target: applied.id,
+		heard: applied.heard,
+		written: applied.written,
+		label: `Turn off the spelling ${label}`,
+	};
+}
+
+const STEP_WORDS: Record<WordStep, string> = {
+	heard_as: 'a heard-as form',
+	add_word: 'a new word',
+	raise_priority: 'a higher priority',
+};
+
+function reviewWord(
+	p: Extract<ModelProposal, { type: 'heard_as' | 'add_word' | 'raise_priority' }>,
+	from: string[],
+	ctx: ReviewContext,
+	key: string,
+	issue: number,
+	appId: string | null,
+): WordFix | Dropped {
+	const snapshot = ctx.snapshot;
+	if (!snapshot) return { reason: `A word fix for ${q(p.to)} needs word lists, so it was left out.`, issue };
+	const to = p.to.trim().replace(/\s+/g, ' ');
+	if (isCommon(to)) return { reason: `${q(to)} is too common a word to add.`, issue };
+	// A word a saved spelling rewrites would never reach the text as written.
+	const rewritten = ctx.active.find((c) => c.from.some((f) => sameForm(f, to)) && c.to !== to);
+	if (rewritten)
+		return { reason: `A saved spelling changes ${q(to)} to ${q(rewritten.to)}, so the word can’t be listed as it is.`, issue };
+	const other = from.filter((f) => !sameForm(f, to));
+	const heard = other.filter((f) => !isCommon(f));
+	if (heard.length === 0 && p.type !== 'raise_priority')
+		return {
+			reason: `A word fix for ${q(to)} was left out: ${
+				other.length === 0 ? 'speech-to-text already wrote it that way' : 'the heard form is too common a word'
+			}.`,
+			issue,
+		};
+	const scopes: Array<'app' | 'everywhere'> = p.type === 'add_word' ? (appId ? ['app', 'everywhere'] : ['everywhere']) : ['app'];
+	const choices: WordFix['choices'] = {};
+	let first: Extract<LadderStep, { ok: false }> | null = null;
+	for (const scope of scopes) {
+		const step = ladderStep(snapshot, p.type, { word: to, heard, appId, scope });
+		if (step.ok) choices[scope] = step;
+		else first ??= step;
+	}
+	const picked = Object.values(choices)[0];
+	if (!picked) return { reason: `A word fix for ${q(to)} was left out: ${first?.message ?? 'it can’t be saved.'}`, issue };
+	// A listed word keeps its own scope: one choice, shown as it is.
+	const listed = !!picked.replaces;
+	if (listed) {
+		for (const k of Object.keys(choices) as Array<'app' | 'everywhere'>) if (choices[k] !== picked) delete choices[k];
+	}
+	const defaultScope: 'app' | 'everywhere' = listed
+		? picked.term.apps.includes(EVERY_APP)
+			? 'everywhere'
+			: 'app'
+		: p.type === 'add_word' && p.scope === 'everywhere'
+			? 'everywhere'
+			: choices.app
+				? 'app'
+				: 'everywhere';
+	if (listed && !choices[defaultScope]) {
+		choices[defaultScope] = picked;
+		delete choices[defaultScope === 'app' ? 'everywhere' : 'app'];
+	}
+	const adjusted =
+		picked.step === p.type
+			? null
+			: picked.step === 'add_word'
+				? `${q(to)} isn’t in your words yet, so this adds it.`
+				: p.type === 'add_word'
+					? `${q(to)} is already in your words, so this gives it ${STEP_WORDS[picked.step]} instead.`
+					: `${q(to)} already has that heard form, so this gives it ${STEP_WORDS[picked.step]} instead.`;
+	return {
+		kind: 'word',
+		key,
+		issue,
+		reason: p.reason,
+		step: picked.step,
+		adjusted,
+		word: picked.term.text,
+		appId,
+		appName: ctx.evidence.appName ?? null,
+		defaultScope,
+		choices,
+	};
+}
+
 /**
  * Reviews the model's proposals. Each comes back ready to show (unchecked),
  * or is dropped with a plain reason.
+ *
+ * v2: each proposal belongs to an issue whose layer the model chose, and
+ * the stage evidence must support it: a hearing fix names a form that is in
+ * what speech-to-text heard; a word the person said it should be must be in
+ * what they typed; a spelling turned off must have changed this dictation
+ * and be an edit (one inside a word-list file is changed there).
  */
 export function reviewProposals(
 	proposals: readonly ModelProposal[],
 	ctx: ReviewContext,
+	/** Keys already applied (and kept as they were reviewed): not reviewed again. */
+	skip: ReadonlySet<string> = new Set(),
 ): { fixes: ReviewedFix[]; dropped: Dropped[] } {
 	const fixes: ReviewedFix[] = [];
 	const dropped: Dropped[] = [];
 	const appId = validScopeApp(ctx.evidence.appId) ? ctx.evidence.appId : null;
 	const subjectId = ctx.evidence.recordingId;
+	const wanted = ctx.wanted?.trim() ? ctx.wanted : null;
+	const raw = ctx.evidence.rawText ?? '';
+	const layerOf = (p: ModelProposal): Layer | null => (p.issue !== undefined ? (ctx.layers?.[p.issue] ?? null) : null);
+	const notWanted = (to: string, issue: number) =>
+		wanted && !hasWords(wanted, to)
+			? { reason: `A fix writing ${q(to)} was left out: that isn’t in what you said it should have said.`, issue }
+			: null;
+
+	// Spellings turned off come first: a new spelling may replace one of them.
+	const unspells = new Map<string, UnspellFix>();
+	proposals.forEach((p, i) => {
+		if (p.type !== 'disable_spelling' || skip.has(`p${i}`)) return;
+		const issue = p.issue ?? 0;
+		const reviewed = reviewUnspell(p, ctx, `p${i}`, issue);
+		if ('kind' in reviewed) {
+			if ([...unspells.values()].some((u) => u.target === reviewed.target))
+				dropped.push({ reason: 'Two suggestions turned off the same spelling, so only the first is offered.', issue });
+			else unspells.set(reviewed.key, reviewed);
+		} else dropped.push(reviewed);
+	});
+	const offTargets = new Set([...unspells.values()].map((u) => u.target));
+	const activeWithout = ctx.active.filter((c) => !offTargets.has(c.id));
+
+	const words = new Set<string>();
 	proposals.forEach((p, i) => {
 		const key = `p${i}`;
+		if (skip.has(key)) return;
+		const issue = p.issue ?? 0;
+		const layer = layerOf(p);
+		if (p.type === 'disable_spelling') {
+			const u = unspells.get(key);
+			if (u) fixes.push(u);
+			return;
+		}
 		if (p.type === 'style_adjust') {
 			const reviewed = reviewStyle(p, ctx, key);
 			if ('kind' in reviewed) {
 				if (fixes.some((f) => f.kind === 'style'))
-					dropped.push({ reason: 'Only one style change is offered at a time.' });
-				else fixes.push(reviewed);
+					dropped.push({ reason: 'Only one style change is offered at a time.', issue });
+				else fixes.push({ ...reviewed, issue });
+			} else dropped.push({ ...reviewed, issue });
+			return;
+		}
+		// A hearing problem names what speech-to-text wrote.
+		const heardOnly = layer === 'transcriber';
+		const from = heardOnly ? p.from.filter((f) => hasWords(raw, f)) : groundedForms(p.from, ctx.evidence);
+		if (from.length === 0) {
+			dropped.push({
+				reason: heardOnly
+					? `A fix for ${q(p.from[0] ?? '')} was left out: speech-to-text didn’t write that, so it isn’t a hearing problem.`
+					: `A spelling for ${q(p.from[0] ?? '')} was left out: that word isn’t in this dictation.`,
+				issue,
+			});
+			return;
+		}
+		const unwanted = notWanted(p.to, issue);
+		if (unwanted) {
+			dropped.push(unwanted);
+			return;
+		}
+		// A saved-spelling problem re-spells only what a saved spelling changed here.
+		if (layer === 'spelling' && p.type === 'spelling') {
+			const applied = spellingRefs(ctx.evidence);
+			if (!from.every((f) => applied.some((s) => sameForm(s.heard, f)))) {
+				dropped.push({
+					reason: `A spelling for ${q(from[0] ?? '')} was left out: no saved spelling changed that word in this dictation.`,
+					issue,
+				});
+				return;
+			}
+		}
+		if (p.type !== 'spelling') {
+			const k = p.to.trim().toLocaleLowerCase();
+			if (words.has(k)) {
+				dropped.push({ reason: `Two suggestions changed ${q(p.to)}, so only the first is offered.`, issue });
+				return;
+			}
+			const reviewed = reviewWord(p, from, ctx, key, issue, appId);
+			if ('kind' in reviewed) {
+				words.add(k);
+				fixes.push(reviewed);
 			} else dropped.push(reviewed);
 			return;
 		}
-		const from = groundedForms(p.from, ctx.evidence);
-		if (from.length === 0) {
-			dropped.push({ reason: `A spelling for “${p.from[0]}” was left out: that word isn’t in this dictation.` });
-			return;
-		}
 		if (fixes.some((f) => f.kind === 'spelling' && f.from.some((g) => from.some((h) => sameForm(g, h))))) {
-			dropped.push({ reason: 'Two suggestions changed the same word, so only the first is offered.' });
+			dropped.push({ reason: 'Two suggestions changed the same word, so only the first is offered.', issue });
 			return;
 		}
 		const appOk = !!appId;
 		const checkCtx = { active: ctx.active, history: ctx.history, snapshot: ctx.snapshot, subjectId };
-		const appCheck = appOk ? checkSpelling({ from, to: p.to }, [appId], checkCtx) : null;
-		const everywhere = checkSpelling({ from, to: p.to }, [EVERY_APP], checkCtx);
+		let appCheck = appOk ? checkSpelling({ from, to: p.to }, [appId], checkCtx) : null;
+		let everywhere = checkSpelling({ from, to: p.to }, [EVERY_APP], checkCtx);
+		let requires: string[] | undefined;
+		// It may replace a spelling this review turns off: then it needs that one ticked too.
+		if (!(appCheck?.ok || everywhere.ok) && offTargets.size > 0) {
+			const without = { ...checkCtx, active: activeWithout };
+			const a2 = appOk ? checkSpelling({ from, to: p.to }, [appId], without) : null;
+			const e2 = checkSpelling({ from, to: p.to }, [EVERY_APP], without);
+			if (a2?.ok || e2.ok) {
+				appCheck = a2;
+				everywhere = e2;
+				const clashes = (u: UnspellFix) => {
+					const c = ctx.active.find((x) => x.id === u.target);
+					return (
+						!!c &&
+						(c.from.some((g) => sameForm(g, p.to) || from.some((h) => sameForm(g, h))) ||
+							from.some((h) => sameForm(h, c.to)))
+					);
+				};
+				const all = [...unspells.values()];
+				requires = (all.some(clashes) ? all.filter(clashes) : all).map((u) => u.key);
+			}
+		}
 		if (!(appCheck?.ok || everywhere.ok)) {
 			dropped.push({
 				reason: `A spelling for “${from[0]}” was left out: ${
 					(appCheck && !appCheck.ok ? appCheck.message : !everywhere.ok ? everywhere.message : '') ||
 					'it can’t be saved.'
 				}`,
+				issue,
 			});
 			return;
 		}
 		fixes.push({
 			kind: 'spelling',
 			key,
+			issue,
+			...(requires ? { requires } : {}),
 			from,
 			to: p.to,
 			reason: p.reason,
@@ -379,21 +662,29 @@ export type Selection = { key: string; scope?: 'app' | 'everywhere' };
 
 /**
  * Checks the chosen fixes together, in order, right before they are written:
- * each spelling against the ones in force plus the ones chosen before it.
+ * each spelling against the ones in force (less any chosen to be turned off)
+ * plus the ones chosen before it.
  */
 export function checkSelection(
 	fixes: readonly ReviewedFix[],
 	selection: readonly Selection[],
 	ctx: ReviewContext,
+	/** Keys already applied and not undone (a required "turn off" may be one). */
+	applied: ReadonlySet<string> = new Set(),
 ): { ok: true } | { ok: false; key: string; message: string } {
 	const chosen: CorrectionOp[] = [];
+	const picked = new Set(selection.map((s) => s.key));
+	const off = new Set(
+		fixes.filter((f): f is UnspellFix => f.kind === 'unspell' && picked.has(f.key)).map((f) => f.target),
+	);
 	const checkCtx = {
-		active: ctx.active,
+		active: ctx.active.filter((c) => !off.has(c.id)),
 		history: ctx.history,
 		snapshot: ctx.snapshot,
 		subjectId: ctx.evidence.recordingId,
 	};
 	let styles = 0;
+	const words = new Set<string>();
 	for (const sel of selection) {
 		const fix = fixes.find((f) => f.key === sel.key);
 		if (!fix) return { ok: false, key: sel.key, message: 'That fix is no longer offered.' };
@@ -408,6 +699,26 @@ export function checkSelection(
 				return { ok: false, key: sel.key, message: `The ${fix.style.name} style is no longer in your word lists.` };
 			continue;
 		}
+		if (fix.kind === 'unspell') {
+			if (!ctx.active.some((c) => c.id === fix.target))
+				return { ok: false, key: sel.key, message: `The spelling “${fix.heard}” → “${fix.written}” is already off.` };
+			continue;
+		}
+		if (fix.kind === 'word') {
+			const scope = sel.scope ?? fix.defaultScope;
+			if (!fix.choices[scope])
+				return { ok: false, key: sel.key, message: `${q(fix.word)} can’t be saved ${scope === 'app' ? 'for this app only' : 'for every app'}.` };
+			const k = fix.word.toLocaleLowerCase();
+			if (words.has(k)) return { ok: false, key: sel.key, message: `Choose one change to ${q(fix.word)} at a time.` };
+			words.add(k);
+			continue;
+		}
+		if (fix.requires?.length && !fix.requires.some((r) => picked.has(r) || applied.has(r)))
+			return {
+				ok: false,
+				key: sel.key,
+				message: `This spelling replaces one that is on now: tick “Turn off” for that one too.`,
+			};
 		const scope = sel.scope ?? fix.defaultScope;
 		if (scope === 'app' && !fix.appId)
 			return { ok: false, key: sel.key, message: 'This app isn’t known, so the spelling can only apply in every app.' };
@@ -415,6 +726,39 @@ export function checkSelection(
 		const check = checkSpelling(fix, apps, checkCtx, chosen);
 		if (!check.ok) return { ok: false, key: sel.key, message: check.message };
 		chosen.push(pseudo(fix.from, fix.to, apps, `chosen-${chosen.length}`));
+	}
+	// Word fixes share the transcriber's 20: each was previewed alone, so
+	// together they must still do what their cards said.
+	const wordPicks = selection.flatMap((sel) => {
+		const fix = fixes.find((f): f is WordFix => f.key === sel.key && f.kind === 'word');
+		const choice = fix?.choices[sel.scope ?? fix.defaultScope];
+		return fix && choice ? [{ fix, choice }] : [];
+	});
+	if (wordPicks.length > 1 && ctx.snapshot) {
+		let lists: Pick<ProfileSnapshot, 'terms' | 'defaults'> = ctx.snapshot;
+		for (const { choice } of wordPicks) lists = withWord(lists, choice.term);
+		const compete = (key: string, word: string) => ({
+			ok: false as const,
+			key,
+			message: `Together these word fixes don’t do what each card says (they compete for the transcriber’s 20 words). Apply ${q(word)} on its own, then look at the others again.`,
+		});
+		for (const { fix, choice } of wordPicks) {
+			const place = placeOf(lists, fix.appId, choice.term.text);
+			if (place.transcriber !== choice.effect.after.transcriber || place.tidy !== choice.effect.after.tidy)
+				return compete(fix.key, fix.word);
+		}
+		// And the words they push out together are the ones the cards named.
+		const own = new Set(wordPicks.map(({ choice }) => choice.term.text.toLocaleLowerCase()));
+		const byApp = new Map<string | null, typeof wordPicks>();
+		for (const pick of wordPicks) byApp.set(pick.fix.appId, [...(byApp.get(pick.fix.appId) ?? []), pick]);
+		for (const [appId, picks] of byApp) {
+			const before = buildPrompt(ctx.snapshot, appId).sent;
+			const after = new Set(buildPrompt(lists, appId).sent.map((w) => w.toLocaleLowerCase()));
+			const out = before.filter((w) => !own.has(w.toLocaleLowerCase()) && !after.has(w.toLocaleLowerCase()));
+			const named = new Set(picks.flatMap(({ choice }) => choice.effect.dropsOut.map((w) => w.toLocaleLowerCase())));
+			if (out.length !== named.size || out.some((w) => !named.has(w.toLocaleLowerCase())))
+				return compete(picks[0]!.fix.key, picks[0]!.fix.word);
+		}
 	}
 	return { ok: true };
 }

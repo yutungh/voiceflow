@@ -59,6 +59,10 @@ export type TermOp = OpBase & {
 		kind?: string;
 		/** ["*"] for every app, or app ids. Absent: every app. */
 		apps?: string[];
+		/** A short note on the word (at most 80 characters). */
+		gloss?: string;
+		/** 0–100 (absent: 50). Higher words reach the transcriber first. */
+		priority?: number;
 	};
 };
 
@@ -126,6 +130,12 @@ export function parseOp(value: unknown): ProfileOp | null {
 		if (isString(term.kind) && term.kind) out.kind = term.kind;
 		if (isStringArray(term.apps) && term.apps.length > 0)
 			out.apps = term.apps.map((a) => (a === EVERY_APP ? a : a.toLowerCase()));
+		if (isString(term.gloss) && term.gloss.trim()) out.gloss = term.gloss.trim();
+		if (term.priority !== undefined) {
+			const p = term.priority;
+			if (typeof p !== 'number' || !Number.isInteger(p) || p < 0 || p > 100) return null;
+			out.priority = p;
+		}
 		return { ...base, type: 'term', term: out };
 	}
 	if (v.type === 'app-style') {
@@ -181,14 +191,30 @@ function normalizeForm(form: string): string {
 }
 
 /**
+ * The ids the tombstones in force remove. Newest first, as the word lists'
+ * merge does (`live_ops` in Rust): a tombstone removed by a newer one has no
+ * effect, so undoing an undo brings the edit back (VoiceFlow 0.9.16: a
+ * spelling turned off from feedback, then Undo).
+ */
+export function removedIds(ops: readonly ProfileOp[]): Set<string> {
+	const time = (op: ProfileOp) => Date.parse(op.createdAt) || 0;
+	const sorted = [...ops].sort((a, b) => time(a) - time(b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+	const dead = new Set<string>();
+	for (let i = sorted.length - 1; i >= 0; i--) {
+		const op = sorted[i]!;
+		if (dead.has(op.id)) continue;
+		if (op.type === 'tombstone') dead.add(op.target);
+	}
+	return dead;
+}
+
+/**
  * The corrections in force: every correction no tombstone removes, oldest
  * first. If two devices saved the same heard form, the newer one wins for
  * that form (the profile service will show such conflicts later).
  */
 export function activeCorrections(ops: readonly ProfileOp[]): CorrectionOp[] {
-	const removed = new Set(
-		ops.filter((op) => op.type === 'tombstone').map((op) => op.target),
-	);
+	const removed = removedIds(ops);
 	return ops
 		.filter(
 			(op): op is CorrectionOp =>
@@ -204,9 +230,7 @@ export function activeCorrections(ops: readonly ProfileOp[]): CorrectionOp[] {
 export function activeAppStyles(
 	ops: readonly ProfileOp[],
 ): Map<string, { style?: string; expression?: number; editId: string }> {
-	const removed = new Set(
-		ops.filter((op) => op.type === 'tombstone').map((op) => op.target),
-	);
+	const removed = removedIds(ops);
 	const rules = new Map<string, { style?: string; expression?: number; editId: string }>();
 	const live = ops
 		.filter((op): op is AppStyleOp => op.type === 'app-style' && !removed.has(op.id))
