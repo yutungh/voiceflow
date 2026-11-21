@@ -116,8 +116,8 @@ public class FindReplaceActivity extends Activity {
         WordLists.State state = view.state;
         if (view.snapshot == null) {
             return state.lastAttemptAt > 0 && !state.reachable
-                    ? "Your lists from the NAS: not reached yet. This phone's words work as before."
-                    : "Your lists from the NAS arrive with the next sync.";
+                    ? "Your word lists: not reached yet. This phone's words work as before."
+                    : "Your word lists arrive with the next sync.";
         }
         int words = 0;
         int fixes = 0;
@@ -431,16 +431,16 @@ public class FindReplaceActivity extends Activity {
         String where;
         switch (row.layer) {
             case WordLayer.GENERATED:
-                where = "It comes from your notes, through your lists on the NAS.";
+                where = "It comes from your notes, through your synced word lists.";
                 break;
             case WordLayer.HOUSEHOLD:
-                where = "It is on the household list on the NAS, shared with everyone at home.";
+                where = "It is on the household list, shared with everyone at home.";
                 break;
             case WordLayer.EDIT:
                 where = "It was added in VoiceFlow on one of your devices.";
                 break;
             default:
-                where = "It is on your own list on the NAS.";
+                where = "It is on your own synced list.";
         }
         text.append("\n\n").append(where).append(" Change it there; the phone picks it up on its next sync.");
         new AlertDialog.Builder(this)
