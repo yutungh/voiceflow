@@ -212,11 +212,11 @@ public class PinyinComposerTest {
     @Test
     public void longInputStaysFast() {
         String input = "womenjintianwanshangquchifanhaobuhao";
-        long start = System.nanoTime();
         List<PinyinCandidate> candidates = composer.candidates(input, 10);
-        long elapsedMs = (System.nanoTime() - start) / 1_000_000;
         assertFalse("expected some reading of a long run", candidates.isEmpty());
-        assertTrue("composing took " + elapsedMs + "ms, too slow for keystroke latency", elapsedMs < 100);
+        TimingBudget.assertWithin("long-run compose", 1,
+                i -> composer.candidates(input, 10),
+                50000, 100000);
     }
 
     private static boolean containsText(List<PinyinCandidate> candidates, String wanted) {
