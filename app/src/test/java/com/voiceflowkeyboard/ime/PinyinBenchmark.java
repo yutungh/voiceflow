@@ -157,6 +157,42 @@ final class PinyinBenchmark {
         }
     }
 
+    /** Another engine's list after the keyboard's own reranking step ({@link RimeRanking}). */
+    static final class RerankedEngine implements Engine {
+        private final Engine inner;
+
+        RerankedEngine(Engine inner) {
+            this.inner = inner;
+        }
+
+        @Override
+        public String name() {
+            return inner.name();
+        }
+
+        @Override
+        public List<Cand> candidates(Mode mode, String buffer) throws IOException {
+            List<Cand> found = new ArrayList<>(inner.candidates(mode, buffer));
+            int n = Math.min(found.size(), RimeRanking.REACH + 1);
+            List<String> texts = new ArrayList<>(n);
+            int[] consumed = new int[n];
+            for (int i = 0; i < n; i++) {
+                texts.add(found.get(i).text);
+                consumed[i] = found.get(i).consumed;
+            }
+            int index = RimeRanking.promoted(texts, consumed, buffer.length());
+            if (index > 0) {
+                found.add(0, found.remove(index));
+            }
+            return found;
+        }
+
+        @Override
+        public void close() throws IOException {
+            inner.close();
+        }
+    }
+
     // ------------------------------------------------------------------ phrases
 
     static final class Phrase {
@@ -756,13 +792,24 @@ final class PinyinBenchmark {
      */
     static String benchmarkExternal(String name, List<String> command, File phrasesFile, File outDir)
             throws IOException {
+        return benchmarkExternal(name, command, phrasesFile, outDir, false);
+    }
+
+    /**
+     * {@code rerank}: the keyboard's own step after Rime's ranking
+     * ({@link RimeRanking}, 0.9.0) is applied to the engine's list, so the
+     * benchmark scores what the keyboard shows.
+     */
+    static String benchmarkExternal(String name, List<String> command, File phrasesFile, File outDir, boolean rerank)
+            throws IOException {
         List<Phrase> phrases = loadPhrases(phrasesFile);
         List<Outcome> outcomes;
         try (ExternalEngine engine = new ExternalEngine(name, command)) {
-            outcomes = run(engine, phrases);
+            outcomes = run(rerank ? new RerankedEngine(engine) : engine, phrases);
         }
         Map<String, Object> extra = new LinkedHashMap<>();
         extra.put("external", "true");
+        extra.put("rerank", String.valueOf(rerank));
         StringBuilder report = new StringBuilder(name).append(": external engine\n");
         finish(name, outcomes, summarize(outcomes), extra, report, outDir);
         return report.toString();
@@ -801,11 +848,14 @@ final class PinyinBenchmark {
                 console.print(benchmark(args[1], new File(args[2]), new File(args[3]), new File(args[4]),
                         args.length > 5 && args[5].equals("latency")));
                 break;
-            case "external":
-                // external <name> <phrases> <outDir> <command> [<arg>...]
-                console.print(benchmarkExternal(args[1], Arrays.asList(Arrays.copyOfRange(args, 4, args.length)),
-                        new File(args[2]), new File(args[3])));
+            case "external": {
+                // external <name> <phrases> <outDir> [--rerank] <command> [<arg>...]
+                boolean rerank = args[4].equals("--rerank");
+                console.print(benchmarkExternal(args[1],
+                        Arrays.asList(Arrays.copyOfRange(args, rerank ? 5 : 4, args.length)),
+                        new File(args[2]), new File(args[3]), rerank));
                 break;
+            }
             case "compare":
                 for (String mode : new String[]{"t9", "qwerty"}) {
                     for (String split : new String[]{"dev", "test"}) {

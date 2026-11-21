@@ -73,14 +73,14 @@ final class PinyinSession {
     /** How many candidates to surface; the strip scrolls, so this is generous. */
     private static final int CANDIDATE_LIMIT = 30;
 
-    private PinyinComposer composer;
+    private PinyinConverter composer;
     private final StringBuilder buffer = new StringBuilder();
     private List<PinyinCandidate> candidates = Collections.emptyList();
     /** 9-key only: the buffer read as letters, and the spellings she can pin. */
     private String display = "";
     private List<PinyinKeypadLookup.SpellingOption> spellingOptions = Collections.emptyList();
 
-    PinyinSession(PinyinComposer composer) {
+    PinyinSession(PinyinConverter composer) {
         this.composer = composer;
     }
 
@@ -89,7 +89,7 @@ final class PinyinSession {
      * QWERTY and 9-key layouts. The caller is expected to have settled first —
      * a half-typed buffer means nothing in the other mode.
      */
-    void setComposer(PinyinComposer composer) {
+    void setComposer(PinyinConverter composer) {
         this.composer = composer;
         refresh();
     }
@@ -274,6 +274,8 @@ final class PinyinSession {
         }
         PinyinCandidate chosen = candidates.get(index);
         int consumed = Math.min(Math.max(chosen.consumed, 0), buffer.length());
+        // Tell the engine first (Rime learns from it), while its list is still the one shown.
+        composer.chosen(composer.lookup().normalize(buffer.substring(0, consumed), PinyinComposer.MAX_INPUT_LENGTH), chosen);
         buffer.delete(0, consumed);
         // What is left starts a new word; a 9-key apostrophe in front of it
         // separated it from the part just committed.

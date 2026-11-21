@@ -61,3 +61,10 @@ translator:
   enable_user_dict: true
   enable_correction: false
   contextual_suggestions: false
+  # Each candidate's reading as its comment (0.9.0): the keyboard shows the
+  # digits as letters ("ni'hao") and offers spellings from it. Display only;
+  # it changes no ranking.
+  spelling_hints: 40
+  comment_format:
+    - xlit/āáǎàōóǒòēéěèīíǐìūúǔùǖǘǚǜüńňǹ/aaaaooooeeeeiiiiuuuuvvvvvnnn/
+    - xform/ḿ/m/

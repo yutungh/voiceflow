@@ -12,6 +12,16 @@ Changes made: the zi, jichu and duoyin dictionaries were merged; tone marks
 were removed and ü written v; only the most frequent words were kept (plus
 chat-shaped phrases); a short list of everyday chat words was given more
 weight. The data is provided as is, with no warranties.
+The Rime engine (0.9.0) uses the same three dictionaries unchanged, compiled
+into Rime's binary format, plus a VoiceFlow table that lists those everyday
+chat words again with their Wanxiang readings at 20 times their weight.
+
+Chinese input engine: Rime (librime 1.17.0), https://github.com/rime/librime,
+with the librime-octagram and librime-predict plugins, (c) RIME Developers,
+BSD 3-Clause licence. Built with: Boost (Boost Software License 1.0),
+LevelDB ((c) The LevelDB Authors, BSD 3-Clause), yaml-cpp ((c) Jesse Beder,
+MIT), OpenCC ((c) Carbo Kuo, Apache License 2.0) and marisa-trie
+((c) Susumu Yata, BSD 2-Clause). Full texts: licenses/Rime-NOTICES.txt.
 
 English word frequencies: SymSpell (MIT, (c) 2018 Wolf Garbe), built from
 Google Books Ngram (CC BY 3.0) and SCOWL/ESDB ((c) Kevin Atkinson; licence

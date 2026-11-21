@@ -235,6 +235,12 @@ final class SyncWorker {
                     evidence,
                     wordListsBlock(context)
             );
+            // 0.9.0: which Chinese engine is in use, and the Rime breaker's state.
+            try {
+                status.put("pinyin", RimeAndroid.statusBlock(context));
+            } catch (org.json.JSONException | RuntimeException e) {
+                status.put("pinyin", new JSONObject().put("error", "unbuildable"));
+            }
             client.putStatus(status);
         } catch (IOException e) {
             recordFailure(context, installed, e);
