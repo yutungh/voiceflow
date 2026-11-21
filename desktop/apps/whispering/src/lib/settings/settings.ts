@@ -37,6 +37,7 @@ import {
 } from '$lib/constants/audio';
 import { CommandOrAlt, CommandOrControl } from '$lib/constants/keyboard';
 import { migrateSoundSettings, SOUND_SETTINGS } from './sound-schema';
+import { FIX_MODEL_SETTING } from '$lib/feedback/fix-model';
 import { SUPPORTED_LANGUAGES } from '$lib/constants/languages';
 import { ALWAYS_ON_TOP_MODES, LAYOUT_MODES } from '$lib/constants/ui';
 import {
@@ -305,8 +306,13 @@ export const Settings = type({
 	'bar.pinnedStyles': "string = ''",
 
 	// VoiceFlow phase F: feedback -> AI fix (Settings > Feedback).
+	// 0.9.16's provider and model, read only for an earlier choice (`fix-model.ts`).
 	'feedback.provider': type.enumerated('OpenAI', 'Anthropic').default('OpenAI'),
 	'feedback.model': "string = 'gpt-5.4-mini'",
+	// VoiceFlow 0.9.17: "Model for finding fixes", `Provider|model`, or 'auto'.
+	// Null until the person picks (Automatic: today's model, or the first
+	// provider with a key). Kept on this device; never in the word lists.
+	...FIX_MODEL_SETTING,
 	'feedback.keep': type.enumerated('30d', '1y', 'forever').default('1y'),
 });
 

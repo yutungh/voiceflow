@@ -9,7 +9,7 @@
 	 * VoiceFlow A2 + phase F: opens after a voice feedback recording (or the
 	 * bar's Feedback button). The person checks what VoiceFlow heard, sees the
 	 * dictation it is about, and either saves it as a draft (kept on this PC)
-	 * or sends it for a fix. The work happens in the main window (it owns the
+	 * or asks the model chosen in Settings > Feedback to find fixes. The work happens in the main window (it owns the
 	 * keys, the word lists and the paste path); this window only asks it,
 	 * through `$lib/feedback/rpc`.
 	 */

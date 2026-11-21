@@ -3,25 +3,19 @@
  * returns the reply's raw JSON text; `contract.ts` decides whether it is
  * acceptable. Pure apart from the HTTP call, so the end-to-end check can run
  * it outside the app with its own `fetch`.
+ *
+ * Uses the same SDK clients and transports as tidy-up's completion services
+ * (`$lib/services/isomorphic/completion`), which return plain text only: the
+ * fix needs each provider's structured-output path, so the call is made here.
+ *
+ * VoiceFlow 0.9.17: the provider and model come from Settings > Feedback
+ * ("Model for finding fixes", `fix-model.ts`).
  */
 import OpenAI from 'openai';
 import { FIX_RESPONSE_SCHEMA, nullableAsAnyOf } from './contract';
+import type { FeedbackProvider } from './fix-model';
 
-export const FEEDBACK_PROVIDERS = ['OpenAI', 'Anthropic'] as const;
-export type FeedbackProvider = (typeof FEEDBACK_PROVIDERS)[number];
-
-export const DEFAULT_FEEDBACK_MODEL = 'gpt-5.4-mini';
-
-/** The models offered in Settings > Feedback. */
-export const FEEDBACK_MODELS: {
-	provider: FeedbackProvider;
-	model: string;
-	label: string;
-}[] = [
-	{ provider: 'OpenAI', model: 'gpt-5.4-mini', label: 'OpenAI gpt-5.4-mini (default)' },
-	{ provider: 'OpenAI', model: 'gpt-5.4', label: 'OpenAI gpt-5.4 (stronger, slower)' },
-	{ provider: 'Anthropic', model: 'claude-opus-5-5', label: 'Anthropic Claude Opus 5.5' },
-];
+export { FEEDBACK_PROVIDERS, type FeedbackProvider } from './fix-model';
 
 export type CompleteArgs = {
 	apiKey: string;
@@ -41,10 +35,12 @@ export type CompleteResult = { ok: true; text: string } | { ok: false; message: 
 function plainError(provider: string, error: unknown): string {
 	const status = (error as { status?: number })?.status;
 	if (status === 401) return `${provider} refused the API key. Check it in Settings.`;
+	if (status === 403) return `Your ${provider} account can't use that model. Pick another one in Settings > Feedback.`;
 	if (status === 404) return `${provider} doesn't offer that model. Pick another one in Settings > Feedback.`;
 	if (status === 429) return `${provider} is busy or the account is out of credit. Try again in a moment.`;
 	if (typeof status === 'number' && status >= 500)
 		return `${provider} is having trouble (error ${status}). Try again in a few minutes.`;
+	if (typeof status === 'number') return `${provider} couldn't take this request (error ${status}). Try again, or pick another model in Settings > Feedback.`;
 	if ((error as { name?: string })?.name === 'AbortError') return 'Cancelled.';
 	return `Couldn't reach ${provider}. Check the connection and try again.`;
 }
@@ -79,6 +75,7 @@ export async function completeOpenAI(args: CompleteArgs): Promise<CompleteResult
 		const choice = reply.choices.at(0);
 		if (choice?.message?.refusal)
 			return { ok: false, message: 'The model declined to look at this dictation.' };
+		if (choice?.finish_reason === 'length') return { ok: false, message: 'The answer was cut off. Try again.' };
 		const text = choice?.message?.content;
 		if (!text) return { ok: false, message: 'OpenAI sent back an empty answer.' };
 		return { ok: true, text };
@@ -88,8 +85,48 @@ export async function completeOpenAI(args: CompleteArgs): Promise<CompleteResult
 }
 
 /** Anthropic's structured output takes nullable fields as anyOf. */
-function anthropicSchema(schema?: Record<string, unknown>): Record<string, unknown> {
+export function anthropicSchema(schema?: Record<string, unknown>): Record<string, unknown> {
 	return nullableAsAnyOf(schema ?? FIX_RESPONSE_SCHEMA) as Record<string, unknown>;
+}
+
+/** Models that take Anthropic's server-side refusal fallback ("default" routing). */
+const REFUSAL_FALLBACK_MODELS = new Set(['claude-sonnet-5-5', 'claude-opus-5-5']);
+export const REFUSAL_FALLBACK_BETA = 'server-side-fallback-2026-07-01';
+
+/**
+ * The Messages API request for a fix: structured output (`output_config.format`
+ * with the fix's JSON schema), adaptive thinking (the current models' default)
+ * kept light with `effort: 'low'`, and room for the thinking and the answer.
+ * On the models listed above, a safety decline is retried by Anthropic on
+ * another Claude model in the same call (`fallbacks: 'default'`, beta).
+ */
+export function anthropicRequest(args: Pick<CompleteArgs, 'model' | 'system' | 'user' | 'schema'>) {
+	const body = {
+		model: args.model,
+		max_tokens: 16_000,
+		system: args.system,
+		messages: [{ role: 'user' as const, content: args.user }],
+		output_config: { effort: 'low', format: { type: 'json_schema', schema: anthropicSchema(args.schema) } },
+	};
+	return REFUSAL_FALLBACK_MODELS.has(args.model)
+		? { ...body, betas: [REFUSAL_FALLBACK_BETA], fallbacks: 'default' as const }
+		: body;
+}
+
+/** The answer's text, or why there is none. Exported for tests. */
+export function anthropicAnswer(reply: unknown): CompleteResult {
+	const message = reply as { stop_reason?: string | null; content?: { type: string; text?: string }[] } | null;
+	if (!message || !Array.isArray(message.content))
+		return { ok: false, message: 'Anthropic sent back an answer VoiceFlow couldn’t read.' };
+	if (message.stop_reason === 'refusal')
+		return { ok: false, message: 'The model declined to look at this dictation.' };
+	if (message.stop_reason === 'max_tokens') return { ok: false, message: 'The answer was cut off. Try again.' };
+	const text = message.content
+		.filter((b) => b.type === 'text')
+		.map((b) => b.text ?? '')
+		.join('');
+	if (!text) return { ok: false, message: 'Anthropic sent back an empty answer.' };
+	return { ok: true, text };
 }
 
 export async function completeAnthropic(args: CompleteArgs): Promise<CompleteResult> {
@@ -102,32 +139,20 @@ export async function completeAnthropic(args: CompleteArgs): Promise<CompleteRes
 		timeout: 90_000,
 	});
 	try {
-		// The installed SDK predates `output_config` in its types; the API takes it.
-		const body = {
-			model: args.model,
-			max_tokens: 8000,
-			system: args.system,
-			messages: [{ role: 'user' as const, content: args.user }],
-			output_config: { effort: 'low', format: { type: 'json_schema', schema: anthropicSchema(args.schema) } },
-		};
-		const reply = await client.messages.create(
-			body as unknown as Parameters<typeof client.messages.create>[0],
-			{ signal: args.signal },
-		);
-		const message = reply as unknown as {
-			stop_reason?: string;
-			content: { type: string; text?: string }[];
-		};
-		if (message.stop_reason === 'refusal')
-			return { ok: false, message: 'The model declined to look at this dictation.' };
-		if (message.stop_reason === 'max_tokens')
-			return { ok: false, message: 'The answer was cut off. Try again.' };
-		const text = message.content
-			.filter((b) => b.type === 'text')
-			.map((b) => b.text ?? '')
-			.join('');
-		if (!text) return { ok: false, message: 'Anthropic sent back an empty answer.' };
-		return { ok: true, text };
+		// The installed SDK predates `output_config` and `fallbacks` in its
+		// types; the API takes them. A request with `betas` goes to the beta
+		// endpoint, which sends them as the `anthropic-beta` header.
+		const body = anthropicRequest(args);
+		const reply =
+			'betas' in body
+				? await client.beta.messages.create(
+						body as unknown as Parameters<typeof client.beta.messages.create>[0],
+						{ signal: args.signal },
+					)
+				: await client.messages.create(body as unknown as Parameters<typeof client.messages.create>[0], {
+						signal: args.signal,
+					});
+		return anthropicAnswer(reply);
 	} catch (error) {
 		return { ok: false, message: plainError('Anthropic', error) };
 	}
