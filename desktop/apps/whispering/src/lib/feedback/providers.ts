@@ -28,9 +28,41 @@ export type CompleteArgs = {
 	/** The answer's JSON schema (default: the v1 contract) and its name. */
 	schema?: Record<string, unknown>;
 	schemaName?: string;
+	/** The whole call's time limit, retries included (default `FIX_DEADLINE_MS`). */
+	deadlineMs?: number;
 };
 
 export type CompleteResult = { ok: true; text: string } | { ok: false; message: string };
+
+/**
+ * One limit for the whole call, retries included. The SDKs' own timeout is
+ * per attempt (90 s, one retry), and the feedback window stops waiting after
+ * 120 s, so the call is cut at 105 s and says so plainly.
+ */
+export const FIX_DEADLINE_MS = 105_000;
+
+function deadline(ms: number, outer?: AbortSignal) {
+	const controller = new AbortController();
+	let expired = false;
+	const timer = setTimeout(() => {
+		expired = true;
+		controller.abort();
+	}, ms);
+	const onOuter = () => controller.abort();
+	if (outer?.aborted) controller.abort();
+	else outer?.addEventListener('abort', onOuter, { once: true });
+	return {
+		signal: controller.signal,
+		expired: () => expired,
+		done: () => {
+			clearTimeout(timer);
+			outer?.removeEventListener('abort', onOuter);
+		},
+	};
+}
+
+const tooSlow = (provider: string) =>
+	`${provider} took too long to answer. Try again, or pick a faster model in Settings > Feedback.`;
 
 function plainError(provider: string, error: unknown): string {
 	const status = (error as { status?: number })?.status;
@@ -45,33 +77,52 @@ function plainError(provider: string, error: unknown): string {
 	return `Couldn't reach ${provider}. Check the connection and try again.`;
 }
 
+/**
+ * Reasoning effort per OpenAI model. 0.9.17 aims for high (finding fixes is
+ * rare and quality-sensitive), but GPT-5.4 at high took about a minute on a
+ * short dictation, so it runs at medium; GPT-5.4 mini stays at high.
+ */
+export const OPENAI_REASONING_EFFORT: Record<string, 'low' | 'medium' | 'high'> = {
+	'gpt-5.4': 'medium',
+	'gpt-5.4-mini': 'high',
+};
+
+/**
+ * The chat completions request for a fix: a strict JSON schema, and an
+ * explicit reasoning effort for the models listed above. A model id typed by
+ * hand that isn't listed gets none (it may not be a reasoning model).
+ */
+export function openAIRequest(args: Pick<CompleteArgs, 'model' | 'system' | 'user' | 'schema' | 'schemaName'>) {
+	const effort = OPENAI_REASONING_EFFORT[args.model];
+	return {
+		model: args.model,
+		messages: [
+			{ role: 'system' as const, content: args.system },
+			{ role: 'user' as const, content: args.user },
+		],
+		response_format: {
+			type: 'json_schema' as const,
+			json_schema: {
+				name: args.schemaName ?? 'voiceflow_fix',
+				strict: true,
+				schema: args.schema ?? (FIX_RESPONSE_SCHEMA as unknown as Record<string, unknown>),
+			},
+		},
+		...(effort ? { reasoning_effort: effort } : {}),
+	};
+}
+
 export async function completeOpenAI(args: CompleteArgs): Promise<CompleteResult> {
 	const client = new OpenAI({
 		apiKey: args.apiKey,
 		dangerouslyAllowBrowser: true,
 		...(args.fetch ? { fetch: args.fetch } : {}),
 		maxRetries: 1,
-		timeout: 60_000,
+		timeout: 90_000,
 	});
+	const limit = deadline(args.deadlineMs ?? FIX_DEADLINE_MS, args.signal);
 	try {
-		const reply = await client.chat.completions.create(
-			{
-				model: args.model,
-				messages: [
-					{ role: 'system', content: args.system },
-					{ role: 'user', content: args.user },
-				],
-				response_format: {
-					type: 'json_schema',
-					json_schema: {
-						name: args.schemaName ?? 'voiceflow_fix',
-						strict: true,
-						schema: args.schema ?? (FIX_RESPONSE_SCHEMA as unknown as Record<string, unknown>),
-					},
-				},
-			},
-			{ signal: args.signal },
-		);
+		const reply = await client.chat.completions.create(openAIRequest(args), { signal: limit.signal });
 		const choice = reply.choices.at(0);
 		if (choice?.message?.refusal)
 			return { ok: false, message: 'The model declined to look at this dictation.' };
@@ -80,7 +131,9 @@ export async function completeOpenAI(args: CompleteArgs): Promise<CompleteResult
 		if (!text) return { ok: false, message: 'OpenAI sent back an empty answer.' };
 		return { ok: true, text };
 	} catch (error) {
-		return { ok: false, message: plainError('OpenAI', error) };
+		return { ok: false, message: limit.expired() ? tooSlow('OpenAI') : plainError('OpenAI', error) };
+	} finally {
+		limit.done();
 	}
 }
 
@@ -91,18 +144,27 @@ export function anthropicSchema(schema?: Record<string, unknown>): Record<string
 
 /**
  * The Messages API request for a fix: structured output (`output_config.format`
- * with the fix's JSON schema), adaptive thinking (the current models' default)
- * kept light with `effort: 'low'`, and room for the thinking and the answer.
- * No beta features: the model named under Find fixes is the one that answers,
- * and a safety decline is a plain error.
+ * with the fix's JSON schema) at `effort: 'high'` (0.9.17: finding fixes is
+ * rare and quality-sensitive; Opus 5.5 would otherwise default to medium).
+ * Thinking is left to the model (adaptive, always on for Opus 5.5): no
+ * `thinking` field, so never `disabled` or a `budget_tokens`, and no sampling
+ * parameters. 16,000 tokens holds the thinking and the answer without
+ * streaming. No beta features: the model named under Find fixes is the one
+ * that answers, and a safety decline is a plain error.
  */
+export const ANTHROPIC_EFFORT = 'high';
+export const ANTHROPIC_MAX_TOKENS = 16_000;
+
 export function anthropicRequest(args: Pick<CompleteArgs, 'model' | 'system' | 'user' | 'schema'>) {
 	return {
 		model: args.model,
-		max_tokens: 16_000,
+		max_tokens: ANTHROPIC_MAX_TOKENS,
 		system: args.system,
 		messages: [{ role: 'user' as const, content: args.user }],
-		output_config: { effort: 'low', format: { type: 'json_schema', schema: anthropicSchema(args.schema) } },
+		output_config: {
+			effort: ANTHROPIC_EFFORT,
+			format: { type: 'json_schema', schema: anthropicSchema(args.schema) },
+		},
 	};
 }
 
@@ -131,15 +193,18 @@ export async function completeAnthropic(args: CompleteArgs): Promise<CompleteRes
 		maxRetries: 1,
 		timeout: 90_000,
 	});
+	const limit = deadline(args.deadlineMs ?? FIX_DEADLINE_MS, args.signal);
 	try {
 		// The installed SDK predates `output_config` in its types; the API takes it.
 		const reply = await client.messages.create(
 			anthropicRequest(args) as unknown as Parameters<typeof client.messages.create>[0],
-			{ signal: args.signal },
+			{ signal: limit.signal },
 		);
 		return anthropicAnswer(reply);
 	} catch (error) {
-		return { ok: false, message: plainError('Anthropic', error) };
+		return { ok: false, message: limit.expired() ? tooSlow('Anthropic') : plainError('Anthropic', error) };
+	} finally {
+		limit.done();
 	}
 }
 
