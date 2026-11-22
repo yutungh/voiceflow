@@ -14,6 +14,8 @@ import type { DictationEvidence } from './evidence';
 import {
 	AUTOMATIC,
 	defaultChoice,
+	FEEDBACK_PROVIDERS,
+	FIX_MODELS,
 	findFixesLine,
 	FIX_MODEL_SETTING,
 	fixModelFromSettings,
@@ -23,7 +25,7 @@ import {
 	storedChoice,
 	type FixModelSettings,
 } from './fix-model';
-import { anthropicAnswer, anthropicRequest, completerFor } from './providers';
+import { anthropicAnswer, anthropicRequest, completerFor, openAIRequest } from './providers';
 
 const OPENAI = 'sk-test-openai';
 const ANTHROPIC = 'sk-ant-test';
@@ -38,17 +40,30 @@ const values = (over: Partial<FixModelSettings> = {}): FixModelSettings => ({
 });
 
 describe('default when nothing is chosen', () => {
-	test('both keys: today’s model (OpenAI gpt-5.4-mini), so nothing changes', () => {
+	test('both keys: Claude Opus 5.5 (Anthropic comes first)', () => {
 		const r = fixModelFromSettings(values({ 'apiKeys.openai': OPENAI, 'apiKeys.anthropic': ANTHROPIC }));
-		expect(r).toEqual({ ok: true, choice: { provider: 'OpenAI', model: 'gpt-5.4-mini' }, chosen: false });
+		expect(r).toEqual({ ok: true, choice: { provider: 'Anthropic', model: 'claude-opus-5-5' }, chosen: false });
 	});
-	test('OpenAI key only: OpenAI gpt-5.4-mini', () => {
+	test('OpenAI key only: GPT-5.4, the full model', () => {
 		const r = fixModelFromSettings(values({ 'apiKeys.openai': OPENAI }));
-		expect(r).toEqual({ ok: true, choice: { provider: 'OpenAI', model: 'gpt-5.4-mini' }, chosen: false });
+		expect(r).toEqual({ ok: true, choice: { provider: 'OpenAI', model: 'gpt-5.4' }, chosen: false });
 	});
-	test('Anthropic key only: Anthropic with Claude Sonnet 5.5', () => {
+	test('Anthropic key only: Claude Opus 5.5', () => {
 		const r = fixModelFromSettings(values({ 'apiKeys.anthropic': ANTHROPIC }));
-		expect(r).toEqual({ ok: true, choice: { provider: 'Anthropic', model: 'claude-sonnet-5-5' }, chosen: false });
+		expect(r).toEqual({ ok: true, choice: { provider: 'Anthropic', model: 'claude-opus-5-5' }, chosen: false });
+	});
+	test('0.9.16’s stored default (OpenAI gpt-5.4-mini, not a pick) moves to Opus 5.5 once an Anthropic key is added', () => {
+		const old = values({ 'feedback.provider': 'OpenAI', 'feedback.model': 'gpt-5.4-mini', 'apiKeys.openai': OPENAI });
+		expect(fixModelFromSettings(old)).toMatchObject({ choice: { provider: 'OpenAI', model: 'gpt-5.4' } });
+		expect(fixModelFromSettings({ ...old, 'apiKeys.anthropic': ANTHROPIC })).toMatchObject({
+			chosen: false,
+			choice: { provider: 'Anthropic', model: 'claude-opus-5-5' },
+		});
+	});
+	test('the picker lists Claude Opus 5.5 first', () => {
+		expect(FEEDBACK_PROVIDERS[0]).toBe('Anthropic');
+		expect(FIX_MODELS[0]).toMatchObject({ provider: 'Anthropic', model: 'claude-opus-5-5' });
+		expect(FIX_MODELS.filter((m) => m.provider === 'OpenAI')[0]!.model).toBe('gpt-5.4');
 	});
 	test('no key: nothing can be used', () => {
 		expect(fixModelFromSettings(values())).toEqual({ ok: false, reason: 'no-key' });
@@ -91,23 +106,25 @@ describe('a chosen model', () => {
 		const r = fixModelFromSettings(
 			values({ 'feedback.fixModel': AUTOMATIC, 'feedback.provider': 'Anthropic', 'feedback.model': 'claude-opus-5-5', 'apiKeys.openai': OPENAI, 'apiKeys.anthropic': ANTHROPIC }),
 		);
-		expect(r).toEqual({ ok: true, choice: { provider: 'OpenAI', model: 'gpt-5.4-mini' }, chosen: false });
+		expect(r).toEqual({ ok: true, choice: { provider: 'Anthropic', model: 'claude-opus-5-5' }, chosen: false });
 		expect(read('../vf/settings/FeedbackCard.svelte')).toContain("settings.updateKey('feedback.fixModel', AUTOMATIC)");
 	});
 	test('picking a model, even the one Automatic shows, stores it: adding a key later doesn’t move it', () => {
-		const picked = values({ 'feedback.fixModel': 'Anthropic|claude-sonnet-5-5', 'apiKeys.anthropic': ANTHROPIC });
-		expect(fixModelFromSettings(picked)).toMatchObject({ ok: true, chosen: true, choice: { provider: 'Anthropic' } });
-		expect(fixModelFromSettings({ ...picked, 'apiKeys.openai': OPENAI })).toMatchObject({ ok: true, choice: { provider: 'Anthropic' } });
-		// Automatic with only an Anthropic key moves to OpenAI once an OpenAI key is added (today's default).
-		const auto = values({ 'feedback.fixModel': AUTOMATIC, 'apiKeys.anthropic': ANTHROPIC });
-		expect(fixModelFromSettings(auto)).toMatchObject({ choice: { provider: 'Anthropic' } });
-		expect(fixModelFromSettings({ ...auto, 'apiKeys.openai': OPENAI })).toMatchObject({ choice: { provider: 'OpenAI' } });
+		const picked = values({ 'feedback.fixModel': 'OpenAI|gpt-5.4', 'apiKeys.openai': OPENAI });
+		expect(fixModelFromSettings(picked)).toMatchObject({ ok: true, chosen: true, choice: { provider: 'OpenAI' } });
+		expect(fixModelFromSettings({ ...picked, 'apiKeys.anthropic': ANTHROPIC })).toMatchObject({ ok: true, choice: { provider: 'OpenAI' } });
+		// Automatic with only an OpenAI key moves to Claude Opus 5.5 once an Anthropic key is added.
+		const auto = values({ 'feedback.fixModel': AUTOMATIC, 'apiKeys.openai': OPENAI });
+		expect(fixModelFromSettings(auto)).toMatchObject({ choice: { provider: 'OpenAI', model: 'gpt-5.4' } });
+		expect(fixModelFromSettings({ ...auto, 'apiKeys.anthropic': ANTHROPIC })).toMatchObject({
+			choice: { provider: 'Anthropic', model: 'claude-opus-5-5' },
+		});
 	});
 	test('an unreadable stored value falls back to the default', () => {
 		expect(storedChoice({ fixModel: 'Mystery|m1' })).toBeNull();
 		expect(resolveFixModel(storedChoice({ fixModel: 'nonsense' }), { OpenAI: true, Anthropic: false })).toEqual({
 			ok: true,
-			choice: { provider: 'OpenAI', model: 'gpt-5.4-mini' },
+			choice: { provider: 'OpenAI', model: 'gpt-5.4' },
 			chosen: false,
 		});
 	});
@@ -213,7 +230,8 @@ describe('the line under Find fixes', () => {
 	});
 	test('with only an OpenAI key it names OpenAI', () => {
 		const view = fixModelView(fixModelFromSettings(values({ 'apiKeys.openai': OPENAI })), () => '');
-		expect(view.disclosure).toContain('to OpenAI (GPT-5.4 mini)');
+		expect(view.disclosure).toContain('to OpenAI (GPT-5.4)');
+		expect(view.model).toBe('gpt-5.4');
 	});
 	test('a model not in the list is named by its id', () => {
 		expect(findFixesLine({ provider: 'OpenAI', model: 'gpt-9-test' })).toContain('to OpenAI (gpt-9-test)');
@@ -323,12 +341,19 @@ describe('routing to the chosen provider', () => {
 		if (outcome.ok) expect(outcome.result.correctedText).toBe('Ask Zibbo to bring the deck.');
 	});
 
-	test('nothing chosen with only an Anthropic key: Anthropic, Claude Sonnet 5.5', async () => {
+	test('nothing chosen with only an Anthropic key: Anthropic, Claude Opus 5.5 at high effort', async () => {
 		const { fn, seen } = mockFetch(() => anthropicMessage(JSON.stringify(ANSWER)));
 		const outcome = await roundWith(values({ 'apiKeys.anthropic': ANTHROPIC }), fn);
 		expect(outcome.ok).toBe(true);
 		expect(new URL(seen[0]!.url).origin).toBe('https://api.anthropic.com');
-		expect(seen[0]!.body.model).toBe('claude-sonnet-5-5');
+		expect(seen[0]!.body.model).toBe('claude-opus-5-5');
+		expect((seen[0]!.body.output_config as { effort: string }).effort).toBe('high');
+		// Thinking is left to the model: never disabled, never a budget, no sampling parameters.
+		const raw = JSON.stringify(seen[0]!.body);
+		expect(seen[0]!.body.thinking).toBeUndefined();
+		expect(raw).not.toContain('budget_tokens');
+		expect(raw).not.toContain('"disabled"');
+		for (const p of ['temperature', 'top_p', 'top_k']) expect(seen[0]!.body[p]).toBeUndefined();
 	});
 
 	test('OpenAI chosen: one call to OpenAI chat completions with a strict JSON schema, none to Anthropic', async () => {
@@ -349,11 +374,26 @@ describe('routing to the chosen provider', () => {
 		expect(format.json_schema.schema).toEqual(JSON.parse(JSON.stringify(FIX_RESPONSE_SCHEMA_V2)));
 	});
 
-	test('both keys, nothing chosen: OpenAI, as before 0.9.17', async () => {
-		const { fn, seen } = mockFetch(() => openAIChat(JSON.stringify(ANSWER)));
+	test('both keys, nothing chosen: Anthropic, Claude Opus 5.5', async () => {
+		const { fn, seen } = mockFetch(() => anthropicMessage(JSON.stringify(ANSWER)));
 		await roundWith(values({ 'apiKeys.openai': OPENAI, 'apiKeys.anthropic': ANTHROPIC }), fn);
+		expect(new URL(seen[0]!.url).origin).toBe('https://api.anthropic.com');
+		expect(seen[0]!.body.model).toBe('claude-opus-5-5');
+	});
+
+	test('OpenAI key only, nothing chosen: GPT-5.4 with its reasoning effort (medium)', async () => {
+		const { fn, seen } = mockFetch(() => openAIChat(JSON.stringify(ANSWER)));
+		await roundWith(values({ 'apiKeys.openai': OPENAI }), fn);
 		expect(new URL(seen[0]!.url).origin).toBe('https://api.openai.com');
+		expect(seen[0]!.body.model).toBe('gpt-5.4');
+		expect(seen[0]!.body.reasoning_effort).toBe('medium');
+	});
+
+	test('GPT-5.4 mini chosen: reasoning effort high', async () => {
+		const { fn, seen } = mockFetch(() => openAIChat(JSON.stringify(ANSWER)));
+		await roundWith(values({ 'feedback.fixModel': 'OpenAI|gpt-5.4-mini', 'apiKeys.openai': OPENAI }), fn);
 		expect(seen[0]!.body.model).toBe('gpt-5.4-mini');
+		expect(seen[0]!.body.reasoning_effort).toBe('high');
 	});
 
 	test('a malformed Anthropic answer is a plain error, never a crash', async () => {
@@ -381,6 +421,22 @@ describe('the Anthropic structured-output answer', () => {
 		expect(req.messages).toEqual([{ role: 'user', content: 'u' }]);
 		expect('fallbacks' in req).toBe(false);
 		expect('betas' in req).toBe(false);
+	});
+	test('effort is set explicitly: high on Opus 5.5 and Sonnet 5.5; no thinking field, budget or sampling', () => {
+		for (const model of ['claude-opus-5-5', 'claude-sonnet-5-5']) {
+			const req = anthropicRequest({ model, system: 's', user: 'u' }) as Record<string, unknown>;
+			expect((req.output_config as { effort: string }).effort).toBe('high');
+			expect(req.max_tokens).toBe(16_000);
+			expect('thinking' in req).toBe(false);
+			expect(JSON.stringify(req)).not.toContain('budget_tokens');
+			for (const p of ['temperature', 'top_p', 'top_k']) expect(p in req).toBe(false);
+		}
+	});
+	test('OpenAI reasoning effort: GPT-5.4 medium, GPT-5.4 mini high; a hand-typed model gets none', () => {
+		expect(openAIRequest({ model: 'gpt-5.4', system: 's', user: 'u' }).reasoning_effort).toBe('medium');
+		expect(openAIRequest({ model: 'gpt-5.4-mini', system: 's', user: 'u' }).reasoning_effort).toBe('high');
+		expect('reasoning_effort' in openAIRequest({ model: 'some-other-model', system: 's', user: 'u' })).toBe(false);
+		expect(openAIRequest({ model: 'gpt-5.4', system: 's', user: 'u' }).response_format.json_schema.strict).toBe(true);
 	});
 	test('text blocks are joined into the JSON; other blocks are skipped', () => {
 		const reply = { stop_reason: 'end_turn', content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: '{"a":' }, { type: 'text', text: '1}' }] };

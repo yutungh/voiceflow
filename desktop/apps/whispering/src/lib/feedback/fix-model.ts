@@ -9,9 +9,9 @@
  *   to the fix's JSON schema (OpenAI strict JSON schema, Anthropic structured
  *   outputs). Groq, Google, OpenRouter and custom endpoints are left out: the
  *   app's calls to them can't hold the answer to that schema reliably.
- * - Nothing chosen yet: today's model (OpenAI gpt-5.4-mini) when there is an
- *   OpenAI key, so nothing changes for existing installs; otherwise the first
- *   provider with a key, with its default model.
+ * - Nothing chosen yet (Automatic): Claude Opus 5.5 when there is an
+ *   Anthropic key, otherwise GPT-5.4 when there is an OpenAI key. Finding
+ *   fixes is rare and quality-sensitive, so each provider's strongest model.
  * - A model the person chose stays chosen: if its key is missing, finding
  *   fixes waits for the key instead of going to another provider.
  */
@@ -24,7 +24,8 @@ export const FIX_MODEL_SETTING = {
 	'feedback.fixModel': 'string | null = null',
 } as const;
 
-export const FEEDBACK_PROVIDERS = ['OpenAI', 'Anthropic'] as const;
+/** In Automatic's order, and the picker's. */
+export const FEEDBACK_PROVIDERS = ['Anthropic', 'OpenAI'] as const;
 export type FeedbackProvider = (typeof FEEDBACK_PROVIDERS)[number];
 
 export type FixModelOption = {
@@ -38,16 +39,16 @@ export type FixModelOption = {
 
 /** The models offered, grouped by provider in this order. */
 export const FIX_MODELS: readonly FixModelOption[] = [
-	{ provider: 'OpenAI', model: 'gpt-5.4-mini', name: 'GPT-5.4 mini', note: 'default' },
-	{ provider: 'OpenAI', model: 'gpt-5.4', name: 'GPT-5.4', note: 'stronger, slower' },
-	{ provider: 'Anthropic', model: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', note: 'default' },
-	{ provider: 'Anthropic', model: 'claude-opus-5-5', name: 'Claude Opus 5.5', note: 'stronger, slower' },
+	{ provider: 'Anthropic', model: 'claude-opus-5-5', name: 'Claude Opus 5.5', note: 'default' },
+	{ provider: 'Anthropic', model: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', note: 'faster' },
+	{ provider: 'OpenAI', model: 'gpt-5.4', name: 'GPT-5.4', note: 'default' },
+	{ provider: 'OpenAI', model: 'gpt-5.4-mini', name: 'GPT-5.4 mini', note: 'faster' },
 ];
 
 /** Each provider's model when nothing is chosen. */
 export const DEFAULT_FIX_MODEL: Record<FeedbackProvider, string> = {
-	OpenAI: 'gpt-5.4-mini',
-	Anthropic: 'claude-sonnet-5-5',
+	Anthropic: 'claude-opus-5-5',
+	OpenAI: 'gpt-5.4',
 };
 
 /** The setting holding each provider's key. */
@@ -103,13 +104,13 @@ export function storedChoice(values: {
 }): FixChoice | null {
 	if (values.fixModel !== null && values.fixModel !== undefined) return parseChoiceKey(values.fixModel);
 	const provider = values.legacyProvider;
-	const model = values.legacyModel?.trim() || DEFAULT_FIX_MODEL.OpenAI;
+	const model = values.legacyModel?.trim() || LEGACY_DEFAULT.model;
 	if (!isProvider(provider)) return null;
 	if (provider === LEGACY_DEFAULT.provider && model === LEGACY_DEFAULT.model) return null;
 	return { provider, model };
 }
 
-/** Nothing chosen: today's model when its key is there, else the first provider with a key. */
+/** Nothing chosen: the first provider with a key (Anthropic, then OpenAI), with its default model. */
 export function defaultChoice(hasKey: HasKey): FixChoice | null {
 	for (const provider of FEEDBACK_PROVIDERS)
 		if (hasKey[provider]) return { provider, model: DEFAULT_FIX_MODEL[provider] };
