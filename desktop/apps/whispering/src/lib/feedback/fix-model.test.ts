@@ -25,7 +25,7 @@ import {
 	storedChoice,
 	type FixModelSettings,
 } from './fix-model';
-import { anthropicAnswer, anthropicRequest, completerFor, openAIRequest } from './providers';
+import { anthropicAnswer, anthropicRequest, completerFor, FIX_DEADLINE_MS, openAIRequest } from './providers';
 
 const OPENAI = 'sk-test-openai';
 const ANTHROPIC = 'sk-ant-test';
@@ -394,6 +394,35 @@ describe('routing to the chosen provider', () => {
 		await roundWith(values({ 'feedback.fixModel': 'OpenAI|gpt-5.4-mini', 'apiKeys.openai': OPENAI }), fn);
 		expect(seen[0]!.body.model).toBe('gpt-5.4-mini');
 		expect(seen[0]!.body.reasoning_effort).toBe('high');
+	});
+
+	test('one limit for the whole call, retries included: a hung provider ends in a plain message', async () => {
+		expect(FIX_DEADLINE_MS).toBeLessThan(120_000); // the feedback window stops waiting at 120 s
+		let calls = 0;
+		const hang = (async (_input: string | URL | Request, init?: RequestInit) => {
+			calls += 1;
+			return new Promise<Response>((_resolve, reject) => {
+				const signal = init?.signal ?? (_input instanceof Request ? _input.signal : undefined);
+				signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true });
+			});
+		}) as unknown as typeof fetch;
+		for (const provider of ['Anthropic', 'OpenAI'] as const) {
+			const started = Date.now();
+			const result = await completerFor(provider)({
+				apiKey: 'k',
+				model: provider === 'Anthropic' ? 'claude-opus-5-5' : 'gpt-5.4',
+				system: 's',
+				user: 'u',
+				fetch: hang,
+				deadlineMs: 50,
+			});
+			expect(result).toEqual({
+				ok: false,
+				message: `${provider} took too long to answer. Try again, or pick a faster model in Settings > Feedback.`,
+			});
+			expect(Date.now() - started).toBeLessThan(5_000);
+		}
+		expect(calls).toBeGreaterThan(0);
 	});
 
 	test('a malformed Anthropic answer is a plain error, never a crash', async () => {

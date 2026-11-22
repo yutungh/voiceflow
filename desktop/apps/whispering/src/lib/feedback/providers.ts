@@ -28,9 +28,41 @@ export type CompleteArgs = {
 	/** The answer's JSON schema (default: the v1 contract) and its name. */
 	schema?: Record<string, unknown>;
 	schemaName?: string;
+	/** The whole call's time limit, retries included (default `FIX_DEADLINE_MS`). */
+	deadlineMs?: number;
 };
 
 export type CompleteResult = { ok: true; text: string } | { ok: false; message: string };
+
+/**
+ * One limit for the whole call, retries included. The SDKs' own timeout is
+ * per attempt (90 s, one retry), and the feedback window stops waiting after
+ * 120 s, so the call is cut at 105 s and says so plainly.
+ */
+export const FIX_DEADLINE_MS = 105_000;
+
+function deadline(ms: number, outer?: AbortSignal) {
+	const controller = new AbortController();
+	let expired = false;
+	const timer = setTimeout(() => {
+		expired = true;
+		controller.abort();
+	}, ms);
+	const onOuter = () => controller.abort();
+	if (outer?.aborted) controller.abort();
+	else outer?.addEventListener('abort', onOuter, { once: true });
+	return {
+		signal: controller.signal,
+		expired: () => expired,
+		done: () => {
+			clearTimeout(timer);
+			outer?.removeEventListener('abort', onOuter);
+		},
+	};
+}
+
+const tooSlow = (provider: string) =>
+	`${provider} took too long to answer. Try again, or pick a faster model in Settings > Feedback.`;
 
 function plainError(provider: string, error: unknown): string {
 	const status = (error as { status?: number })?.status;
@@ -88,8 +120,9 @@ export async function completeOpenAI(args: CompleteArgs): Promise<CompleteResult
 		maxRetries: 1,
 		timeout: 90_000,
 	});
+	const limit = deadline(args.deadlineMs ?? FIX_DEADLINE_MS, args.signal);
 	try {
-		const reply = await client.chat.completions.create(openAIRequest(args), { signal: args.signal });
+		const reply = await client.chat.completions.create(openAIRequest(args), { signal: limit.signal });
 		const choice = reply.choices.at(0);
 		if (choice?.message?.refusal)
 			return { ok: false, message: 'The model declined to look at this dictation.' };
@@ -98,7 +131,9 @@ export async function completeOpenAI(args: CompleteArgs): Promise<CompleteResult
 		if (!text) return { ok: false, message: 'OpenAI sent back an empty answer.' };
 		return { ok: true, text };
 	} catch (error) {
-		return { ok: false, message: plainError('OpenAI', error) };
+		return { ok: false, message: limit.expired() ? tooSlow('OpenAI') : plainError('OpenAI', error) };
+	} finally {
+		limit.done();
 	}
 }
 
@@ -158,15 +193,18 @@ export async function completeAnthropic(args: CompleteArgs): Promise<CompleteRes
 		maxRetries: 1,
 		timeout: 90_000,
 	});
+	const limit = deadline(args.deadlineMs ?? FIX_DEADLINE_MS, args.signal);
 	try {
 		// The installed SDK predates `output_config` in its types; the API takes it.
 		const reply = await client.messages.create(
 			anthropicRequest(args) as unknown as Parameters<typeof client.messages.create>[0],
-			{ signal: args.signal },
+			{ signal: limit.signal },
 		);
 		return anthropicAnswer(reply);
 	} catch (error) {
-		return { ok: false, message: plainError('Anthropic', error) };
+		return { ok: false, message: limit.expired() ? tooSlow('Anthropic') : plainError('Anthropic', error) };
+	} finally {
+		limit.done();
 	}
 }
 
