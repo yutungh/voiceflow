@@ -121,10 +121,16 @@ export function wordLabel(fix: WordFix, scope: Scope): string {
 	return `Give ${q(fix.word)} to the transcriber${fix.appName ? ` in ${fix.appName}` : ''}`;
 }
 
-/** Where a spelling or word change applies, in words (null for other kinds). */
+/**
+ * Where a spelling or word change applies, in words (null for other kinds).
+ * A spelling scoped to the app applies there only. A word keeps the apps its
+ * listed entry already had, so it says "in <app>", never "only".
+ */
 export function scopeText(fix: ReviewedFix, scope: Scope | undefined): string | null {
 	if (fix.kind !== 'spelling' && fix.kind !== 'word') return null;
-	return (scope ?? fix.defaultScope) === 'app' ? `in ${fix.appName ?? 'this app'} only` : 'in every app';
+	if ((scope ?? fix.defaultScope) !== 'app') return 'in every app';
+	const app = fix.appName ?? 'this app';
+	return fix.kind === 'spelling' ? `in ${app} only` : `in ${app}`;
 }
 
 /** The row's line once saved. */

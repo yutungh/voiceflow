@@ -32,6 +32,7 @@ import {
 	pasteLabel,
 	saveLabel,
 	savedReceipt,
+	scopeText,
 	undoneMessage,
 } from './result-view';
 import type { HistoryText } from './validate';
@@ -351,6 +352,25 @@ describe('saving and undoing (real apply and undo)', () => {
 		expect(nextTimeState(undone.record.result!.fixes, undone.record.applied)).toEqual({ kind: 'pending', toSave: 1, saved: 1 });
 		// The window uses the engine's own note when there is one, else this line.
 		expect(SVELTE).toContain('reply.message ?? undoneMessage(');
+	});
+
+	test('an app-scoped word never claims "only" (it keeps its listed apps)', () => {
+		const word = {
+			kind: 'word' as const,
+			key: 'f2',
+			issue: 0,
+			reason: 'r',
+			step: 'add_word' as const,
+			adjusted: null,
+			word: 'Zibbo',
+			appId: 'kite.exe',
+			appName: 'Kite',
+			defaultScope: 'app' as const,
+			choices: {},
+		};
+		expect(scopeText(word, 'app')).toBe('in Kite');
+		expect(scopeText(word, 'everywhere')).toBe('in every app');
+		expect(SVELTE).toContain('{scopeText(fix, applied?.scope ?? scopeOf(fix))}');
 	});
 
 	test('turning a spelling back on says so', () => {
