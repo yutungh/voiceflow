@@ -20,7 +20,7 @@ This page is for Windows and Mac. The word-list format itself is in [`pack/READM
 2. Find your Drive on your computer:
    - **Windows:** File Explorer shows a drive called **Google Drive** (often `G:`). Open **My Drive**.
    - **Mac:** Finder's sidebar shows **Google Drive** under **Locations**. Open **My Drive**. (The files sit under `/Users/<you>/Library/CloudStorage/`, and Google doesn't let you move them.)
-3. In **My Drive**, make a folder called `VoiceFlow`. Inside it, make `profiles`, and inside that a folder with your name in lower case, for example `sam`.
+3. In **My Drive**, make a folder called `VoiceFlow`. Inside it, make `profiles`, and inside that a folder with your VoiceFlow name, for example `sam`. A name is up to 32 lower-case letters, digits, `-` or `_`, starting with a letter or digit (and not `household`).
 4. In `profiles/sam/`, create `profile.json` with a plain text editor:
 
    ```json
@@ -34,7 +34,11 @@ This page is for Windows and Mac. The word-list format itself is in [`pack/READM
    }
    ```
 
-   Use your own name in `"user"`. In Notepad, choose **Save as type: All files** so the file isn't saved as `profile.json.txt`. Or copy the example folder [`pack/fixtures/demo/`](../../pack/fixtures/demo/) and rename `sam`.
+   Use your own name in `"user"`. Save it as plain text:
+   - **Windows (Notepad):** choose **Save as type: All files**, so the file isn't saved as `profile.json.txt`.
+   - **Mac (TextEdit):** choose **Format > Make Plain Text** first, and if it asks, use `.json`.
+
+   The lists start empty. Add words later in VoiceFlow (**Vocabulary**), by hand, or with an AI ([section 4](#4-let-an-ai-update-it-every-day)). The example folder [`pack/fixtures/demo/`](../../pack/fixtures/demo/) shows a filled-in set, with invented words.
 5. **Keep the files on your computer.** Drive for desktop streams files by default (they download only when opened). Right-click the `VoiceFlow` folder and choose **Offline access > Available offline**. If you set Drive to mirror files instead, you can skip this: everything is already on disk.
 
 When you're done, the folder looks like this. VoiceFlow makes the `ops` and `status` folders itself.
@@ -44,7 +48,7 @@ VoiceFlow/
   profiles/household/profile.json          words everyone shares (optional)
   profiles/sam/profile.json                Sam's own words
   profiles/sam/generated/profile.json      written by Sam's AI job (optional)
-  profiles/sam/ops/<device>-<id>.json      words added in the app (VoiceFlow writes these)
+  profiles/sam/ops/<device>-<id>.json      words and spellings added in the app (VoiceFlow writes these)
   status/sam/<device>.json                 each computer's sync status (VoiceFlow writes these)
 ```
 
@@ -56,9 +60,9 @@ VoiceFlow/
 2. In VoiceFlow Desktop, open **Settings > Word lists** and turn on **Use word lists**.
 3. Paste the path into **Folder**. If the path is right, the line **In this folder:** lists the names it found (`sam`).
 4. Enter your name under **Whose words**, then **Save**.
-5. Open **Vocabulary**: it shows your words. **Settings > Word lists** should say **Word lists up to date**.
+5. **Settings > Word lists** should say **Word lists up to date**. To check the round trip, add a word in **Vocabulary**: a few seconds later a new file appears in `profiles/<you>/ops/` in the Drive folder.
 
-VoiceFlow reads the folder when it starts, every hour, and when you press **Refresh now**. It waits for a dictation in progress to finish first.
+VoiceFlow reads the folder when it starts, every hour, and when you press **Refresh now**. It waits for a dictation in progress to finish first, and a file reaches it only once Drive has put it on this computer.
 
 ## 3. Share it with your household or team
 
@@ -89,16 +93,16 @@ A household file says `"layer": "household"` and `"user": "household"`; a genera
 Good to know:
 
 - **Everyone in the folder can open every file in it,** including each other's personal words. Drive shares the whole folder. Keep that in mind when you choose what goes in (see [Privacy](#privacy)).
-- **Two computers of the same person are safe on one folder.** Each computer writes only its own edit files and its own status file, named after that computer, and never overwrites anything.
+- **Two computers of the same person are safe on one folder.** Each computer has its own id (like `pc1a2b3c4d`). Its edit files are new files named with that id and are never changed afterwards; its status file is its own and is replaced at each check. It never writes another computer's files. While saving, VoiceFlow may briefly leave a temporary file whose name starts with a dot.
 - **Two people saving the same file at once** can leave Drive with two versions. VoiceFlow reads only the file named exactly `profile.json`, so keep one writer per file.
 
 ## 4. Let an AI update it every day
 
 Give the AI its own file, `profiles/<you>/generated/profile.json`. It's safe to automate:
 
-- Your own file and the words you add in the app win over it, so a bad run can't undo what you set yourself.
-- A file that is broken or doesn't match the format is ignored, and VoiceFlow keeps the last good copy.
-- VoiceFlow picks the new file up within the hour, or at once with **Refresh now**.
+- Your own file and the words you add in the app win over it: an entry with the same `id`, or a spelling fix for the same heard form, is yours. A valid but wrong entry from the AI can still affect dictation, so read what it reports.
+- A file that is broken or doesn't match the format is ignored, and VoiceFlow keeps the last good copy it read.
+- VoiceFlow picks the new file up at its next hourly check, or when you press **Refresh now**, once Drive has synced it.
 
 ### Which assistants can do it (checked November 2026)
 
@@ -113,13 +117,27 @@ Give the AI its own file, `profiles/<you>/generated/profile.json`. It's safe to 
 
 ### Set up a daily job on your computer
 
-1. Save the prompt below in a text file outside the `VoiceFlow` folder, with your folder, name and source filled in.
-2. Schedule it once a day. The computer has to be on at that time.
-   - **Claude Desktop:** a local scheduled task, with the `VoiceFlow` folder as its folder. It runs while the app is open and the computer is awake ([Anthropic](https://code.claude.com/docs/en/desktop-scheduled-tasks)).
-   - **Claude Code:** run `claude -p "<prompt>" --permission-mode acceptEdits` with the `VoiceFlow` folder as the working folder. `acceptEdits` lets it write and rename files without asking ([Anthropic](https://code.claude.com/docs/en/headless)).
-   - **Codex CLI:** `codex exec -C "<folder>" --skip-git-repo-check --sandbox workspace-write "<prompt>"`. By default `codex exec` can't write files; `workspace-write` lets it write inside the folder ([OpenAI](https://learn.chatgpt.com/docs/non-interactive-mode)).
-   - Start either command from **Task Scheduler** on Windows, or `cron` or `launchd` on a Mac.
-3. Let it run once, then press **Refresh now** and check **Vocabulary**.
+You need the assistant installed and signed in on the computer that runs the job, and that computer on at the time.
+
+1. Make a folder **outside** `VoiceFlow` for the job, for example `Documents/voiceflow-job`. Put two files in it:
+   - `prompt.txt`: [the prompt below](#the-prompt), with your folder, name and source filled in;
+   - `voiceflow-profile.v1.schema.json`: a copy of [the schema](../../pack/schema/voiceflow-profile.v1.schema.json), so the assistant can check its work.
+2. Test the command once by hand, then schedule it once a day.
+   - **Claude Desktop:** make a local scheduled task with the `VoiceFlow` folder as its folder and the prompt as its text. It runs while the app is open and the computer is awake ([Anthropic](https://code.claude.com/docs/en/desktop-scheduled-tasks)).
+   - **Claude Code,** run with the `VoiceFlow` folder as the working folder. `acceptEdits` lets it write and rename files without asking ([Anthropic](https://code.claude.com/docs/en/headless)):
+
+     ```sh
+     cat ~/Documents/voiceflow-job/prompt.txt | claude -p "Follow these instructions." --permission-mode acceptEdits
+     ```
+
+   - **Codex CLI.** By default `codex exec` can't write files; `workspace-write` lets it write inside the folder given with `-C` ([OpenAI](https://learn.chatgpt.com/docs/non-interactive-mode)):
+
+     ```sh
+     cat ~/Documents/voiceflow-job/prompt.txt | codex exec -C "<folder>" --skip-git-repo-check --sandbox workspace-write -
+     ```
+
+   - On Windows, run the same commands from PowerShell, with `Get-Content "$HOME\Documents\voiceflow-job\prompt.txt" -Raw` in place of `cat ...`. Start them from **Task Scheduler** (set **Start in** to the `VoiceFlow` folder for Claude Code). On a Mac, use `cron` or `launchd`.
+3. After the first run, press **Refresh now** and check **Vocabulary**.
 
 ### The prompt
 
@@ -129,7 +147,7 @@ It is the generator version of the rules in [Connect your own AI](CONNECT-YOUR-O
 >
 > 1. Read `<my source: for example my project notes or my contacts' names>` and pick the names VoiceFlow should know: people, projects, products, places, acronyms.
 > 2. **Write only `profiles/<me>/generated/profile.json`.** Never touch the household file, my own `profile.json`, anyone else's folder, the `ops/` folder or the `status/` folder.
-> 3. The file is `voiceflow-profile` version 1 (schema: `pack/schema/voiceflow-profile.v1.schema.json` in the VoiceFlow repository) with `"layer": "generated"` and `"user": "<me>"`. Stay on version 1.
+> 3. The file is `voiceflow-profile` version 1 (schema: `<job folder>/voiceflow-profile.v1.schema.json`) with `"layer": "generated"` and `"user": "<me>"`. Stay on version 1.
 > 4. **Keep ids stable:** the same name keeps the same `id` every day; a new one gets a new lower-case id (`a-z`, `0-9`, `.`, `_`, `-`). Drop names that are gone from the source.
 > 5. **Mostly words, few corrections.** A word (`terms[]`) only helps VoiceFlow hear it; add a correction only for a form that is always wrong, with no chains and no conflicts. Words are one line, at most 60 characters, without `<` or `>`; a `gloss` is at most 80 characters. Give the names I use most a higher `priority`, because each dictation sends only the top 20 words to the speech model.
 > 6. **Write the whole file at once:** write it to a temporary file in the same folder whose name starts with a dot, check it is valid JSON that matches the schema, then rename it over `profile.json`.
@@ -139,7 +157,7 @@ It is the generator version of the rules in [Connect your own AI](CONNECT-YOUR-O
 ## Privacy
 
 - **Your words are stored in your Google account,** and everyone you share the folder with can read every list in it.
-- **Words are sent with each dictation.** The words VoiceFlow picks are sent to your speech-to-text provider and to your tidy-up model with every dictation.
+- **Words are sent with each dictation.** Up to 20 words from your lists go to your speech-to-text provider with every dictation, and a longer list goes to your tidy-up model whenever a tidy-up style runs.
 - **An AI job reads its source** (your notes, for example) every time it runs.
 - **So keep the lists to names and terms:** no secrets, addresses, numbers, or health details. The status files VoiceFlow writes hold counts and errors, never your words or what you said.
 
@@ -155,8 +173,9 @@ It is the generator version of the rules in [Connect your own AI](CONNECT-YOUR-O
   - the whole folder disappearing, as when Drive for desktop isn't running.
 
   Not tested: Drive for desktop itself (streaming, **Available offline**, shortcut folders, shared drives), saving through a temporary file and a rename on the Drive drive, and the cloud assistants above.
-- **Slow first download:** VoiceFlow waits up to 45 seconds for the folder. If a streamed file is still downloading, it keeps using the last good copy and tries again in 5 minutes. **Available offline** avoids this.
-- **Up to an hour:** a file the AI writes reaches VoiceFlow at the next hourly check, or when you press **Refresh now**.
+- **Slow downloads:** VoiceFlow gives each check of the folder 45 seconds. If a streamed file is still downloading, it keeps using the last good copy and tries again in 5 minutes. **Available offline** avoids this.
+- **Up to an hour:** a file the AI writes reaches VoiceFlow at the next hourly check, or when you press **Refresh now**, after Drive has synced it. A file that was there but is now broken or missing is checked again at the next hourly check.
+- **The last good copy is per computer:** a computer that has never read a file has no copy of it to fall back on.
 
 ## Troubleshooting
 
@@ -167,7 +186,7 @@ It is the generator version of the rules in [Connect your own AI](CONNECT-YOUR-O
 | **Can't reach your word lists** | Drive for desktop isn't running or is signed out, the path is wrong, the folder has no `profiles` folder inside, or a streamed file took longer than 45 seconds to download | Start Drive for desktop and mark `VoiceFlow` **Available offline**. Check the path in **Settings > Word lists** against File Explorer's address bar or Finder. VoiceFlow tries again every 5 minutes; **Refresh now** tries at once. Dictation keeps working with the last good copy. |
 | **Your word lists need a look**: `... is missing; using the last good copy` | The file isn't there, or isn't on this computer yet | Mark `VoiceFlow` **Available offline**. Check the name is exactly `profile.json`, not `profile.json.txt` or `profile (1).json`. |
 | **Your word lists need a look**: `... was not used: not valid JSON` | The file is half-synced, or an edit broke it | Wait for Drive to finish syncing, then **Refresh now**. If it stays, check the file with the validator in [Connect your own AI](CONNECT-YOUR-OWN-AI.md#5-checking-a-file-before-saving). Your words keep working from the last good copy meanwhile. |
-| **Your word lists need a look**: `Couldn't upload an edit` or `Couldn't write this device's status` | You have **Viewer** access to a shared folder | Ask the owner for **Editor** access. Your words still load meanwhile. |
-| The AI ran, but the words don't show | VoiceFlow hasn't checked yet, the file is in the wrong place, or its `layer` or `user` is wrong | Press **Refresh now**. **Settings > Word lists** names the file and the problem. The file must be `profiles/<you>/generated/profile.json` with `"layer": "generated"` and your name in `"user"`. |
+| **Your word lists need a look**: `Couldn't upload an edit` or `Couldn't write this device's status` | VoiceFlow can't write to the folder: often **Viewer** access to a shared folder, or Drive has paused | Ask the owner for **Editor** access, and check Drive for desktop is running. Your words still load meanwhile. |
+| The AI ran, but the words don't show | VoiceFlow hasn't checked yet, the file is in the wrong place, or its `layer` or `user` is wrong | Press **Refresh now**. A file VoiceFlow has never read shows no error when it is missing, so check the exact place: `profiles/<you>/generated/profile.json`, with `"layer": "generated"` and your name in `"user"`. A wrong file is named in **Settings > Word lists** (the first problem only). |
 | **Vocabulary**: `An edit file was skipped (... (1).json)` | Drive made a copy of one of VoiceFlow's edit files | Move the copy with `(1)` out of the `ops` folder. Never change the original. |
 | The file turned into a Google Doc | It was opened or converted with Google Docs | VoiceFlow reads only plain `.json` files. Put a plain `profile.json` back (from a copy, or rebuild it), and open it with a text editor, never with Google Docs. |
