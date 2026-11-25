@@ -439,6 +439,10 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         watchClipboard(false);
         mainHandler.removeCallbacks(pasteExpiryRunnable);
         stopRecorderSilently();
+        if (pinyinEngine != null && pinyinEngine.rime() != null) {
+            // Clears the breaker's marker: this was a clean stop, not a crash.
+            pinyinEngine.rime().stop();
+        }
         executor.shutdownNow();
         typingExecutor.shutdownNow();
         maintenanceExecutor.shutdownNow();
@@ -506,6 +510,14 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         // it at all.
         if (shouldTypingAssistance()) {
             englishEngine().prepare();
+        }
+        // 0.9.0: pick up a Chinese engine changed in Settings while the keyboard was away.
+        if (inputMode.isChinese() && pinyinSession != null && !pinyinSession.isComposing()) {
+            pinyinEngine().prepare(inputMode);
+            PinyinConverter converter = pinyinEngine().composerFor(inputMode);
+            if (converter != null) {
+                pinyinSession.setComposer(converter);
+            }
         }
         watchClipboard(true);
         refreshPasteOffer(false);
@@ -5017,7 +5029,10 @@ public class VoiceFlowKeyboardService extends InputMethodService {
 
     private PinyinEngine pinyinEngine() {
         if (pinyinEngine == null) {
-            pinyinEngine = new PinyinEngine(getAssets(), executor, mainHandler, this::onPinyinEngineReady);
+            // 0.9.0: Rime, with Classic behind it, unless she chose Classic in Settings.
+            pinyinEngine = new PinyinEngine(getAssets(), executor, mainHandler, this::onPinyinEngineReady,
+                    RimeAndroid.engine(this),
+                    () -> Prefs.CHINESE_ENGINE_RIME.equals(Prefs.chineseEngine(this)));
         }
         return pinyinEngine;
     }
@@ -5026,7 +5041,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         if (!inputMode.isChinese()) {
             return;
         }
-        PinyinComposer composer = pinyinEngine().composerFor(inputMode);
+        PinyinConverter composer = pinyinEngine().composerFor(inputMode);
         if (composer == null) {
             if (pinyinEngine().hasFailed()) {
                 setStatus("Chinese unavailable");
@@ -5279,7 +5294,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         clearAutoCorrection();
         if (inputMode.isChinese()) {
             pinyinEngine().prepare(inputMode);
-            PinyinComposer composer = pinyinEngine().composerFor(inputMode);
+            PinyinConverter composer = pinyinEngine().composerFor(inputMode);
             if (composer == null) {
                 pinyinSession = null;
                 setStatus("Loading Chinese…");

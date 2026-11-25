@@ -1,0 +1,23 @@
+# Rime dictionary
+# encoding: utf-8
+#
+# VoiceFlow pinyin dictionary for Rime as the Android keyboard ships it
+# (0.9.0). MIT, written for VoiceFlow. It holds no words itself: it imports
+# the three Wanxiang (万象) tables of ../vf_pinyin.dict.yaml, by amzxyz,
+# https://github.com/amzxyz/rime-wanxiang at commit
+# 907edf67ce6d1f5c73b9f65ce9a2de55f8d7c82d, licensed CC BY 4.0
+# (https://creativecommons.org/licenses/by/4.0/), unchanged, plus VoiceFlow's
+# chat table vf_chat (scripts/build-rime-chat.mjs: everyday chat words at a
+# higher weight, readings and base weights from the same Wanxiang tables).
+
+---
+name: vf_pinyin
+version: "wanxiang-907edf67-chat"
+sort: by_weight
+use_preset_vocabulary: false
+import_tables:
+  - zi
+  - jichu
+  - duoyin
+  - vf_chat
+...

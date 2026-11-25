@@ -80,7 +80,7 @@ export function toneless(syllable) {
 }
 
 /**
- * Rows of a Rime dictionary: { word, syllables (toneless), weight }.
+ * Rows of a Rime dictionary: { word, syllables (toneless), weight, pinyin (as written) }.
  * Rows whose pinyin does not reduce to plain syllables, or whose syllable
  * count differs from the word's character count, are skipped and counted.
  */
@@ -111,7 +111,7 @@ export function readDict(file, stats = {}) {
       stats.skipped++;
       continue;
     }
-    rows.push({ word, syllables, weight });
+    rows.push({ word, syllables, weight, pinyin: pinyin.trim() });
   }
   return rows;
 }

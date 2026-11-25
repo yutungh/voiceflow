@@ -647,6 +647,13 @@ public class SettingsActivity extends Activity {
             chinese.addView(Ui.divider(this, 16));
             chinese.addView(Ui.row(this, 0, Ui.Tile.NEUTRAL, "Language key",
                     languageKeySummary(), v -> showLanguageKeyDialog()));
+            // 0.9.0: which engine turns pinyin into Chinese, and forgetting what it learned.
+            chinese.addView(Ui.divider(this, 16));
+            chinese.addView(Ui.row(this, 0, Ui.Tile.NEUTRAL, "Chinese engine",
+                    chineseEngineSummary(), v -> showChineseEngineDialog()));
+            chinese.addView(Ui.divider(this, 16));
+            chinese.addView(Ui.row(this, 0, Ui.Tile.NEUTRAL, "Forget my typing",
+                    "Clears the words and choices the Chinese engine learned from you", v -> confirmForgetTyping()));
         }
         column.addView(chinese);
 
@@ -751,14 +758,9 @@ public class SettingsActivity extends Activity {
      */
     private void showCredits() {
         String text;
-        try (java.io.InputStream in = getAssets().open("licenses/CREDITS.txt")) {
-            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-            byte[] chunk = new byte[8192];
-            int read;
-            while ((read = in.read(chunk)) > 0) {
-                out.write(chunk, 0, read);
-            }
-            text = new String(out.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+        try {
+            // 0.9.0: then the full licence texts of the Rime engine and its libraries.
+            text = readAsset("licenses/CREDITS.txt") + "\n\n" + readAsset("licenses/Rime-NOTICES.txt");
         } catch (java.io.IOException e) {
             text = "Credits could not be read.";
         }
@@ -767,6 +769,18 @@ public class SettingsActivity extends Activity {
                 .setMessage(text)
                 .setPositiveButton("Close", null)
                 .show();
+    }
+
+    private String readAsset(String path) throws java.io.IOException {
+        try (java.io.InputStream in = getAssets().open(path)) {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            byte[] chunk = new byte[8192];
+            int read;
+            while ((read = in.read(chunk)) > 0) {
+                out.write(chunk, 0, read);
+            }
+            return new String(out.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+        }
     }
 
     private void showProfileDialog() {
@@ -817,6 +831,51 @@ public class SettingsActivity extends Activity {
                     // The language key's summary names this layout too.
                     setContentView(buildContent());
                 })
+                .show();
+    }
+
+    /** "Rime", or why Classic is serving instead (0.9.0). */
+    private String chineseEngineSummary() {
+        String engine = Prefs.chineseEngine(this);
+        if (Prefs.CHINESE_ENGINE_CLASSIC.equals(engine)) {
+            return "Classic";
+        }
+        RimeBreaker breaker = RimeAndroid.breaker(this);
+        if (breaker.tripped()) {
+            return "Rime is off after repeated problems; Classic is in use. Choose Rime to try it again.";
+        }
+        return "Rime (Classic stands in while it starts)";
+    }
+
+    private void showChineseEngineDialog() {
+        String[] values = {Prefs.CHINESE_ENGINE_RIME, Prefs.CHINESE_ENGINE_CLASSIC};
+        String[] labels = {"Rime: better predictions, learns from you", "Classic: the earlier engine"};
+        String selected = Prefs.chineseEngine(this);
+        int checked = Prefs.CHINESE_ENGINE_CLASSIC.equals(selected) ? 1 : 0;
+        new AlertDialog.Builder(this)
+                .setTitle("Chinese engine")
+                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+                    Prefs.setChineseEngine(this, values[which]);
+                    if (Prefs.CHINESE_ENGINE_RIME.equals(values[which])) {
+                        // Choosing Rime is how she turns it back on after the breaker tripped.
+                        RimeAndroid.engine(this).reenable();
+                    }
+                    dialog.dismiss();
+                    setContentView(buildContent());
+                })
+                .show();
+    }
+
+    private void confirmForgetTyping() {
+        new AlertDialog.Builder(this)
+                .setTitle("Forget my typing?")
+                .setMessage("The Chinese engine forgets the words and choices it learned from your typing. "
+                        + "The built-in dictionary stays.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Forget", (dialog, which) -> RimeAndroid.engine(this).forget(
+                        RimeAndroid.userDir(this),
+                        ok -> Toast.makeText(this, ok ? "Forgotten" : "Could not clear everything; try again",
+                                Toast.LENGTH_SHORT).show()))
                 .show();
     }
 

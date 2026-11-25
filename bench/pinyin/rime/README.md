@@ -8,10 +8,10 @@ Measurement only: nothing here ships in the app.
 
 | File | What it is |
 |---|---|
-| `build.sh` | Builds librime 1.17.0 with the octagram and predict plugins (every commit pinned), the driver, and two variants: `dict` (Wanxiang dictionary only) and `gram` (plus Wanxiang's grammar model). Linux or WSL. |
+| `build.sh` | Builds librime 1.17.0 with the octagram and predict plugins (every commit pinned), the driver, and three variants: `dict` (Wanxiang dictionary only), `app` (plus VoiceFlow's chat table: the data the Android keyboard ships, 0.9.0) and `gram` (plus Wanxiang's grammar model). Linux or WSL. |
 | `vf_rime_driver.cc` | Speaks the benchmark's line protocol (`../README.md`), plus `time` (per-key latency inside Rime), `mem`, and `--cold` (start-up timing). |
 | `run-driver.sh` | Starts the driver on one variant with a fresh, empty user directory. |
-| `schemas/` | Our own slim schemas, no Lua: `vf_t9` (nine-key), `vf_qwerty` (full keyboard), `vf_pinyin.dict.yaml` (imports the Wanxiang tables), `gram.custom.yaml` (turns the grammar model on). |
+| `schemas/` | Our own slim schemas, no Lua: `vf_t9` (nine-key), `vf_qwerty` (full keyboard), `vf_pinyin.dict.yaml` (imports the Wanxiang tables), `app/vf_pinyin.dict.yaml` (the same plus the chat table `vf_chat`), `gram.custom.yaml` (turns the grammar model on). The Android keyboard ships these schemas compiled (`scripts/rime-android/build.sh`). |
 
 Everything here is MIT, written for VoiceFlow. Wanxiang's `wanxiang_t9.schema.yaml`
 was read as a reference for how a nine-key speller is set up; nothing is copied

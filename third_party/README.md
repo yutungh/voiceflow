@@ -63,6 +63,40 @@ Shown in the app (Settings, "Open-source credits", from
 
 ---
 
+## librime and its dependencies — the Rime engine (0.9.0)
+
+Built from source into `libvfrime.so` by `scripts/rime-android/build.sh`;
+nothing is vendored here and nothing built is committed. Every revision is
+pinned (commit or SHA-256) in that script, and each build writes them to
+`.rime-dist/rime-build.txt`.
+
+| Component | Pinned at | Licence |
+|---|---|---|
+| librime 1.17.0 | `33e78140250125871856cdc5b42ddc6a5fcd3cd4` | BSD-3-Clause |
+| librime-octagram | `57d18b9f58e5284bd891d559f6bdd16cf60341e9` | BSD-3-Clause |
+| librime-predict | `920bd41ebf6f9bf6855d14fbe80212e54e749791` | BSD-3-Clause |
+| Boost 1.84.0 (headers) | tarball SHA-256 `a5800f40…3045724` | BSL-1.0 |
+| LevelDB 1.23 | `99b3c03b3284f5886f9ef9a4ef703d57373e61be` | BSD-3-Clause |
+| yaml-cpp 0.8.0 | `f7320141120f720aecc4c32be25586e7da9eb978` | MIT |
+| OpenCC 1.1.9 | `556ed22496d650bd0b13b6c163be9814637970ae` | Apache-2.0 |
+| marisa-trie 0.2.6, darts-clone 0.32, RapidJSON 1.1.0 (bundled in OpenCC) | as in OpenCC above | BSD-2-Clause (marisa's BSD option), BSD-2-Clause, MIT |
+| Android NDK r28c | zip SHA-256 `dfb20d39…5aa552f` | build tool only |
+
+All permissive; no GPL or LGPL code is linked (marisa-trie is dual BSD/LGPL
+and is used under BSD-2). The JNI bridge is VoiceFlow's own
+(`app/src/main/cpp`, MIT); no code from Trime (GPL-3) or fcitx5-android
+(LGPL) is used. The licence texts ship in the app
+(`app/src/main/assets/licenses/Rime-NOTICES.txt`, shown under Open-source
+credits).
+
+The Rime data is the Wanxiang `zi`, `jichu` and `duoyin` tables above,
+unchanged, compiled by `rime_deployer` into Rime's binary format, plus a
+first-party table (`scripts/build-rime-chat.mjs`) listing the 90 chat words of
+`scripts/chat-words.mjs` with their Wanxiang readings at 20 times their
+Wanxiang weight. Attribution and changes are on the credits screen.
+Wanxiang's grammar model (`.gram`) is not used.
+
+---
 ## rime-pinyin-simp — retired in 0.8.9
 
 The Apache-2.0 `rime/rime-pinyin-simp` dictionary (@`0c6861ef`, derived from

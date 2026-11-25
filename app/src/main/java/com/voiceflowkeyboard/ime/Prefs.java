@@ -67,6 +67,9 @@ final class Prefs {
     private static final String KEY_CANCEL_RECORDING_WHEN_HIDDEN = "cancel_recording_when_hidden";
     private static final String KEY_CHINESE_INPUT_ENABLED = "chinese_input_enabled";
     private static final String KEY_CHINESE_LAYOUT = "chinese_layout";
+    private static final String KEY_CHINESE_ENGINE = "chinese_engine";
+    static final String CHINESE_ENGINE_RIME = "rime";
+    static final String CHINESE_ENGINE_CLASSIC = "classic";
     private static final String KEY_SPLIT_LARGE_SCREENS = "split_large_screens";
     private static final String KEY_LANGUAGE_KEY = "language_key";
     private static final String KEY_ACTIVE_PRESET = "active_preset";
@@ -907,6 +910,27 @@ final class Prefs {
         return CHINESE_LAYOUT_KEYPAD.equals(layout) ? CHINESE_LAYOUT_KEYPAD : CHINESE_LAYOUT_QWERTY;
     }
 
+    /**
+     * Which engine turns pinyin into Chinese (0.9.0): Rime (librime with the
+     * Wanxiang dictionary, the default) or Classic (the pure-Java engine of
+     * 0.8.x). Classic always stays installed: it serves while Rime starts, and
+     * whenever Rime cannot answer.
+     */
+    static String chineseEngine(Context context) {
+        return sanitizeChineseEngine(shared(context).getString(KEY_CHINESE_ENGINE, CHINESE_ENGINE_RIME));
+    }
+
+    static void setChineseEngine(Context context, String engine) {
+        shared(context).edit().putString(KEY_CHINESE_ENGINE, sanitizeChineseEngine(engine)).apply();
+    }
+
+    static String sanitizeChineseEngine(String engine) {
+        return CHINESE_ENGINE_CLASSIC.equals(engine) ? CHINESE_ENGINE_CLASSIC : CHINESE_ENGINE_RIME;
+    }
+
+    static String chineseEngineLabel(String engine) {
+        return CHINESE_ENGINE_CLASSIC.equals(sanitizeChineseEngine(engine)) ? "Classic" : "Rime";
+    }
     static String chineseLayoutLabel(String layout) {
         return CHINESE_LAYOUT_KEYPAD.equals(sanitizeChineseLayout(layout))
                 ? "Nine-key (九宫格)" : "Full keyboard (全键)";
