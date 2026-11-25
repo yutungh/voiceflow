@@ -2,7 +2,7 @@
 	"name": "voiceflow-desktop",
 	"type": "module",
 	"private": true,
-	"version": "0.9.17",
+	"version": "0.9.18",
 	"description": "",
 	"keywords": [],
 	"license": "AGPL-3.0",

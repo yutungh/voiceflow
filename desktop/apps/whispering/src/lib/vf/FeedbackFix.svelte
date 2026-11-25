@@ -7,6 +7,31 @@
 	import type { FeedbackRecord } from '$lib/feedback/log';
 	import type { Observation } from '$lib/feedback/stage-diff';
 	import type { ReviewedFix, ScopeCheck, SpellingFix, WordFix } from '$lib/feedback/validate';
+	import {
+		ALL_SAVED,
+		COPIED,
+		COPY_LABEL,
+		EMPTY_NEXT_TIME,
+		EMPTY_NEXT_TIME_WHY,
+		NOW_LINK,
+		RESULT_HEADING,
+		SECTION_NEXT,
+		SECTION_NOW,
+		SELECT_HINT,
+		WHY_TITLE,
+		fixLabel,
+		newlySaved,
+		nextTimeLink,
+		nextTimeState,
+		pasteHelp,
+		pasteLabel,
+		saveLabel,
+		savedLine,
+		savedReceipt,
+		scopeText,
+		undoneMessage,
+		type Receipt,
+	} from '$lib/feedback/result-view';
 
 	/**
 	 * VoiceFlow phase F (B3.1): feedback on one dictation, then its fix.
@@ -15,11 +40,16 @@
 	 *   said, and, under Find fixes, the provider and model it goes to (the
 	 *   one chosen in Settings > Feedback), with everything sent folded below.
 	 *   "Save as draft" keeps it on this PC only.
-	 * - Result: the corrected text (editable) with Copy (the default) and
-	 *   Paste into <app>; what changed at each step; then each problem with
-	 *   the layer that failed and its own lasting fixes, unchecked, with
-	 *   their exact scope and what else they would change. Apply selected
-	 *   writes them; each has its own Undo.
+	 * - Result (0.9.18): two separate, numbered sections, both named in a
+	 *   summary at the top that jumps to each (`result-view.ts` holds the words).
+	 *   1. Fix this text: the corrected text (editable) with "Copy corrected
+	 *      text" and "Paste at cursor in <app>", and what Paste does.
+	 *   2. Save changes for next time: the lasting changes, unchecked, with
+	 *      their exact scope and what else they would change. "Save selected
+	 *      changes" writes them and says what was saved; each has its own Undo.
+	 *      With none, it says so plainly.
+	 *   Why it happened (the explanation, each problem, what changed at each
+	 *   step) is folded below both.
 	 */
 	let {
 		client,
@@ -29,6 +59,7 @@
 		heading = 'What should have been different?',
 		popover = false,
 		onClose,
+		onStep,
 	}: {
 		client: FeedbackClient;
 		recordingId: string;
@@ -38,6 +69,8 @@
 		/** Shown as History's popover (scrolls inside it). */
 		popover?: boolean;
 		onClose: () => void;
+		/** 0.9.18: tells the Feedback window which step shows (it shrinks its About card for the result). */
+		onStep?: (step: 'compose' | 'sending' | 'result') => void;
 	} = $props();
 
 	let setup = $state<FeedbackSetup | null>(null);
@@ -46,8 +79,16 @@
 	let showWanted = $state(untrack(() => !!initialRecord?.wanted));
 	let record = $state<FeedbackRecord | null>(untrack(() => initialRecord));
 	let step = $state<'compose' | 'sending' | 'result'>(untrack(() => (initialRecord?.result ? 'result' : 'compose')));
+	/** Compose step, and anything not about one section. */
 	let error = $state<string | null>(null);
 	let notice = $state<string | null>(null);
+	/** Section 1 (this text): Copy and Paste. */
+	let nowNotice = $state<string | null>(null);
+	let nowWarn = $state<string | null>(null);
+	/** Section 2 (next time): Save and Undo. */
+	let nextError = $state<string | null>(null);
+	let nextNotice = $state<string | null>(null);
+	let receipt = $state<Receipt | null>(null);
 	let corrected = $state(untrack(() => initialRecord?.result?.correctedText ?? ''));
 	let busy = $state(false);
 	let checked = $state<Record<string, boolean>>({});
@@ -64,6 +105,10 @@
 	});
 	$effect(() => {
 		if (step === 'compose') box?.focus();
+	});
+	$effect(() => {
+		const now = step;
+		untrack(() => onStep?.(now));
 	});
 	// VoiceFlow 0.9.17: back from Settings (a key added, another model chosen),
 	// the line under Find fixes shows the model as it is now.
@@ -95,6 +140,7 @@
 		(result?.fixes ?? []).filter((f) => checked[f.key] && !liveApplied.has(f.key) && usable(f)),
 	);
 	const observations = $derived(result?.observations ?? []);
+	const next = $derived(nextTimeState(result?.fixes ?? [], record?.applied));
 
 	function scopeOf(fix: SpellingFix | WordFix): 'app' | 'everywhere' {
 		return scopes[fix.key] ?? fix.defaultScope;
@@ -107,10 +153,26 @@
 		if (fix.kind === 'word') return !!fix.choices[scopeOf(fix)];
 		return true;
 	}
+	function labelOf(fix: ReviewedFix): string {
+		const applied = liveApplied.get(fix.key);
+		return fixLabel(fix, applied?.scope ?? (fix.kind === 'word' ? scopeOf(fix) : undefined));
+	}
 
-	function take(reply: { ok: boolean; message?: string; record?: FeedbackRecord; stale?: boolean }) {
-		if (reply.record) record = reply.record;
-		if (!reply.ok) error = reply.message ?? 'Something went wrong.';
+	function clearMessages() {
+		error = null;
+		notice = null;
+		nowNotice = null;
+		nowWarn = null;
+		nextError = null;
+		nextNotice = null;
+	}
+
+	/** Moves to a section from the summary at the top. */
+	function jump(id: string) {
+		const target = document.getElementById(id);
+		if (!target) return;
+		target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		target.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true });
 	}
 
 	function openWanted() {
@@ -122,8 +184,7 @@
 
 	async function send(e?: SubmitEvent) {
 		e?.preventDefault();
-		error = null;
-		notice = null;
+		clearMessages();
 		if (!feedback.trim()) {
 			error = 'Say or type what should have been different.';
 			return;
@@ -136,8 +197,9 @@
 			recordId: record?.id,
 			...(setup ? { expect: { provider: setup.provider, model: setup.model } } : {}),
 		});
-		take(reply);
+		if (reply.record) record = reply.record;
 		if (!reply.ok) {
+			error = reply.message;
 			// Settings may have changed: show who it would go to now.
 			await refreshSetup();
 		}
@@ -145,12 +207,13 @@
 			corrected = reply.record.result.correctedText;
 			checked = {};
 			scopes = {};
+			receipt = null;
 			step = 'result';
 		} else step = 'compose';
 	}
 
 	async function saveDraft() {
-		error = null;
+		clearMessages();
 		busy = true;
 		const reply = await client.saveDraft({
 			recordingId,
@@ -159,32 +222,39 @@
 			recordId: record?.id,
 		});
 		busy = false;
-		take(reply);
+		if (reply.record) record = reply.record;
 		if (reply.ok) notice = 'Saved on this PC as a draft. Nothing was sent.';
+		else error = reply.message;
 	}
 
 	async function copy() {
-		error = null;
+		nowNotice = null;
+		nowWarn = null;
 		if (!record) return;
 		const reply = await client.copy({ recordId: record.id, text: corrected });
-		take(reply);
-		if (reply.ok) notice = 'Copied to the clipboard.';
+		if (reply.record) record = reply.record;
+		if (reply.ok) nowNotice = COPIED;
+		else nowWarn = reply.message;
 	}
 
 	async function paste() {
-		error = null;
+		nowNotice = null;
+		nowWarn = null;
 		if (!record) return;
 		busy = true;
 		const reply = await client.paste({ recordId: record.id, text: corrected });
 		busy = false;
-		take(reply);
-		if (reply.ok) notice = reply.message;
+		if (reply.record) record = reply.record;
+		// Not pasted: usually copied instead, which the message says.
+		if (reply.ok) nowNotice = reply.message;
+		else nowWarn = reply.message;
 	}
 
 	async function apply() {
-		error = null;
-		notice = null;
+		nextError = null;
+		nextNotice = null;
 		if (!record || chosen.length === 0) return;
+		const before = record;
 		busy = true;
 		const reply = await client.apply({
 			recordId: record.id,
@@ -193,37 +263,36 @@
 			),
 		});
 		busy = false;
-		take(reply);
-		if (reply.ok) {
-			checked = {};
-			notice = 'Saved. Used from your next dictation; this one stays as it was.';
-		} else if ('stale' in reply && reply.stale) {
-			checked = {};
-		}
+		if (reply.record) record = reply.record;
+		// What this Save actually wrote, also when a later one failed.
+		const saved = newlySaved(before, reply.record ?? null);
+		receipt = savedReceipt(saved);
+		for (const s of saved) checked[s.fix.key] = false;
+		if (!reply.ok) {
+			nextError = reply.message;
+			if (reply.stale) checked = {};
+		} else checked = {};
 	}
 
 	async function undo(opId: string) {
-		error = null;
+		nextError = null;
+		nextNotice = null;
 		if (!record) return;
+		const entry = record.applied?.find((a) => a.opId === opId);
+		const fix = entry ? record.result?.fixes.find((f) => f.key === entry.key) : undefined;
 		busy = true;
 		const reply = await client.undo({ recordId: record.id, opId });
 		busy = false;
-		take(reply);
-		if (reply.ok) notice = reply.message ?? 'Undone.';
+		if (reply.record) record = reply.record;
+		if (!reply.ok) {
+			nextError = reply.message;
+			return;
+		}
+		receipt = null;
+		nextNotice =
+			reply.message ?? undoneMessage(fix ? { fix, ...(entry?.scope ? { scope: entry.scope } : {}) } : null);
 	}
 
-	const q = (s: string) => `“${s}”`;
-	function spellingLabel(fix: SpellingFix) {
-		return `Always write ${q(fix.to)} for ${fix.from.map(q).join(' or ')}`;
-	}
-	function wordLabel(fix: WordFix): string {
-		const choice = fix.choices[scopeOf(fix)] ?? Object.values(fix.choices)[0];
-		const added = choice?.added ?? [];
-		if (fix.step === 'heard_as') return `Note that ${added.map(q).join(' or ')} is how ${q(fix.word)} comes out`;
-		if (fix.step === 'add_word')
-			return `Add ${q(fix.word)} to your words${added.length ? ` (heard as ${added.map(q).join(' or ')})` : ''}`;
-		return `Give ${q(fix.word)} to the transcriber${fix.appName ? ` in ${fix.appName}` : ''}`;
-	}
 	function wordEffects(fix: WordFix): string[] {
 		const choice = fix.choices[scopeOf(fix)];
 		if (!choice) return [];
@@ -244,6 +313,7 @@
 			lines.push('Your listed entry stays underneath; Undo brings it back.');
 		return lines;
 	}
+	const q = (s: string) => `“${s}”`;
 	const STAGE_NAMES: Record<Observation['stage'], string> = {
 		'tidy-up': 'Tidy-up',
 		spelling: 'Spelling',
@@ -264,7 +334,7 @@
 </script>
 
 <section class="fbx" class:scroll={popover} aria-label="Feedback on this dictation">
-	<div class="pop-h"><Tile icon="chat-circle" /><b>{step === 'result' ? 'Here is the fix' : heading}</b></div>
+	<div class="pop-h"><Tile icon="chat-circle" /><b>{step === 'result' ? RESULT_HEADING : heading}</b></div>
 
 	{#if step !== 'result'}
 		<form onsubmit={send}>
@@ -329,168 +399,213 @@
 			{/if}
 		</form>
 	{:else if result}
-		{#if result.explanation}<p class="diag">{result.explanation}</p>{/if}
-
-		<label for="fbx-corrected">Corrected text</label>
-		<textarea id="fbx-corrected" class="inp area" rows="4" bind:value={corrected}></textarea>
-		{#if result.suggestedText !== undefined}
-			<span class="sub small">This is what you said it should have said.</span>
-		{/if}
-		<div class="acts">
-			<button class="btn pri" type="button" disabled={!corrected.trim()} onclick={copy}>
-				<Icon name="copy" class="i sm" />Copy
+		<!-- 0.9.18: both jobs named up front; each link jumps to its section. -->
+		<nav class="jobs" aria-label="The two parts of the result">
+			<button class="jl" type="button" onclick={() => jump('fbx-now')}>
+				<Icon name="cursor-text" class="i sm" />{NOW_LINK}
 			</button>
-			{#if setup?.subject?.canPaste}
-				<button class="btn sec" type="button" disabled={busy || !corrected.trim()} onclick={paste}>
-					Paste into {appName ?? 'the app'}
-				</button>
-			{/if}
-		</div>
+			<button class="jl {next.kind}" type="button" data-next={next.kind} onclick={() => jump('fbx-next')}>
+				<Icon name={next.kind === 'all-saved' ? 'check-circle' : 'arrows-clockwise'} class="i sm" />{nextTimeLink(next)}
+			</button>
+		</nav>
 
-		{#if observations.length > 0}
-			<details class="steps">
-				<summary>What changed at each step ({observations.length})</summary>
-				<ul>
+		<section class="job" id="fbx-now" aria-labelledby="fbx-now-h">
+			<h2 id="fbx-now-h" tabindex="-1">{SECTION_NOW.title}</h2>
+			<p class="scope-line">{SECTION_NOW.scope}</p>
+			<label for="fbx-corrected">Corrected text</label>
+			<textarea id="fbx-corrected" class="inp area" rows="4" bind:value={corrected}></textarea>
+			{#if result.suggestedText !== undefined}
+				<span class="sub small">This is what you said it should have said.</span>
+			{/if}
+			<div class="acts">
+				<button class="btn pri" type="button" disabled={!corrected.trim()} onclick={copy}>
+					<Icon name="copy" class="i sm" />{COPY_LABEL}
+				</button>
+				{#if setup?.subject?.canPaste}
+					<button
+						class="btn sec"
+						type="button"
+						aria-describedby="fbx-paste-help"
+						disabled={busy || !corrected.trim()}
+						onclick={paste}
+					>
+						{pasteLabel(appName)}
+					</button>
+				{/if}
+			</div>
+			{#if setup?.subject?.canPaste}
+				<p class="note small" id="fbx-paste-help"><Icon name="info" class="i sm" />{pasteHelp(appName)}</p>
+			{/if}
+			{#if nowWarn}<p class="note warnline" role="status"><Icon name="warning" class="i sm" />{nowWarn}</p>{/if}
+			{#if nowNotice}<p class="note okline" role="status"><Icon name="check-circle" weight="fill" class="i sm" />{nowNotice}</p>{/if}
+		</section>
+
+		<section class="job later" id="fbx-next" aria-labelledby="fbx-next-h">
+			<h2 id="fbx-next-h" tabindex="-1">
+				{SECTION_NEXT.title}{#if next.kind === 'pending'}<span class="cnt">{next.toSave}</span>{/if}
+			</h2>
+			<p class="scope-line">{SECTION_NEXT.scope}</p>
+			{#if next.kind === 'none'}
+				<div class="empty" data-empty="next-time">
+					<Icon name="info" class="i sm" />
+					<span><b>{EMPTY_NEXT_TIME}</b> <span class="sub">{EMPTY_NEXT_TIME_WHY}</span></span>
+				</div>
+			{:else}
+				{#if next.kind === 'pending'}<p class="sub small hint">{SELECT_HINT}</p>{/if}
+				<ul class="fixes">
+					{#each result.fixes as fix (fix.key)}
+						{@const applied = liveApplied.get(fix.key)}
+						<li class:done={!!applied}>
+							{#if applied}
+								<span class="tick"><Icon name="check-circle" weight="fill" class="i sm" /></span>
+							{:else}
+								<input
+									type="checkbox"
+									id="fix-{fix.key}"
+									bind:checked={checked[fix.key]}
+									disabled={!usable(fix) || busy}
+								/>
+							{/if}
+							<div class="fx">
+								<label for="fix-{fix.key}" class="fl">{labelOf(fix)}</label>
+								{#if fix.kind === 'spelling'}
+									<span class="scope">
+										{#if applied}
+											{scopeText(fix, applied.scope)}
+										{:else if fix.appId}
+											<select
+												class="inp sm"
+												aria-label="Where this spelling applies"
+												value={scopeOf(fix)}
+												onchange={(e) => (scopes[fix.key] = e.currentTarget.value as 'app' | 'everywhere')}
+											>
+												<option value="app">in {fix.appName ?? 'this app'} only</option>
+												<option value="everywhere">in every app</option>
+											</select>
+										{:else}
+											in every app (VoiceFlow doesn’t know this dictation’s app)
+										{/if}
+									</span>
+									{#if fix.requires?.length && !applied}
+										<span class="sub">It replaces a spelling that is on now: tick “Turn off” for that one too.</span>
+									{/if}
+									{@const check = checkOf(fix)}
+									{#if check && !check.ok}
+										<span class="sub warnline">{check.message}</span>
+									{:else if check && check.ok && !applied}
+										{#if check.alsoCount > 0}
+											<span class="sub">This would also change {check.alsoCount} recent dictation{check.alsoCount === 1 ? '' : 's'}:</span>
+											{#each check.alsoChanges as ex (ex.recordingId)}
+												<span class="ex"><s>{ex.before}</s> → {ex.after}</span>
+											{/each}
+										{:else}
+											<span class="sub">It doesn’t change any of your recent dictations.</span>
+										{/if}
+									{/if}
+								{:else if fix.kind === 'word'}
+									<span class="scope">
+										{#if !applied && fix.choices.app && fix.choices.everywhere}
+											<select
+												class="inp sm"
+												aria-label="Where this word applies"
+												value={scopeOf(fix)}
+												onchange={(e) => (scopes[fix.key] = e.currentTarget.value as 'app' | 'everywhere')}
+											>
+												<option value="app">in {fix.appName ?? 'this app'} only</option>
+												<option value="everywhere">in every app</option>
+											</select>
+										{:else}
+											{scopeText(fix, applied?.scope ?? scopeOf(fix))}
+										{/if}
+									</span>
+									{#if fix.adjusted}<span class="sub">{fix.adjusted}</span>{/if}
+									{#if !applied}
+										{#each wordEffects(fix) as line (line)}<span class="sub">{line}</span>{/each}
+									{/if}
+								{:else if fix.kind === 'unspell'}
+									<span class="sub">Saved spellings you made can be turned off; Undo turns it back on.</span>
+								{:else}
+									<span class="sub">From your next dictation in {fix.appName ?? fix.app}.{fix.replaces ? ` ${fix.replaces}` : ''}</span>
+								{/if}
+								<span class="sub why">{fix.reason}</span>
+								{#if applied}
+									<span class="row">
+										<span class="sub okline">{savedLine(fix)}</span>
+										<button class="btn text sm" type="button" disabled={busy} onclick={() => undo(applied.opId)}>Undo</button>
+									</span>
+								{:else if undone.has(fix.key)}
+									<span class="sub">Undone</span>
+								{/if}
+							</div>
+						</li>
+					{/each}
+				</ul>
+				{#if next.kind === 'pending'}
+					<div class="acts">
+						<button class="btn pri" type="button" disabled={busy || chosen.length === 0} onclick={apply}>
+							{saveLabel(chosen.length)}
+						</button>
+					</div>
+				{:else if !receipt}
+					<p class="note okline"><Icon name="check-circle" weight="fill" class="i sm" />{ALL_SAVED}</p>
+				{/if}
+			{/if}
+			{#each result.dropped as d, i (i)}
+				<p class="note small"><Icon name="info" class="i sm" />{d.reason}</p>
+			{/each}
+			{#if receipt}
+				<div class="receipt" role="status" data-receipt>
+					<p><Icon name="check-circle" weight="fill" class="i sm" /><b>{receipt.head}</b></p>
+					<ul>
+						{#each receipt.lines as line (line)}<li>{line}</li>{/each}
+					</ul>
+					<p class="sub">{receipt.tail}</p>
+				</div>
+			{/if}
+			{#if nextError}
+				<p class="err" role="alert"><Icon name="warning-circle" weight="fill" class="i sm" />{nextError}</p>
+			{/if}
+			{#if nextNotice}<p class="note okline" role="status"><Icon name="check-circle" weight="fill" class="i sm" />{nextNotice}</p>{/if}
+		</section>
+
+		<details class="ldet why-fold">
+			<summary>{WHY_TITLE}</summary>
+			{#if result.explanation}<p class="diag">{result.explanation}</p>{/if}
+			{#each issues as issue, n (n)}
+				{@const own = result.fixes.filter((f) => issueOf(f) === n)}
+				<div class="issue">
+					<p class="ih">
+						<span class="chip {issue.layer === 'uncertain' ? 'warn' : 'ok'}">{LAYER_LABELS[issue.layer]}</span>
+						{#if issues.length > 1 || issue.summary !== result.explanation}<span>{issue.summary}</span>{/if}
+					</p>
+					{#if own.length === 0}
+						<p class="note small"><Icon name="info" class="i sm" />{noFixNote(issue)}</p>
+					{/if}
+				</div>
+			{/each}
+			{#if observations.length > 0}
+				<span class="lab">What changed at each step ({observations.length})</span>
+				<ul class="steps">
 					{#each observations as o, i (i)}
 						<li><span class="stage">{STAGE_NAMES[o.stage]}</span> {observationText(o)}</li>
 					{/each}
 				</ul>
 				{#if result.observationsTruncated}<p class="sub small">Some changes aren’t listed (a long dictation).</p>{/if}
-			</details>
-		{/if}
-
-		{#each issues as issue, n (n)}
-			{@const own = result.fixes.filter((f) => issueOf(f) === n)}
-			{@const notes = result.dropped.filter((d) => d.issue !== undefined && d.issue === n)}
-			<div class="issue">
-				<p class="ih">
-					<span class="chip {issue.layer === 'uncertain' ? 'warn' : 'ok'}">{LAYER_LABELS[issue.layer]}</span>
-					{#if issues.length > 1 || issue.summary !== result.explanation}<span>{issue.summary}</span>{/if}
-				</p>
-				{#if own.length > 0}
-					<ul class="fixes">
-						{#each own as fix (fix.key)}
-							{@const applied = liveApplied.get(fix.key)}
-							<li class:done={!!applied}>
-								{#if applied}
-									<span class="tick"><Icon name="check-circle" weight="fill" class="i sm" /></span>
-								{:else}
-									<input
-										type="checkbox"
-										id="fix-{fix.key}"
-										bind:checked={checked[fix.key]}
-										disabled={!usable(fix) || busy}
-									/>
-								{/if}
-								<div class="fx">
-									{#if fix.kind === 'spelling'}
-										<label for="fix-{fix.key}" class="fl">{spellingLabel(fix)}</label>
-										<span class="scope">
-											{#if applied}
-												{applied.scope === 'app' ? `in ${fix.appName ?? 'this app'} only` : 'in every app'}
-											{:else if fix.appId}
-												<select
-													class="inp sm"
-													aria-label="Where this spelling applies"
-													value={scopeOf(fix)}
-													onchange={(e) => (scopes[fix.key] = e.currentTarget.value as 'app' | 'everywhere')}
-												>
-													<option value="app">in {fix.appName ?? 'this app'} only</option>
-													<option value="everywhere">in every app</option>
-												</select>
-											{:else}
-												in every app (VoiceFlow doesn’t know this dictation’s app)
-											{/if}
-										</span>
-										{#if fix.requires?.length && !applied}
-											<span class="sub">It replaces a spelling that is on now: tick “Turn off” for that one too.</span>
-										{/if}
-										{@const check = checkOf(fix)}
-										{#if check && !check.ok}
-											<span class="sub warnline">{check.message}</span>
-										{:else if check && check.ok && !applied}
-											{#if check.alsoCount > 0}
-												<span class="sub">This would also change {check.alsoCount} recent dictation{check.alsoCount === 1 ? '' : 's'}:</span>
-												{#each check.alsoChanges as ex (ex.recordingId)}
-													<span class="ex"><s>{ex.before}</s> → {ex.after}</span>
-												{/each}
-											{:else}
-												<span class="sub">It doesn’t change any of your recent dictations.</span>
-											{/if}
-										{/if}
-									{:else if fix.kind === 'word'}
-										<label for="fix-{fix.key}" class="fl">{wordLabel(fix)}</label>
-										<span class="scope">
-											{#if !applied && fix.choices.app && fix.choices.everywhere}
-												<select
-													class="inp sm"
-													aria-label="Where this word applies"
-													value={scopeOf(fix)}
-													onchange={(e) => (scopes[fix.key] = e.currentTarget.value as 'app' | 'everywhere')}
-												>
-													<option value="app">in {fix.appName ?? 'this app'} only</option>
-													<option value="everywhere">in every app</option>
-												</select>
-											{:else}
-												{(applied?.scope ?? scopeOf(fix)) === 'app' ? `in ${fix.appName ?? 'this app'}` : 'in every app'}
-											{/if}
-										</span>
-										{#if fix.adjusted}<span class="sub">{fix.adjusted}</span>{/if}
-										{#if !applied}
-											{#each wordEffects(fix) as line (line)}<span class="sub">{line}</span>{/each}
-										{/if}
-									{:else if fix.kind === 'unspell'}
-										<label for="fix-{fix.key}" class="fl">{fix.label}</label>
-										<span class="sub">Saved spellings you made can be turned off; Undo turns it back on.</span>
-									{:else}
-										<label for="fix-{fix.key}" class="fl">{fix.label}</label>
-										<span class="sub">From your next dictation in {fix.appName ?? fix.app}.{fix.replaces ? ` ${fix.replaces}` : ''}</span>
-									{/if}
-									<span class="sub why">{fix.reason}</span>
-									{#if applied}
-										<span class="row">
-											<span class="sub okline">{fix.kind === 'unspell' ? 'Turned off' : 'Saved to your own word list'}</span>
-											<button class="btn text sm" type="button" disabled={busy} onclick={() => undo(applied.opId)}>Undo</button>
-										</span>
-									{:else if undone.has(fix.key)}
-										<span class="sub">Undone</span>
-									{/if}
-								</div>
-							</li>
-						{/each}
-					</ul>
-				{:else}
-					<p class="note"><Icon name="info" class="i sm" />{noFixNote(issue)}</p>
-				{/if}
-				{#each notes as d, i (i)}
-					<p class="note small"><Icon name="info" class="i sm" />{d.reason}</p>
-				{/each}
-			</div>
-		{/each}
-
-		{#if result.fixes.length > 0}
-			<div class="acts">
-				<button class="btn sec" type="button" disabled={busy || chosen.length === 0} onclick={apply}>
-					Apply selected{chosen.length ? ` (${chosen.length})` : ''}
-				</button>
-			</div>
-		{/if}
-		{#each result.dropped.filter((d) => d.issue === undefined) as d, i (i)}
-			<p class="note small"><Icon name="info" class="i sm" />{d.reason}</p>
-		{/each}
+			{/if}
+		</details>
 
 		{#if error}
 			<p class="err" role="alert"><Icon name="warning-circle" weight="fill" class="i sm" />{error}</p>
 		{/if}
-		{#if notice}<p class="note okline" role="status"><Icon name="check-circle" weight="fill" class="i sm" />{notice}</p>{/if}
 		<div class="acts">
-			<button class="btn text" type="button" onclick={() => ((step = 'compose'), (error = null), (notice = null))}>
+			<button class="btn text" type="button" onclick={() => ((step = 'compose'), clearMessages(), (receipt = null))}>
 				Change feedback
 			</button>
 			<button class="btn text" type="button" onclick={onClose}>Close</button>
 		</div>
 	{/if}
 </section>
+
 <style>
 	.fbx {
 		display: flex;
@@ -512,25 +627,157 @@
 		color: var(--subtle-foreground);
 		margin-top: 6px;
 	}
-	.diag {
+	/* 0.9.18: the summary of both jobs, at the top of the result. */
+	.jobs {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-bottom: 6px;
+	}
+	.jl {
+		all: unset;
+		box-sizing: border-box;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 5px 12px;
+		border-radius: 999px;
+		font-size: 13px;
+		font-weight: 500;
+		cursor: pointer;
+		color: var(--muted-foreground);
+		box-shadow: inset 0 0 0 1px var(--input);
+		background: var(--card);
+	}
+	.jl:hover {
+		background: var(--muted);
+	}
+	.jl:focus-visible {
+		outline: 2px solid var(--ring);
+		outline-offset: 2px;
+	}
+	.jl.pending {
+		background: var(--primary-tint);
+		color: var(--primary-ink);
+		box-shadow: inset 0 0 0 1px var(--primary-tint-border);
+		font-weight: 600;
+	}
+	.jl.all-saved {
+		color: var(--success);
+	}
+	/* Each job is its own section, numbered in its title. */
+	.job {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		padding: 14px 16px;
+		border-radius: 14px;
+		background: var(--card);
+		box-shadow: var(--shadow-card);
+		scroll-margin-top: 8px;
+	}
+	.fbx.scroll .job {
+		box-shadow: inset 0 0 0 1px var(--border);
+	}
+	.job + .job {
+		margin-top: 10px;
+	}
+	.job.later {
+		box-shadow:
+			inset 3px 0 0 var(--primary-tint-border),
+			var(--shadow-card);
+	}
+	.fbx.scroll .job.later {
+		box-shadow:
+			inset 3px 0 0 var(--primary-tint-border),
+			inset 0 0 0 1px var(--border);
+	}
+	.job h2 {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin: 0;
+		font-size: 15px;
+		font-weight: 600;
+		letter-spacing: -0.005em;
+		outline: none;
+	}
+	.job h2 .cnt {
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--primary-ink);
+		background: var(--primary-tint);
+		border-radius: 999px;
+		padding: 1px 8px;
+		font-variant-numeric: tabular-nums;
+	}
+	.scope-line {
+		margin: 0;
+		font-size: 13px;
+		color: var(--muted-foreground);
+	}
+	.job .acts {
+		margin-top: 8px;
+	}
+	.hint {
+		margin: 6px 0 0;
+	}
+	.empty {
 		display: flex;
 		gap: 8px;
-		align-items: baseline;
-		flex-wrap: wrap;
+		align-items: flex-start;
+		margin-top: 8px;
+		padding: 10px 12px;
+		border-radius: 10px;
+		background: var(--muted);
+		font-size: 13px;
+	}
+	.empty :global(.i) {
+		margin-top: 2px;
+		color: var(--subtle-foreground);
+	}
+	.receipt {
+		margin-top: 10px;
+		padding: 10px 12px;
+		border-radius: 10px;
+		background: var(--tile-ok);
+		font-size: 13px;
+	}
+	.receipt p {
 		margin: 0;
+		display: flex;
+		gap: 6px;
+		align-items: center;
+	}
+	.receipt p:first-child {
+		color: var(--success);
+	}
+	.receipt ul {
+		margin: 4px 0;
+		padding-left: 24px;
+		overflow-wrap: anywhere;
+	}
+	.receipt .sub {
+		display: block;
+	}
+	.diag {
+		margin: 0 0 6px;
+		font-size: 13.5px;
+		color: var(--foreground);
 	}
 	.fixes {
 		list-style: none;
-		margin: 4px 0 0;
+		margin: 8px 0 0;
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
+		gap: 8px;
 	}
 	.fixes li {
 		display: flex;
 		gap: 10px;
 		align-items: flex-start;
+		width: 100%;
 		padding: 10px 12px;
 		border-radius: 10px;
 		background: var(--muted);
@@ -539,21 +786,34 @@
 		margin-top: 3px;
 		width: 16px;
 		height: 16px;
+		flex: none;
+	}
+	.tick {
+		color: var(--success);
+		flex: none;
 	}
 	.fx {
 		display: flex;
 		flex-direction: column;
+		align-items: flex-start;
 		gap: 3px;
 		min-width: 0;
+		flex: 1;
 	}
 	.fl {
 		margin: 0;
 		font-size: 14px;
 		font-weight: 600;
 		color: var(--foreground);
+		overflow-wrap: anywhere;
+	}
+	.scope {
+		font-size: 13px;
+		color: var(--muted-foreground);
 	}
 	.scope :global(select) {
 		height: 28px;
+		width: auto;
 		padding: 0 8px;
 		font-size: 13px;
 	}
@@ -582,8 +842,8 @@
 	.issue {
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
-		margin-top: 12px;
+		gap: 4px;
+		margin-top: 8px;
 	}
 	.ih {
 		display: flex;
@@ -592,18 +852,11 @@
 		flex-wrap: wrap;
 		margin: 0;
 	}
+	.ldet.why-fold {
+		margin-top: 14px;
+	}
 	.steps {
-		margin-top: 10px;
-		font-size: 13px;
-	}
-	.steps summary {
-		cursor: pointer;
-		color: var(--subtle-foreground);
-		font-weight: 600;
-		font-size: 12px;
-	}
-	.steps ul {
-		margin: 6px 0 0;
+		margin: 4px 0 0;
 		padding-left: 18px;
 		display: flex;
 		flex-direction: column;
