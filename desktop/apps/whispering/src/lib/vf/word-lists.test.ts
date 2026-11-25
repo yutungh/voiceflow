@@ -51,6 +51,33 @@ describe('syncSummary', () => {
 		expect(s.tone).toBe('warn');
 		expect(s.detail).toContain('Dictation works as usual');
 	});
+	test('a refused GitHub token reads differently from a network problem', () => {
+		const s = syncSummary(
+			state({
+				report: report({
+					sourceReachable: false,
+					syncedAt: undefined,
+					sourceIssue: 'auth',
+					errors: ['GitHub didn’t accept the token (it may have expired or been revoked).'],
+				}),
+			}),
+		);
+		expect(s.tone).toBe('warn');
+		expect(s.title).toBe('GitHub didn’t accept the token');
+		expect(s.detail).toContain('expired');
+		expect(s.detail).toContain('Dictation works as usual');
+		const offline = syncSummary(
+			state({ report: report({ sourceReachable: false, syncedAt: undefined, sourceIssue: 'offline', errors: ['Can’t reach GitHub'] }) }),
+		);
+		expect(offline.title).toBe('Can’t reach your word lists');
+	});
+	test('a notice (uploads refused) is calm, not a warning', () => {
+		const s = syncSummary(
+			state({ report: report({ pendingEdits: 1, notices: ['GitHub refused uploads; your edits stay on this computer.'] }) }),
+		);
+		expect(s.tone).toBe('ok');
+		expect(s.detail).toContain('GitHub refused uploads');
+	});
 	test('a rejected file is named', () => {
 		const s = syncSummary(state({ report: report({ errors: ['profiles/sam/profile.json was not used: x'] }) }));
 		expect(s.tone).toBe('warn');

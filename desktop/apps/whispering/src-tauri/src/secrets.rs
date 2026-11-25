@@ -54,6 +54,36 @@ fn entry(app: &AppHandle, provider: &str) -> Result<Entry, String> {
     Entry::new(&service, &format!("api-key-{provider}")).map_err(|e| e.to_string())
 }
 
+/// 0.9.19: the GitHub token for word lists in a repository. Its own entry
+/// (`github-token`), outside `PROVIDERS`: the webview can store or clear it
+/// through the profile commands but never read it back. Blocking: call it
+/// on a worker thread.
+fn github_entry(app: &AppHandle) -> Result<Entry, String> {
+    STORE.clone()?;
+    let service = app.config().identifier.clone();
+    Entry::new(&service, "github-token").map_err(|e| e.to_string())
+}
+
+pub fn github_token(app: &AppHandle) -> Result<Option<String>, String> {
+    match github_entry(app)?.get_password() {
+        Ok(value) if !value.is_empty() => Ok(Some(value)),
+        Ok(_) | Err(Error::NoEntry) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Stores the token; an empty value deletes it.
+pub fn set_github_token(app: &AppHandle, token: &str) -> Result<(), String> {
+    let entry = github_entry(app)?;
+    if token.is_empty() {
+        return match entry.delete_credential() {
+            Ok(()) | Err(Error::NoEntry) => Ok(()),
+            Err(e) => Err(e.to_string()),
+        };
+    }
+    entry.set_password(token).map_err(|e| e.to_string())
+}
+
 async fn blocking<T: Send + 'static>(
     f: impl FnOnce() -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {

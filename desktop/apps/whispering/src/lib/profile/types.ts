@@ -104,6 +104,26 @@ export type ProfileConfig = {
 	user: string;
 	assistant: string;
 	device: string;
+	/** 0.9.19: `folder` (also when empty) or `github`. */
+	kind?: '' | 'folder' | 'github';
+	/** GitHub: `owner/name`. */
+	repo?: string;
+	branch?: string;
+	/** GitHub: this computer only reads (uploads off). */
+	readOnly?: boolean;
+};
+
+/** Settings > Word lists > Test connection (a GitHub repository). */
+export type GithubTestReport = {
+	ok: boolean;
+	message: string;
+	private?: boolean;
+	defaultBranch?: string;
+	branch: string;
+	users: string[];
+	userFound: boolean;
+	layers: { layer: ProfileLayer; state: 'ok' | 'missing' | 'invalid'; error?: string }[];
+	warnings: string[];
 };
 
 export type LayerInfo = {
@@ -124,6 +144,10 @@ export type SyncReport = {
 	pendingEdits: number;
 	uploadedNow: number;
 	errors: string[];
+	/** 0.9.19: why the word lists couldn't be reached. */
+	sourceIssue?: 'offline' | 'auth' | 'not-found' | 'rate-limited' | 'empty' | 'truncated';
+	/** 0.9.19: calm notes that need no fixing (uploads refused or off). */
+	notices?: string[];
 };
 
 export type ProfileState = {
@@ -135,4 +159,6 @@ export type ProfileState = {
 		lastSyncAt?: string;
 		report?: SyncReport;
 	};
+	/** 0.9.19: a GitHub token is stored on this computer (never sent here). */
+	githubToken?: boolean;
 };

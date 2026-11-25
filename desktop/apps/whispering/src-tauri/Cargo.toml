@@ -57,7 +57,9 @@ tauri-plugin-log = "2"
 keyring-core = "1"
 # VoiceFlow (speed): one pooled HTTPS client for the OpenAI API. Same
 # version and features tauri-plugin-http already builds, so no new crates.
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "http2"] }
+# 0.9.19: `blocking` for the GitHub word-list source, which runs on the
+# profile worker thread (profile/github.rs).
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "http2", "blocking"] }
 # VoiceFlow C1: app icons are returned to the page as data URLs.
 base64 = "0.22"
 
