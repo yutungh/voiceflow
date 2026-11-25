@@ -1193,6 +1193,31 @@ mod tests {
         assert_eq!(s.privacy.block_apps, vec!["vault-demo.exe".to_string()]);
     }
 
+    /// `pack/template` (what a new GitHub repository starts from) reads with
+    /// no problem for its user, and for a user with no folder yet.
+    #[test]
+    fn pack_template_reads_cleanly() {
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../pack/template");
+        for user in ["sam", "newcomer"] {
+            let app_data = tempfile::tempdir().unwrap();
+            let config = Config {
+                enabled: true,
+                source: source.to_string_lossy().to_string(),
+                user: user.into(),
+                device: "tmpl1".into(),
+                ..Config::default()
+            };
+            let out = refresh(&Paths::new(app_data.path(), &config), true, "2026-11-25T09:00:00Z");
+            assert!(out.report.errors.is_empty(), "{user}: {:?}", out.report.errors);
+            assert!(out.snapshot.issues.is_empty(), "{user}: {:?}", out.snapshot.issues);
+            assert_eq!(out.report.layers[0].state, "ok");
+            if user == "sam" {
+                assert_eq!(out.snapshot.terms.len(), 5);
+                assert_eq!(out.snapshot.corrections.len(), 3);
+            }
+        }
+    }
+
     /// A real word-list folder (for example a network share), read only: no edit
     /// is uploaded and no status is written. `VOICEFLOW_PROFILE_DUMP=<file>`
     /// also saves the merged snapshot there. Run with
