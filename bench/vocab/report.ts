@@ -2,14 +2,14 @@
  * Scores the stored answers and writes the results.
  *
  *   bun report.ts --sets tts-coral,tts-ash --label pilot-synthetic
- *   bun report.ts --sets real --label real
+ *   bun report.ts --sets real --label real --compare pilot-synthetic
  *
  * Writes results/<label>/results.json (every answer, scored), summary.md (the
  * tables) and chart.json (medians with min and max, ready for a chart).
  * Each number is per run; the summary shows the median of the runs and the
  * lowest and highest run.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { ARMS, type ArmId } from './lib/arms';
 import { constructedTranscript, LIST_SIZES, SENTENCES, WORDS, type Sentence } from './lib/data';
@@ -23,6 +23,14 @@ const argOf = (name: string, fallback?: string) => {
 };
 const sets = argOf('sets', '')!.split(',').filter(Boolean);
 const label = argOf('label', sets.join('+'))!;
+/**
+ * Synthetic voices: every answer is kept in results.json. A person's own
+ * recordings: only counts and the words involved, never what was transcribed.
+ */
+const synthetic = sets.every((s) => s.startsWith('tts-'));
+const compareWith = argOf('compare');
+/** A hand-written findings file (results/<label>/notes.md) is put after the tables. */
+const notesFile = path.join(BENCH_DIR, 'results', label, 'notes.md');
 const runs = Number(argOf('runs', '3'));
 if (!sets.length) throw new Error('--sets a,b');
 
@@ -113,7 +121,14 @@ function transitions(rows: (Row & { input: string | null })[]) {
 					t.soundAlikesBroken++;
 					if (sen.pair && neverSaid(sen, r.output)[sen.pair]) t.intoListedName++;
 				} else t.targetsBroken++;
-				if (examples.length < 8) examples.push(`${r.set}/${r.id}: "${r.input}" -> "${r.output}"`);
+				if (examples.length < 8) {
+					const into = sen.type === 'protected' && sen.pair && neverSaid(sen, r.output)[sen.pair] ? sen.pair : null;
+					examples.push(
+						synthetic
+							? `${r.set}/${r.id}: "${r.input}" -> "${r.output}"`
+							: `${r.id}: "${sen.word}" -> ${into ? `the listed name "${into}"` : 'lost'}`,
+					);
+				}
 			}
 		} else {
 			t.wrongIn++;
@@ -150,7 +165,7 @@ for (const n of LIST_SIZES) {
 		speechRows[n]!.push(rows);
 	}
 	const per = speechRows[n]!.map(measure);
-	speech[`list${n}`] = { perRun: per, answers: speechRows[n] };
+	speech[`list${n}`] = synthetic ? { perRun: per, answers: speechRows[n] } : { perRun: per };
 }
 all.speech = speech;
 
@@ -207,12 +222,12 @@ for (const arm of armOrder) {
 		const t = transitions(rows);
 		ms.push(m);
 		ts.push(t);
-		perRun.push({ ...m, ...t, answers: rows });
+		perRun.push({ ...m, ...t, rows: rows.length, ...(synthetic ? { answers: rows } : {}) });
 	}
 	if (!ms.length) continue;
 	correction[arm] = perRun;
-	const baseRows = (correction['none'] as { answers: unknown[] }[] | undefined)?.[0]?.answers.length;
-	const myRows = (perRun[0] as { answers: unknown[] }).answers.length;
+	const baseRows = (correction['none'] as { rows: number }[] | undefined)?.[0]?.rows;
+	const myRows = (perRun[0] as { rows: number }).rows;
 	const partial = arm !== 'none' && (ms.length !== runs || (baseRows !== undefined && myRows !== baseRows));
 	const label = (arm === 'none' ? 'No tidy-up (the transcript)' : ARMS[arm].label) + (partial ? ` (probe only: ${myRows} sentences × ${ms.length} run${ms.length > 1 ? 's' : ''})` : '');
 	const tr = stat(ms.map((m) => m.targetsRight)), pr = stat(ms.map((m) => m.protectedRight)), ns = stat(ms.map((m) => m.neverSaid)), w = stat(ms.map((m) => m.wer));
@@ -226,7 +241,7 @@ for (const arm of armOrder) {
 }
 all.correction = correction;
 if (corrMd.length) {
-	const per = (correction['none'] as { answers: unknown[] }[] | undefined)?.[0]?.answers.length ?? 0;
+	const per = (correction['none'] as { rows: number }[] | undefined)?.[0]?.rows ?? 0;
 	md.push(`## Correction step: the same transcript, tidied with the 80-word list`, '', `Input: the 20-word speech answer (run 1) for each sentence, frozen before any result was seen. ${nSent(per)}.`);
 	md.push('"Sound-alike → listed name" counts unlisted words that were right in the transcript and came out as the listed name they sound like (the Beeper case), out of the sound-alikes the transcript had right; "sound-alikes broken" counts every way they went wrong. "Targets broken" is the same for listed words. "Fixes" counts words that were wrong in the transcript and right after. For the direct-audio arm, which never sees the transcript, the same columns compare its answer with the transcript. An answer wrapped in JSON is scored on the text inside it; an empty answer (or a bare control token) scores as wrong; failed API calls are not scored. All three are counted in the last column.', '');
 	md.push('| Arm | Targets right | Sound-alikes kept right | Sound-alike → listed name | Sound-alikes broken | Targets broken | Fixes | Never-said listed words | Word error rate | Wrapped / empty / failed answers (all runs) |');
@@ -290,15 +305,51 @@ if (smoke.length) {
 	md.push(`## Opus smoke test (unscored)`, '', `${smoke.length} calls; stop reasons: ${[...new Set(smoke.map((x) => (x as { stop: string }).stop))].join(', ')}.`, '');
 }
 
+// ---- side by side with another result (the pilot) ----------------------------
+
+if (compareWith) {
+	type S = { median: number; min: number; max: number };
+	const other = JSON.parse(readFileSync(path.join(BENCH_DIR, 'results', compareWith, 'chart.json'), 'utf8'));
+	const f = (x: S | undefined, of?: number) => (x ? `${fmt(x as Stat)}${of !== undefined ? ` of ${of}` : ''}` : '–');
+	const fp = (x: S | undefined) => (x ? pct(x as Stat) : '–');
+	md.push(`## Next to the ${compareWith} results`, '', `This run: ${banner0()}. ${compareWith}: ${other.audio ?? ''}. Same script, lists, prompts and scoring; the pilot had two voices for the speech step and one for the tidy-up.`, '');
+	if (chart.speech && other.speech) {
+		md.push('| Words listed | Targets right (this) | Targets right (pilot) | Never-said listed words (this) | (pilot) | Word error rate (this) | (pilot) |', '|---:|---|---|---|---|---|---|');
+		for (const r of chart.speech as { words: number; targetsRight: S; targetsOf: number; neverSaid: S; wer: S }[]) {
+			const o = (other.speech as typeof r[]).find((x) => x.words === r.words);
+			md.push(`| ${r.words} | ${f(r.targetsRight, r.targetsOf)} | ${f(o?.targetsRight, o?.targetsOf)} | ${f(r.neverSaid)} | ${f(o?.neverSaid)} | ${fp(r.wer)} | ${fp(o?.wer)} |`);
+		}
+		md.push('');
+	}
+	if (chart.correction && other.correction) {
+		// The pilot's closest arm when this run used a variant of it.
+		const closest: Record<string, string> = { 'audio15-fix-spoken': 'audio15-fix', 'audio15-direct-spoken': 'audio15-direct' };
+		type C = { arm: string; label: string; targetsRight: S; targetsOf: number; soundAlikesIntoListedName: S; soundAlikesRightInTranscript: number; fixes: S; wrongInTranscript: number };
+		md.push('| Arm | Sound-alike → listed name (this) | (pilot) | Targets right (this) | (pilot) | Fixes (this) | (pilot) |', '|---|---|---|---|---|---|---|');
+		for (const r of chart.correction as C[]) {
+			// The pilot's full run of the closest arm before a short probe of the same one.
+			const pilotArm = (other.correction as C[]).find((x) => x.arm === closest[r.arm]) ?? (other.correction as C[]).find((x) => x.arm === r.arm);
+			const note = pilotArm && pilotArm.arm !== r.arm ? ' ¹' : '';
+			const none = r.arm === 'none';
+			md.push(`| ${r.label} | ${none ? '–' : f(r.soundAlikesIntoListedName, r.soundAlikesRightInTranscript)} | ${none || !pilotArm ? '–' : f(pilotArm.soundAlikesIntoListedName, pilotArm.soundAlikesRightInTranscript) + note} | ${f(r.targetsRight, r.targetsOf)} | ${pilotArm ? f(pilotArm.targetsRight, pilotArm.targetsOf) + note : '–'} | ${none ? '–' : f(r.fixes, r.wrongInTranscript)} | ${none || !pilotArm ? '–' : f(pilotArm.fixes, pilotArm.wrongInTranscript) + note} |`);
+		}
+		md.push('', '¹ The pilot ran this arm answering in text, not by voice.', '');
+	}
+}
+
+function banner0(): string {
+	return sets.every((s) => s.startsWith('tts-')) ? 'synthetic voices' : 'human recordings';
+}
+
 const out = path.join(BENCH_DIR, 'results', label);
 mkdirSync(out, { recursive: true });
-const synthetic = sets.every((s) => s.startsWith('tts-'));
 const banner = synthetic
 	? `**Synthetic voices** (OpenAI text-to-speech: ${sets.map((s) => s.slice(4)).join(', ')}), not human speech. A check of the harness and a first look only.`
-	: `Recordings: ${sets.join(', ')}.`;
+	: `**Human recordings**: one speaker reading the script through VoiceFlow (set ${sets.join(', ')}). Results hold counts only, no transcripts.`;
 all.audio = chart.audio = synthetic ? 'synthetic voices (OpenAI gpt-4o-mini-tts)' : 'human recordings';
 chart.note = 'Each value: median of the runs, with the lowest (min) and highest (max) run and every run.';
 writeFileSync(path.join(out, 'results.json'), `${JSON.stringify(all, null, 1)}\n`);
 writeFileSync(path.join(out, 'chart.json'), `${JSON.stringify(chart, null, 1)}\n`);
-writeFileSync(path.join(out, 'summary.md'), `# Results: ${label}\n\n${banner}\n\n${md.join('\n')}\n`);
+const notes = existsSync(notesFile) ? `\n${readFileSync(notesFile, 'utf8').trim()}\n` : '';
+writeFileSync(path.join(out, 'summary.md'), `# Results: ${label}\n\n${banner}\n${notes}\n${md.join('\n')}\n`);
 console.log(md.join('\n'));

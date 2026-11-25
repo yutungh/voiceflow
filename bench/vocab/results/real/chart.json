@@ -1,0 +1,957 @@
+{
+ "speech": [
+  {
+   "words": 0,
+   "targetsRight": {
+    "median": 9,
+    "min": 9,
+    "max": 9,
+    "runs": [
+     9,
+     9,
+     9
+    ]
+   },
+   "targetsOf": 20,
+   "protectedRight": {
+    "median": 8,
+    "min": 8,
+    "max": 9,
+    "runs": [
+     9,
+     8,
+     8
+    ]
+   },
+   "protectedOf": 10,
+   "neverSaid": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "wer": {
+    "median": 0.05588235294117647,
+    "min": 0.052941176470588235,
+    "max": 0.05588235294117647,
+    "runs": [
+     0.052941176470588235,
+     0.05588235294117647,
+     0.05588235294117647
+    ]
+   }
+  },
+  {
+   "words": 20,
+   "targetsRight": {
+    "median": 20,
+    "min": 20,
+    "max": 20,
+    "runs": [
+     20,
+     20,
+     20
+    ]
+   },
+   "targetsOf": 20,
+   "protectedRight": {
+    "median": 10,
+    "min": 10,
+    "max": 10,
+    "runs": [
+     10,
+     10,
+     10
+    ]
+   },
+   "protectedOf": 10,
+   "neverSaid": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "wer": {
+    "median": 0.014705882352941176,
+    "min": 0.014705882352941176,
+    "max": 0.014705882352941176,
+    "runs": [
+     0.014705882352941176,
+     0.014705882352941176,
+     0.014705882352941176
+    ]
+   }
+  },
+  {
+   "words": 40,
+   "targetsRight": {
+    "median": 20,
+    "min": 20,
+    "max": 20,
+    "runs": [
+     20,
+     20,
+     20
+    ]
+   },
+   "targetsOf": 20,
+   "protectedRight": {
+    "median": 9,
+    "min": 9,
+    "max": 10,
+    "runs": [
+     9,
+     10,
+     9
+    ]
+   },
+   "protectedOf": 10,
+   "neverSaid": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "wer": {
+    "median": 0.014705882352941176,
+    "min": 0.011764705882352941,
+    "max": 0.01764705882352941,
+    "runs": [
+     0.01764705882352941,
+     0.011764705882352941,
+     0.014705882352941176
+    ]
+   }
+  },
+  {
+   "words": 50,
+   "targetsRight": {
+    "median": 20,
+    "min": 20,
+    "max": 20,
+    "runs": [
+     20,
+     20,
+     20
+    ]
+   },
+   "targetsOf": 20,
+   "protectedRight": {
+    "median": 10,
+    "min": 9,
+    "max": 10,
+    "runs": [
+     10,
+     10,
+     9
+    ]
+   },
+   "protectedOf": 10,
+   "neverSaid": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "wer": {
+    "median": 0.011764705882352941,
+    "min": 0.011764705882352941,
+    "max": 0.014705882352941176,
+    "runs": [
+     0.011764705882352941,
+     0.011764705882352941,
+     0.014705882352941176
+    ]
+   }
+  },
+  {
+   "words": 80,
+   "targetsRight": {
+    "median": 18,
+    "min": 17,
+    "max": 18,
+    "runs": [
+     18,
+     18,
+     17
+    ]
+   },
+   "targetsOf": 20,
+   "protectedRight": {
+    "median": 10,
+    "min": 9,
+    "max": 10,
+    "runs": [
+     9,
+     10,
+     10
+    ]
+   },
+   "protectedOf": 10,
+   "neverSaid": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "wer": {
+    "median": 0.023529411764705882,
+    "min": 0.020588235294117647,
+    "max": 0.023529411764705882,
+    "runs": [
+     0.023529411764705882,
+     0.020588235294117647,
+     0.023529411764705882
+    ]
+   }
+  }
+ ],
+ "correction": [
+  {
+   "arm": "none",
+   "label": "No tidy-up (the transcript)",
+   "targetsRight": {
+    "median": 20,
+    "min": 20,
+    "max": 20,
+    "runs": [
+     20,
+     20,
+     20
+    ]
+   },
+   "targetsOf": 20,
+   "soundAlikesRight": {
+    "median": 10,
+    "min": 10,
+    "max": 10,
+    "runs": [
+     10,
+     10,
+     10
+    ]
+   },
+   "soundAlikesOf": 10,
+   "soundAlikesIntoListedName": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "soundAlikesBroken": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "soundAlikesRightInTranscript": 10,
+   "targetsBroken": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "targetsRightInTranscript": 20,
+   "fixes": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "wrongInTranscript": 0,
+   "neverSaid": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "wer": {
+    "median": 0.014705882352941176,
+    "min": 0.014705882352941176,
+    "max": 0.014705882352941176,
+    "runs": [
+     0.014705882352941176,
+     0.014705882352941176,
+     0.014705882352941176
+    ]
+   },
+   "wrapped": 0,
+   "empty": 0,
+   "failed": 0
+  },
+  {
+   "arm": "text-mini",
+   "label": "Text tidy-up, gpt-5.4-mini (VoiceFlow default)",
+   "targetsRight": {
+    "median": 20,
+    "min": 20,
+    "max": 20,
+    "runs": [
+     20,
+     20,
+     20
+    ]
+   },
+   "targetsOf": 20,
+   "soundAlikesRight": {
+    "median": 7,
+    "min": 7,
+    "max": 7,
+    "runs": [
+     7,
+     7,
+     7
+    ]
+   },
+   "soundAlikesOf": 10,
+   "soundAlikesIntoListedName": {
+    "median": 3,
+    "min": 3,
+    "max": 3,
+    "runs": [
+     3,
+     3,
+     3
+    ]
+   },
+   "soundAlikesBroken": {
+    "median": 3,
+    "min": 3,
+    "max": 3,
+    "runs": [
+     3,
+     3,
+     3
+    ]
+   },
+   "soundAlikesRightInTranscript": 10,
+   "targetsBroken": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "targetsRightInTranscript": 20,
+   "fixes": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "wrongInTranscript": 0,
+   "neverSaid": {
+    "median": 3,
+    "min": 3,
+    "max": 3,
+    "runs": [
+     3,
+     3,
+     3
+    ]
+   },
+   "wer": {
+    "median": 0.03235294117647059,
+    "min": 0.026470588235294117,
+    "max": 0.03235294117647059,
+    "runs": [
+     0.03235294117647059,
+     0.026470588235294117,
+     0.03235294117647059
+    ]
+   },
+   "wrapped": 0,
+   "empty": 0,
+   "failed": 0
+  },
+  {
+   "arm": "text-mini-nohint",
+   "label": "Text tidy-up, gpt-5.4-mini, list without heard-as notes",
+   "targetsRight": {
+    "median": 20,
+    "min": 20,
+    "max": 20,
+    "runs": [
+     20,
+     20,
+     20
+    ]
+   },
+   "targetsOf": 20,
+   "soundAlikesRight": {
+    "median": 10,
+    "min": 9,
+    "max": 10,
+    "runs": [
+     9,
+     10,
+     10
+    ]
+   },
+   "soundAlikesOf": 10,
+   "soundAlikesIntoListedName": {
+    "median": 0,
+    "min": 0,
+    "max": 1,
+    "runs": [
+     1,
+     0,
+     0
+    ]
+   },
+   "soundAlikesBroken": {
+    "median": 0,
+    "min": 0,
+    "max": 1,
+    "runs": [
+     1,
+     0,
+     0
+    ]
+   },
+   "soundAlikesRightInTranscript": 10,
+   "targetsBroken": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "targetsRightInTranscript": 20,
+   "fixes": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "wrongInTranscript": 0,
+   "neverSaid": {
+    "median": 0,
+    "min": 0,
+    "max": 1,
+    "runs": [
+     1,
+     0,
+     0
+    ]
+   },
+   "wer": {
+    "median": 0.01764705882352941,
+    "min": 0.01764705882352941,
+    "max": 0.01764705882352941,
+    "runs": [
+     0.01764705882352941,
+     0.01764705882352941,
+     0.01764705882352941
+    ]
+   },
+   "wrapped": 0,
+   "empty": 0,
+   "failed": 0
+  },
+  {
+   "arm": "text-opus",
+   "label": "Text tidy-up, Claude Opus 5.5",
+   "targetsRight": {
+    "median": 20,
+    "min": 20,
+    "max": 20,
+    "runs": [
+     20,
+     20,
+     20
+    ]
+   },
+   "targetsOf": 20,
+   "soundAlikesRight": {
+    "median": 10,
+    "min": 10,
+    "max": 10,
+    "runs": [
+     10,
+     10,
+     10
+    ]
+   },
+   "soundAlikesOf": 10,
+   "soundAlikesIntoListedName": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "soundAlikesBroken": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "soundAlikesRightInTranscript": 10,
+   "targetsBroken": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "targetsRightInTranscript": 20,
+   "fixes": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "wrongInTranscript": 0,
+   "neverSaid": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "wer": {
+    "median": 0.011764705882352941,
+    "min": 0.011764705882352941,
+    "max": 0.011764705882352941,
+    "runs": [
+     0.011764705882352941,
+     0.011764705882352941,
+     0.011764705882352941
+    ]
+   },
+   "wrapped": 0,
+   "empty": 0,
+   "failed": 0
+  },
+  {
+   "arm": "text-audio15",
+   "label": "Text tidy-up, gpt-audio-1.5, no recording",
+   "targetsRight": {
+    "median": 20,
+    "min": 20,
+    "max": 20,
+    "runs": [
+     20,
+     20,
+     20
+    ]
+   },
+   "targetsOf": 20,
+   "soundAlikesRight": {
+    "median": 5,
+    "min": 4,
+    "max": 5,
+    "runs": [
+     4,
+     5,
+     5
+    ]
+   },
+   "soundAlikesOf": 10,
+   "soundAlikesIntoListedName": {
+    "median": 5,
+    "min": 5,
+    "max": 6,
+    "runs": [
+     6,
+     5,
+     5
+    ]
+   },
+   "soundAlikesBroken": {
+    "median": 5,
+    "min": 5,
+    "max": 6,
+    "runs": [
+     6,
+     5,
+     5
+    ]
+   },
+   "soundAlikesRightInTranscript": 10,
+   "targetsBroken": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "targetsRightInTranscript": 20,
+   "fixes": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "wrongInTranscript": 0,
+   "neverSaid": {
+    "median": 5,
+    "min": 5,
+    "max": 6,
+    "runs": [
+     6,
+     5,
+     5
+    ]
+   },
+   "wer": {
+    "median": 0.029411764705882353,
+    "min": 0.026470588235294117,
+    "max": 0.03235294117647059,
+    "runs": [
+     0.029411764705882353,
+     0.03235294117647059,
+     0.026470588235294117
+    ]
+   },
+   "wrapped": 0,
+   "empty": 0,
+   "failed": 0
+  },
+  {
+   "arm": "audio15-fix-spoken",
+   "label": "Tidy-up with the recording, gpt-audio-1.5, spoken answer",
+   "targetsRight": {
+    "median": 20,
+    "min": 20,
+    "max": 20,
+    "runs": [
+     20,
+     20,
+     20
+    ]
+   },
+   "targetsOf": 20,
+   "soundAlikesRight": {
+    "median": 6,
+    "min": 4,
+    "max": 6,
+    "runs": [
+     6,
+     6,
+     4
+    ]
+   },
+   "soundAlikesOf": 10,
+   "soundAlikesIntoListedName": {
+    "median": 4,
+    "min": 4,
+    "max": 6,
+    "runs": [
+     4,
+     4,
+     6
+    ]
+   },
+   "soundAlikesBroken": {
+    "median": 4,
+    "min": 4,
+    "max": 6,
+    "runs": [
+     4,
+     4,
+     6
+    ]
+   },
+   "soundAlikesRightInTranscript": 10,
+   "targetsBroken": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "targetsRightInTranscript": 20,
+   "fixes": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "wrongInTranscript": 0,
+   "neverSaid": {
+    "median": 4,
+    "min": 4,
+    "max": 6,
+    "runs": [
+     4,
+     4,
+     6
+    ]
+   },
+   "wer": {
+    "median": 0.026470588235294117,
+    "min": 0.023529411764705882,
+    "max": 0.029411764705882353,
+    "runs": [
+     0.023529411764705882,
+     0.026470588235294117,
+     0.029411764705882353
+    ]
+   },
+   "wrapped": 0,
+   "empty": 0,
+   "failed": 0
+  },
+  {
+   "arm": "audio15-direct-spoken",
+   "label": "Recording + list, no transcript, gpt-audio-1.5, spoken answer",
+   "targetsRight": {
+    "median": 20,
+    "min": 20,
+    "max": 20,
+    "runs": [
+     20,
+     20,
+     20
+    ]
+   },
+   "targetsOf": 20,
+   "soundAlikesRight": {
+    "median": 3,
+    "min": 1,
+    "max": 4,
+    "runs": [
+     3,
+     1,
+     4
+    ]
+   },
+   "soundAlikesOf": 10,
+   "soundAlikesIntoListedName": {
+    "median": 5,
+    "min": 5,
+    "max": 8,
+    "runs": [
+     5,
+     8,
+     5
+    ]
+   },
+   "soundAlikesBroken": {
+    "median": 7,
+    "min": 6,
+    "max": 9,
+    "runs": [
+     7,
+     9,
+     6
+    ]
+   },
+   "soundAlikesRightInTranscript": 10,
+   "targetsBroken": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "targetsRightInTranscript": 20,
+   "fixes": {
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "runs": [
+     0,
+     0,
+     0
+    ]
+   },
+   "wrongInTranscript": 0,
+   "neverSaid": {
+    "median": 15,
+    "min": 11,
+    "max": 15,
+    "runs": [
+     15,
+     15,
+     11
+    ]
+   },
+   "wer": {
+    "median": 0.6823529411764706,
+    "min": 0.4852941176470588,
+    "max": 0.7529411764705882,
+    "runs": [
+     0.7529411764705882,
+     0.4852941176470588,
+     0.6823529411764706
+    ]
+   },
+   "wrapped": 0,
+   "empty": 0,
+   "failed": 0
+  }
+ ],
+ "constructed": {
+  "text-mini": {
+   "repaired": [
+    8,
+    8,
+    10
+   ],
+   "leftAsSoundAlike": [
+    2,
+    2,
+    0
+   ],
+   "of": 10
+  },
+  "text-mini-nohint": {
+   "repaired": [
+    7,
+    7,
+    7
+   ],
+   "leftAsSoundAlike": [
+    3,
+    2,
+    3
+   ],
+   "of": 10
+  },
+  "text-opus": {
+   "repaired": [
+    10,
+    10,
+    10
+   ],
+   "leftAsSoundAlike": [
+    0,
+    0,
+    0
+   ],
+   "of": 10
+  },
+  "text-audio15": {
+   "repaired": [
+    10,
+    10,
+    10
+   ],
+   "leftAsSoundAlike": [
+    0,
+    0,
+    0
+   ],
+   "of": 10
+  },
+  "audio15-fix-spoken": {
+   "repaired": [
+    10,
+    10,
+    10
+   ],
+   "leftAsSoundAlike": [
+    0,
+    0,
+    0
+   ],
+   "of": 10
+  },
+  "audio15-direct-spoken": {
+   "repaired": [
+    10,
+    10,
+    10
+   ],
+   "leftAsSoundAlike": [
+    0,
+    0,
+    0
+   ],
+   "of": 10
+  }
+ },
+ "audio": "human recordings",
+ "note": "Each value: median of the runs, with the lowest (min) and highest (max) run and every run."
+}

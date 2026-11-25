@@ -135,9 +135,10 @@ bun report.ts --sets tts-coral,tts-ash --label pilot-synthetic
 # A person's own recordings (RECORDING.md), then everything
 # (--step all runs speech, then the tidy-up steps that read its answers)
 bun collect.ts --since "2026-11-26 19:00"
-bun run.ts --phase real --set real --step all --estimate
-bun run.ts --phase real --set real --step all
-bun report.ts --sets real --label real
+# (the real run used the voice-answer versions of the two recording arms)
+bun run.ts --phase real --set real --step all --arms text-mini,text-mini-nohint,text-opus,text-audio15,audio15-fix-spoken,audio15-direct-spoken --estimate
+bun run.ts --phase real --set real --step all --arms text-mini,text-mini-nohint,text-opus,text-audio15,audio15-fix-spoken,audio15-direct-spoken
+bun report.ts --sets real --label real --compare pilot-synthetic
 ```
 
 On Windows PowerShell, quote comma lists: `--arms "a,b"`. Add `--estimate` to any `run.ts` command to see the calls and cost first.
@@ -147,7 +148,9 @@ spent. A rerun only makes the calls that are missing or failed.
 
 Audio, raw answers and the cost ledger live outside the repository, in
 `C:\vf\vocab-test` (`VOCAB_DATA_DIR` to change it). No recording of anyone's
-voice is committed; `results/` holds the scored text answers.
+voice is committed. For synthetic voices `results/` keeps every scored answer;
+for a person's own recordings it keeps only counts and the listed words
+involved, never a transcript.
 
 ## Limits
 
