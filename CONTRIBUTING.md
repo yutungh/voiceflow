@@ -52,6 +52,8 @@ Before opening a pull request:
 
 ## Security And Privacy
 
+This repository is public. [`AGENTS.md`](AGENTS.md) lists what must never be committed (personal data of any kind, in code, tests, screenshots, docs or commit messages), how release binaries are built, and how mistakes are fixed. It applies to human contributors and AI agents alike.
+
 Do not add telemetry, analytics, or server calls without clear documentation and an opt-in path.
 
 Do not hardcode API keys. Users should provide their own keys.
@@ -65,4 +67,5 @@ The maintainer keeps a private term list outside version control and runs a loca
 - `scripts/privacy-check.mjs` scans the added lines, new file names and messages of the commits being pushed, and fails any author, committer or tagger email that is not a GitHub no-reply address. `--tree` scans every tracked file instead.
 - `sh scripts/install-privacy-hook.sh` installs it as `.git/hooks/pre-push`. The hook is local and is not committed.
 - The term list defaults to `private-docs/privacy-terms.txt`, which must stay out of git. It is looked for in the working tree being pushed, then in the main checkout, so a linked worktree (`git worktree add`) needs no copy. With no list found, the push is refused; there is no bypass. The script's header describes its format.
+- A finding names only where it is (file and line, commit or message line) and the line number of the term list entry that matched. It never prints the matched text, and a file name that matches is withheld and shown by its position.
 - `node --test scripts/privacy-check.test.mjs` tests the guard itself with a made-up term list in a throwaway repository.

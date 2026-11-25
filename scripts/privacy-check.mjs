@@ -32,6 +32,11 @@
 // files, the commit message, and author and committer emails (tags: tagger email
 // and message). Emails must be GitHub no-reply addresses.
 //
+// Output never shows a term. A finding names only where it is (file and line, commit, or
+// message line) and the line number of the term list entry that matched, never the matched
+// text. A file or tag name that itself matches the list is withheld and shown by its position
+// instead (for example "tracked file #12 in git ls-files order").
+//
 // Exit codes: 0 clean, 1 findings, 2 setup error (fails closed).
 
 import { execFileSync } from 'node:child_process';
@@ -168,8 +173,9 @@ function loadTerms(file) {
 			regex = body.startsWith('re:')
 				? new RegExp(body.slice(3), 'giu')
 				: new RegExp(`(?<![${WORD}])${escapeRe(body)}(?![${WORD}])`, 'giu');
-		} catch (e) {
-			fail(`${file}:${idx + 1}: bad pattern (${e.message})`);
+		} catch {
+			// The engine's error message quotes the pattern, so it is not shown.
+			fail(`${file}:${idx + 1}: bad pattern`);
 		}
 		terms.push({ label: `line ${idx + 1}`, regex, allow: globs });
 	});
@@ -178,18 +184,30 @@ function loadTerms(file) {
 }
 
 const TERMS = loadTerms(termsPath);
-const ANY = new RegExp(TERMS.map((t) => `(?:${t.regex.source})`).join('|'), 'iu');
+let ANY;
+try {
+	ANY = new RegExp(TERMS.map((t) => `(?:${t.regex.source})`).join('|'), 'iu');
+} catch {
+	fail(`${termsPath}: the entries could not be combined into one pattern`);
+}
 
 const findings = [];
-// Each hit names where it is, the line of the term list that matched, and the matched text.
+// Each hit names where it is and the line of the term list that matched. The matched text is
+// never shown: it is the private term itself.
 function scanText(text, where, file) {
 	if (!ANY.test(text)) return;
 	for (const t of TERMS) {
 		if (file && t.allow.some((g) => g.test(file))) continue;
 		t.regex.lastIndex = 0;
-		const m = t.regex.exec(text);
-		if (m) findings.push(`${where}: term list ${t.label} matched "${m[0]}"`);
+		if (t.regex.test(text)) findings.push(`${where}: term list ${t.label} matched`);
+		t.regex.lastIndex = 0;
 	}
+}
+
+// A name to print in a location: the name itself, or the fallback when the name matches the
+// term list (allowlisted or not), so a finding never prints a term through a file or tag name.
+function shown(name, fallback) {
+	return ANY.test(name) ? fallback : name;
 }
 
 const OK_EMAIL = /^(?:[^@\s]+@users\.noreply\.github\.com|noreply@github\.com)$/i;
@@ -212,15 +230,18 @@ function scanCommit(sha) {
 	if (!isMerge) {
 		const ns = git(['diff-tree', '-r', '--root', '--no-commit-id', '-M', '--name-status', '-z', sha]);
 		const parts = ns.split('\0').filter((p) => p !== '');
+		let n = 0;
 		for (let i = 0; i < parts.length; ) {
 			const status = parts[i++];
 			const kind = status[0];
 			const count = kind === 'R' || kind === 'C' ? 2 : 1;
 			const names = parts.slice(i, i + count);
 			i += count;
+			n++;
 			if (kind === 'A' || kind === 'R' || kind === 'C') {
 				const name = names[names.length - 1];
-				scanText(name, `commit ${short} new file name ${name}`, name);
+				const label = shown(name, `#${n} in git diff-tree --name-status order (name withheld)`);
+				scanText(name, `commit ${short} new file name ${label}`, name);
 			}
 		}
 	}
@@ -233,11 +254,15 @@ function scanCommit(sha) {
 
 function scanPatch(patch, short, nParents) {
 	let file = null;
+	let label = null;
+	let fileNo = 0;
 	let lineNo = 0;
 	for (const line of patch.split('\n')) {
 		if (line.startsWith('+++ ')) {
 			const p = line.slice(4);
+			fileNo++;
 			file = p === '/dev/null' ? null : p.replace(/^"?b\//, '').replace(/"$/, '');
+			if (file !== null) label = shown(file, `file #${fileNo} in the commit's diff (name withheld)`);
 			continue;
 		}
 		if (line.startsWith('@@')) {
@@ -250,7 +275,7 @@ function scanPatch(patch, short, nParents) {
 		if (prefix.length < nParents) continue;
 		if (prefix.includes('-')) continue;
 		if (prefix.includes('+')) {
-			scanText(line.slice(nParents), `commit ${short} ${file}:${lineNo}`, file);
+			scanText(line.slice(nParents), `commit ${short} ${label}:${lineNo}`, file);
 			lineNo++;
 		} else if (/^ +$/.test(prefix)) lineNo++;
 	}
@@ -261,9 +286,10 @@ function scanTag(sha, refName) {
 	if (type !== 'tag') return;
 	const body = git(['cat-file', '-p', sha]);
 	const [head, ...rest] = body.split(/\n\n/);
+	const tag = `tag ${shown(refName, '(name withheld)')}`;
 	const tagger = head.match(/^tagger .*<([^>]*)>/m);
-	if (tagger) checkEmail(tagger[1], `tag ${refName} tagger`);
-	rest.join('\n\n').split('\n').forEach((l, i) => scanText(l, `tag ${refName} message line ${i + 1}`));
+	if (tagger) checkEmail(tagger[1], `${tag} tagger`);
+	rest.join('\n\n').split('\n').forEach((l, i) => scanText(l, `${tag} message line ${i + 1}`));
 }
 
 function revList(args) {
@@ -299,19 +325,20 @@ if (mode === 'pre-push') {
 	for (const s of revList([modeArgs[0]])) scanCommit(s);
 } else if (mode === 'tree') {
 	const files = git(['ls-files', '-z']).split('\0').filter(Boolean);
-	for (const f of files) {
-		scanText(f, `path ${f}`, f);
+	files.forEach((f, idx) => {
+		const label = shown(f, `tracked file #${idx + 1} in git ls-files order (name withheld)`);
+		scanText(f, `path ${label}`, f);
 		let buf;
 		try {
 			buf = readFileSync(path.join(root, f));
 		} catch {
-			continue;
+			return;
 		}
-		if (buf.subarray(0, 8000).includes(0)) continue; // binary
+		if (buf.subarray(0, 8000).includes(0)) return; // binary
 		const text = buf.toString('utf8');
-		if (!ANY.test(text)) continue;
-		text.split('\n').forEach((l, i) => scanText(l, `${f}:${i + 1}`, f));
-	}
+		if (!ANY.test(text)) return;
+		text.split('\n').forEach((l, i) => scanText(l, `${label}:${i + 1}`, f));
+	});
 }
 
 function hasObject(sha) {

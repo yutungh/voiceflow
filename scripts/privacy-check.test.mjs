@@ -30,7 +30,12 @@ function check(repo, args, input = '') {
 		windowsHide: true,
 		input,
 	});
-	return { code: r.status, err: r.stderr };
+	return { code: r.status, err: r.stderr, all: `${r.stdout}\n${r.stderr}` };
+}
+
+// The output must never show a term, in any case.
+function assertNoTerm(r, ...terms) {
+	for (const term of terms) assert.doesNotMatch(r.all, new RegExp(term, 'i'), 'a term appeared in the output');
 }
 
 function writeTerms(tree, ...terms) {
@@ -118,4 +123,51 @@ test('pre-push with a list found through the main checkout scans the pushed comm
 	const r = check(linked, ['--pre-push', 'origin'], `refs/heads/side ${head} refs/heads/side ${'0'.repeat(40)}\n`);
 	assert.equal(r.code, 1, r.err);
 	assert.match(r.err, /d\.txt:1/);
+});
+
+test('a content hit names the file, line and term list line, never the term', (t) => {
+	const { main } = setup(t);
+	writeTerms(main, TERM_A, TERM_B);
+	addFile(main, 'e.txt', `first line\nsee ${TERM_B.toUpperCase()} here\n`);
+	const r = check(main, ['--tree']);
+	assert.equal(r.code, 1, r.err);
+	assert.match(r.err, /e\.txt:2: term list line 3 matched/);
+	assertNoTerm(r, TERM_A, TERM_B);
+});
+
+test('a file name hit is withheld and shown by position, in --tree and --pre-push', (t) => {
+	const { main } = setup(t);
+	writeTerms(main, TERM_A);
+	addFile(main, `${TERM_A.toLowerCase()}-notes.txt`, `also ${TERM_A}\n`);
+	const tree = check(main, ['--tree']);
+	assert.equal(tree.code, 1, tree.err);
+	assert.match(tree.err, /tracked file #\d+ in git ls-files order \(name withheld\)/);
+	assertNoTerm(tree, TERM_A);
+	const head = git(main, 'rev-parse', 'HEAD');
+	const push = check(main, ['--pre-push', 'origin'], `refs/heads/main ${head} refs/heads/main ${'0'.repeat(40)}\n`);
+	assert.equal(push.code, 1, push.err);
+	assert.match(push.err, /new file name #\d+ .*\(name withheld\)/);
+	assert.match(push.err, /file #\d+ in the commit's diff \(name withheld\):1/);
+	assertNoTerm(push, TERM_A);
+});
+
+test('a commit message hit names the message line, never the term', (t) => {
+	const { main } = setup(t);
+	writeTerms(main, TERM_A);
+	writeFileSync(path.join(main, 'f.txt'), 'plain\n');
+	git(main, 'add', 'f.txt');
+	git(main, 'commit', '-q', '-m', `subject\n\nbody mentions ${TERM_A.toLowerCase()}`);
+	const r = check(main, ['--range', 'HEAD~1..HEAD']);
+	assert.equal(r.code, 1, r.err);
+	assert.match(r.err, /message line 3: term list line 2 matched/);
+	assertNoTerm(r, TERM_A);
+});
+
+test('a bad pattern in the list names its line, never the pattern', (t) => {
+	const { main } = setup(t);
+	writeTerms(main, `re:${TERM_A}(`);
+	const r = check(main, ['--tree']);
+	assert.equal(r.code, 2, r.err);
+	assert.match(r.err, /privacy-terms\.txt:2: bad pattern/);
+	assertNoTerm(r, TERM_A);
 });
