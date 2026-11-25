@@ -1,6 +1,6 @@
 # VoiceFlow word lists (the pack)
 
-The data contract VoiceFlow reads: the words it listens for, the spellings it always fixes, tidy-up styles, model defaults and privacy lists. VoiceFlow Desktop (`../desktop/`) reads it, and so does the Android keyboard (repository root) from 0.8.2, through the sync gateway (`../sync/`). It is data only, so sharing it never mixes the apps' licences.
+The data contract VoiceFlow reads: the words it listens for, the spellings it always fixes, tidy-up styles, model defaults and privacy lists. VoiceFlow Desktop (`../desktop/`) reads it, and so does the Android keyboard (repository root) from 0.8.2, through the sync gateway (`../sync/`). VoiceFlow Desktop can also read it from a private GitHub repository ([`../docs/GITHUB-SYNC.md`](../docs/GITHUB-SYNC.md)); the phone's GitHub support is not released yet. It is data only, so sharing it never mixes the apps' licences.
 
 Everything here is MIT (see [`LICENSE`](LICENSE)). Every word in the fixtures is invented.
 
@@ -23,10 +23,12 @@ Everything here is MIT (see [`LICENSE`](LICENSE)). Every word in the fixtures is
 | [`vectors/feedback-v2.json`](vectors/feedback-v2.json) | Feedback v2: answers, stage observations, the word ladder and the evidence a fix needs |
 | [`../docs/desktop/CONNECT-YOUR-OWN-AI.md`](../docs/desktop/CONNECT-YOUR-OWN-AI.md) | How an assistant edits these files safely |
 | [`../docs/desktop/GOOGLE-DRIVE.md`](../docs/desktop/GOOGLE-DRIVE.md) | Keep the folder in Google Drive: shared with a household or team, refreshed by an AI every day |
+| [`../docs/GITHUB-SYNC.md`](../docs/GITHUB-SYNC.md) | Keep the word lists in a private GitHub repository instead of a folder: computers and phones in sync with no server, AI updates by commit |
+| [`template/`](template/) | A starting set for a new repository or folder: a household file and one person's file, with invented words |
 
 ## The folder
 
-Any folder works: a plain folder on your computer, a synced folder, or a network share (`\\NAS\voiceflow`, `/Volumes/voiceflow`). In VoiceFlow Desktop, choose it under **Settings > Word lists**. For a Google Drive folder, shared or not, see [Keep your word lists in Google Drive](../docs/desktop/GOOGLE-DRIVE.md).
+Any folder works: a plain folder on your computer, a synced folder, or a network share (`\\NAS\voiceflow`, `/Volumes/voiceflow`). In VoiceFlow Desktop, choose it under **Settings > Word lists**. For a Google Drive folder, shared or not, see [Keep your word lists in Google Drive](../docs/desktop/GOOGLE-DRIVE.md). The same layout also works as a **private GitHub repository** (VoiceFlow Desktop 0.9.19 and later): see [Keep your word lists in a private GitHub repository](../docs/GITHUB-SYNC.md).
 
 ```text
 <folder>/
@@ -135,7 +137,7 @@ Every app refuses a whole file, and skips a whole edit, it can't read. So a new 
 
 - A file that uses a v2 field must say `"schemaVersion": 2`; a v1 file with one is refused (an older app would refuse it too, so the mistake shows up on the newest device first). A file that needs none stays v1.
 - Each device's status file says what it reads (`reads`, below). A status without `reads` (an app from before 0.9.13, or a phone) counts as reading profile v1 and the edit types `correction`, `term` and `tombstone` only. No status at all proves nothing, so the answer is "not yet".
-- The Android app (0.8.x) doesn't read the word lists yet; when it does (plan phase 4) it reads v1 and v2 and every edit type here from the start.
+- The Android keyboard reads the word lists from 0.8.2, through the [sync gateway](../sync/README.md): layer files in version 1 only (a version 2 file is refused, and the phone keeps its last good copy of that layer), and the edit types `correction`, `term` and `tombstone`. It keeps an `app-style` edit without using it and skips any other type. It writes no edits; its status file has no `reads`.
 
 App ids are lower-case: a Windows exe name (`telegram.exe`) or a macOS bundle id.
 

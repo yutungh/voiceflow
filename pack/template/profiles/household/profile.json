@@ -1,0 +1,18 @@
+{
+	"$schema": "https://raw.githubusercontent.com/yutungh/voiceflow/main/pack/schema/voiceflow-profile.v1.schema.json",
+	"schema": "voiceflow-profile",
+	"schemaVersion": 1,
+	"layer": "household",
+	"user": "household",
+	"updatedAt": "2026-11-25T08:00:00Z",
+	"updatedBy": "template",
+	"note": "Words everyone in this repo shares. Every word here is invented: replace them with yours.",
+	"terms": [
+		{ "id": "brindle-row", "text": "Brindle Row", "kind": "place", "gloss": "the street the household lives on", "priority": 40 },
+		{ "id": "tovo", "text": "Tovo", "heardAs": ["Toe Vo"], "kind": "term", "gloss": "the household cat", "priority": 50 }
+	],
+	"corrections": [
+		{ "id": "tovo-toe-vo", "from": ["Toe Vo"], "to": "Tovo" }
+	],
+	"defaults": { "language": "en" }
+}

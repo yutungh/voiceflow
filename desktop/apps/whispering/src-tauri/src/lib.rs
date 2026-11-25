@@ -45,7 +45,8 @@ use app_icon::app_icon;
 // VoiceFlow B + C2: word lists (household + personal profiles) on a shared folder.
 pub mod profile;
 use profile::{
-    profile_edits_changed, profile_list_users, profile_refresh, profile_set_busy, profile_set_config,
+    profile_edits_changed, profile_github_set_token, profile_github_test, profile_list_users, profile_refresh,
+    profile_set_busy, profile_set_config,
     profile_state,
 };
 // VoiceFlow A2: the floating recording bar and the voice feedback window.
@@ -261,6 +262,9 @@ pub async fn run() {
         profile_edits_changed,
         profile_set_busy,
         profile_list_users,
+        // 0.9.19: word lists in a private GitHub repository
+        profile_github_set_token,
+        profile_github_test,
         // VoiceFlow A2: the recording bar and the feedback window
         bar::bar_target,
         bar::bar_present,
