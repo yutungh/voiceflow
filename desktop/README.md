@@ -87,7 +87,7 @@ cd src-tauri && cargo test --locked --lib   # Rust unit tests (after a build)
 
 **What works without any sync:** everything above. Transcription uses `gpt-transcribe` by default and the tidy-up uses `gpt-5.4-mini` by default; both model ids can be changed. The word lists, the sync server and the Android keyboard are all optional.
 
-**Optional: your own word lists.** In **Settings > Word lists**, turn on **Use word lists**, enter the **Folder** (a local folder, a synced folder or a network share, for example `\\server\voiceflow`) and your user name under **Whose words**. The folder layout is in [`../pack/README.md`](../pack/README.md), and [`../docs/desktop/CONNECT-YOUR-OWN-AI.md`](../docs/desktop/CONNECT-YOUR-OWN-AI.md) shows how to let an assistant maintain the lists. The desktop app reads this folder directly; it does not talk to the sync server. To share the same folder with a phone, put it behind the [sync gateway](../sync/README.md).
+**Optional: your own word lists.** In **Settings > Word lists**, turn on **Use word lists**, enter the **Folder** (a local folder, a synced folder or a network share, for example `\\server\voiceflow`) and your user name under **Whose words**. The folder layout is in [`../pack/README.md`](../pack/README.md), and [`../docs/desktop/CONNECT-YOUR-OWN-AI.md`](../docs/desktop/CONNECT-YOUR-OWN-AI.md) shows how to let an assistant maintain the lists. The desktop app reads this folder directly; it does not talk to the sync server. To share the same folder with a phone, put it behind the [sync gateway](../sync/README.md). From 0.9.19 the word lists can also live in a **private GitHub repository** (choose it under **Where they are**): see [`../docs/GITHUB-SYNC.md`](../docs/GITHUB-SYNC.md).
 
 ## What it adds to Whispering
 
@@ -125,6 +125,7 @@ The app calls no VoiceFlow, Whispering or Epicenter server: no telemetry, no upd
 | Each dictation, with a cloud service selected | The chosen provider's API (OpenAI by default; Groq, Deepgram, ElevenLabs, Mistral, Anthropic, Google, OpenRouter, or a custom endpoint if picked) | Transcription and tidy-up |
 | Only when the user clicks Find fixes in the Feedback window | The model chosen in Settings > Feedback (OpenAI or Anthropic, with the user's own key) | Suggests fixes to spellings and styles from that one dictation and the feedback |
 | Only when the user downloads a local model | `huggingface.co` (Parakeet: `istupakov/parakeet-tdt-0.6b-v3-onnx` at a pinned revision; Whisper: `ggerganov/whisper.cpp`; Moonshine: `UsefulSensors/moonshine`) | Model files |
+| With word lists in a GitHub repository: at start, hourly, on Refresh now and on Test connection | `api.github.com`, with the user's own token (kept in the OS keychain) | Reads the word-list repository; uploads this computer's word edits and its status file unless uploads are off |
 | Only when the user clicks a link | `github.com/yutungh/voiceflow`, provider sign-up and docs pages | Help |
 
 ## More documentation
@@ -133,5 +134,6 @@ The app calls no VoiceFlow, Whispering or Epicenter server: no telemetry, no upd
 |---|---|
 | Product and architecture spec | [`../docs/desktop/SPEC.md`](../docs/desktop/SPEC.md) |
 | Connect your own AI to the word lists | [`../docs/desktop/CONNECT-YOUR-OWN-AI.md`](../docs/desktop/CONNECT-YOUR-OWN-AI.md) |
+| Keep the word lists in a private GitHub repository | [`../docs/GITHUB-SYNC.md`](../docs/GITHUB-SYNC.md) |
 | Design: three UI directions (mockups) | [`../docs/desktop/design/directions/`](../docs/desktop/design/directions/) |
 | Upstream and fork notes | [`UPSTREAM.md`](UPSTREAM.md), [`NOTICE`](NOTICE) |

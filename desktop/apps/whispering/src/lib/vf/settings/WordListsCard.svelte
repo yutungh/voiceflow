@@ -183,7 +183,7 @@
 				/>
 				<span class="sub small">
 					A fine-grained token for this one repository, with Contents read and write. It is kept in this computer’s
-					credential store, never in a file. <a href="https://github.com/yutungh/voiceflow/blob/main/docs/GITHUB-SYNC.md" target="_blank" rel="noreferrer">How to make one</a>
+					credential store, never in a file. <a href="https://github.com/yutungh/voiceflow/blob/main/docs/GITHUB-SYNC.md#2-make-an-access-token-for-each-device" target="_blank" rel="noreferrer">How to make one</a>
 				</span>
 				<div class="srow tight">
 					<div><b>Upload this computer’s changes</b><span>Words and spellings you fix here, and this computer’s status</span></div>
