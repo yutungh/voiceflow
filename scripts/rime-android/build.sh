@@ -88,7 +88,17 @@ checkout https://github.com/rime/librime-predict.git "$W/src/librime/plugins/pre
 # ---------------------------------------------------------------- dependencies (static, arm64)
 P="$W/prefix"
 mkdir -p "$P/include" "$P/lib"
-FLAGS="-fvisibility=hidden -fvisibility-inlines-hidden -ffunction-sections -fdata-sections"
+# No path of the build machine (a home folder, a user name) goes into the library: source
+# paths are mapped to neutral ones (__FILE__ in asserts and exceptions), and OpenCC's
+# built-in data folder is a neutral one too (the keyboard never uses it). Libraries built
+# with other flags are set aside and rebuilt.
+MAP="-ffile-prefix-map=$W=/vfrime -ffile-prefix-map=$ROOT=/voiceflow"
+FLAGS="-fvisibility=hidden -fvisibility-inlines-hidden -ffunction-sections -fdata-sections $MAP"
+if [ -d "$P/lib" ] && [ "$(cat "$P/.flags" 2>/dev/null)" != "$FLAGS" ]; then
+  mv "$P" "$P.old.$(date +%s%N)"
+  mkdir -p "$P/include" "$P/lib"
+fi
+printf '%s' "$FLAGS" > "$P/.flags"
 android_cmake() {  # <source> <build> [cmake args...]
   local src="$1" bld="$2"; shift 2
   cmake -S "$src" -B "$bld" -G Ninja \
@@ -115,7 +125,7 @@ if [ ! -f "$P/lib/libopencc.a" ]; then
   # Only the library and its bundled marisa: OpenCC's data step runs a host
   # tool, which a cross build cannot.
   android_cmake "$W/src/OpenCC" "$W/build/OpenCC" -DENABLE_GTEST=OFF -DENABLE_BENCHMARK=OFF \
-    -DBUILD_DOCUMENTATION=OFF -DBUILD_PYTHON=OFF -DUSE_SYSTEM_MARISA=OFF
+    -DBUILD_DOCUMENTATION=OFF -DBUILD_PYTHON=OFF -DUSE_SYSTEM_MARISA=OFF -DCMAKE_INSTALL_PREFIX=/vfrime/prefix
   cmake --build "$W/build/OpenCC" -j "$JOBS" --target libopencc marisa > "$W/build/OpenCC.log"
   cp "$(find "$W/build/OpenCC" -name 'libopencc.a' | head -1)" "$P/lib/libopencc.a"
   cp "$(find "$W/build/OpenCC" -name 'libmarisa.a' | head -1)" "$P/lib/libmarisa.a"
@@ -145,7 +155,7 @@ mkdir -p "$OUT"
   -fvisibility=hidden -fvisibility-inlines-hidden -ffunction-sections -fdata-sections \
   -I"$W/src/librime/src" -I"$W/build/librime/src" -I"$W/src/librime/include" \
   -I"$W/boost_1_84_0" -I"$P/include" \
-  "$CPP/vf_rime_jni.cc" "$CPP/vf_rime_core.cc" \
+  $MAP "$CPP/vf_rime_jni.cc" "$CPP/vf_rime_core.cc" \
   -Wl,--whole-archive "$P/lib/librime.a" -Wl,--no-whole-archive \
   "$P/lib/libopencc.a" "$P/lib/libmarisa.a" "$P/lib/libleveldb.a" "$P/lib/libyaml-cpp.a" \
   -static-libstdc++ -llog \
@@ -161,6 +171,9 @@ if "$TC/llvm-readelf" -d "$OUT/libvfrime.so" | grep -q 'c++_shared'; then echo "
 "$TC/llvm-readelf" -l -W "$OUT/libvfrime.so" | awk '$1=="LOAD" {print $NF}' | while read -r align; do
   [ $((align)) -ge 16384 ] || { echo "LOAD segment aligned to $align, need 16 KB" >&2; exit 1; }
 done
+# No build-machine path in the library (a home folder or a user name would leak).
+leaks="$(LC_ALL=C grep -a -o -E '/home/[^/]+/|/Users/[^/]+/|/mnt/[a-z]/|/root/' "$OUT/libvfrime.so" | sort -u || true)"
+[ -z "$leaks" ] || { echo "build-machine paths in libvfrime.so: $(echo "$leaks" | wc -l) kinds" >&2; exit 1; }
 needed="$("$TC/llvm-readelf" -d "$OUT/libvfrime.so" | grep NEEDED | sed 's/.*\[\(.*\)\]/\1/' | sort | tr '\n' ' ')"
 
 # ---------------------------------------------------------------- data (compiled on the PC)
