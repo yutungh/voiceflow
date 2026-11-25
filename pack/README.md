@@ -22,10 +22,11 @@ Everything here is MIT (see [`LICENSE`](LICENSE)). Every word in the fixtures is
 | [`vectors/feedback.json`](vectors/feedback.json) | Feedback answers and the fixes they become |
 | [`vectors/feedback-v2.json`](vectors/feedback-v2.json) | Feedback v2: answers, stage observations, the word ladder and the evidence a fix needs |
 | [`../docs/desktop/CONNECT-YOUR-OWN-AI.md`](../docs/desktop/CONNECT-YOUR-OWN-AI.md) | How an assistant edits these files safely |
+| [`../docs/desktop/GOOGLE-DRIVE.md`](../docs/desktop/GOOGLE-DRIVE.md) | Keep the folder in Google Drive: shared with a household or team, refreshed by an AI every day |
 
 ## The folder
 
-Any folder works: a plain folder on your computer, a synced folder, or a network share (`\\NAS\voiceflow`, `/Volumes/voiceflow`). In VoiceFlow Desktop, choose it under **Settings > Word lists**.
+Any folder works: a plain folder on your computer, a synced folder, or a network share (`\\NAS\voiceflow`, `/Volumes/voiceflow`). In VoiceFlow Desktop, choose it under **Settings > Word lists**. For a Google Drive folder, shared or not, see [Keep your word lists in Google Drive](../docs/desktop/GOOGLE-DRIVE.md).
 
 ```text
 <folder>/

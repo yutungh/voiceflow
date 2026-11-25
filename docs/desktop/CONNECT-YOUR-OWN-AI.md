@@ -8,7 +8,7 @@ The format is in [`pack/README.md`](../../pack/README.md); the JSON Schemas are 
 
 ## 1. Set up the folder
 
-1. Make a folder, for example `Documents/VoiceFlow` (or a shared folder on a home server or NAS so all your devices see it).
+1. Make a folder, for example `Documents/VoiceFlow` (or a shared folder on a home server or NAS so all your devices see it). To keep it in Google Drive, shared with your household or team and refreshed by an AI every day, see [Keep your word lists in Google Drive](GOOGLE-DRIVE.md).
 2. Create `profiles/<you>/profile.json`, where `<you>` is a short lower-case name:
 
    ```json

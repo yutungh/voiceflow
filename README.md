@@ -14,7 +14,7 @@ VoiceFlow has three parts that work alone or together: a **desktop app** (press 
 |---|---|---|---|---|
 | **Android keyboard** (repository root, `app/`) | Native Android keyboard with voice dictation, AI cleanup, offline models and an emoji picker | MIT | Working prototype, built from source | [This page](#android-keyboard), [`PRIVACY.md`](PRIVACY.md) |
 | **Desktop app** (`desktop/`) | Hotkey dictation for Windows and macOS. A fork of [Whispering](https://github.com/EpicenterHQ/epicenter) | AGPL-3.0 | In development, built from source | [`desktop/README.md`](desktop/README.md), [`desktop/CHANGELOG.md`](desktop/CHANGELOG.md) |
-| **Word-list pack** (`pack/`) | The data format both apps read: words, spelling fixes, styles, privacy lists. Data only | MIT | Stable format, versioned | [`pack/README.md`](pack/README.md), [Connect your own AI](docs/desktop/CONNECT-YOUR-OWN-AI.md) |
+| **Word-list pack** (`pack/`) | The data format both apps read: words, spelling fixes, styles, privacy lists. Data only | MIT | Stable format, versioned | [`pack/README.md`](pack/README.md), [Connect your own AI](docs/desktop/CONNECT-YOUR-OWN-AI.md), [Google Drive](docs/desktop/GOOGLE-DRIVE.md) |
 | **Sync server** (`sync/`) | Small self-hosted HTTP service that gives each phone its word lists, with a token per device | MIT | Optional, self-hosted | [`sync/README.md`](sync/README.md) |
 
 Each folder's licence covers only that folder. Do not copy code from the AGPL desktop app into the MIT parts.
