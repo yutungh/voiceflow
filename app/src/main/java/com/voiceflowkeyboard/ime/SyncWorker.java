@@ -57,7 +57,7 @@ final class SyncWorker {
             // A GitHub word source needs no gateway: its words are read either way.
             if (credentials == null) {
                 if (SyncStore.SOURCE_GITHUB.equals(SyncStore.wordSource(context))) {
-                    refreshWordLists(context, null, installed);
+                    refreshWordLists(context, null, null, installed);
                 }
                 return;
             }
@@ -68,7 +68,7 @@ final class SyncWorker {
             } catch (Exception e) {
                 SyncStore.updateEvidence(context, installed, evidence -> evidence.lastError = "token-unreadable");
                 if (SyncStore.SOURCE_GITHUB.equals(SyncStore.wordSource(context))) {
-                    refreshWordLists(context, null, installed);
+                    refreshWordLists(context, null, null, installed);
                 }
                 return;
             }
@@ -76,7 +76,7 @@ final class SyncWorker {
             // Sessions this app no longer tracks (a crash mid-install) are abandoned.
             SelfUpdater.abandonOthers(context, SyncStore.evidence(context, installed, System.currentTimeMillis()).pendingSessionId);
             GatewayClient client = new GatewayClient(enrolment.gateway, token);
-            refreshWordLists(context, client, installed);
+            refreshWordLists(context, client, enrolment, installed);
             checkRelease(context, client, installed);
             noteInstallProgress(context);
             reportStatus(context, client, enrolment, installed);
@@ -210,18 +210,23 @@ final class SyncWorker {
      * The word lists from the active word source (the sync server, or a GitHub
      * repository), into the offline copy. Content problems (a rejected file, a
      * missing layer) go to the status file's profile block only; a refused token
-     * counts like any refused request. Never stops the run. {@code gateway} is null
-     * when this phone has no gateway.
+     * counts like any refused request. Never stops the run. {@code gateway} (with the
+     * enrolment its token belongs to) is null when this phone has no gateway.
+     *
+     * <p>Each client is paired with the identity read together with its credentials, so
+     * settings that change during the run never put one source's files in another's
+     * offline copy; {@link WordLists#refresh} checks the identity again at the end.
      */
-    static void refreshWordLists(Context context, GatewayClient gateway, int installed) {
+    static void refreshWordLists(Context context, GatewayClient gateway, Enrolment gatewayEnrolment, int installed) {
         try {
-            Enrolment words = SyncStore.wordEnrolment(context);
-            if (words == null) {
-                return;
-            }
             WordSource source;
+            Enrolment words;
             if (SyncStore.SOURCE_GITHUB.equals(SyncStore.wordSource(context))) {
                 SyncStore.GitHubConfig config = SyncStore.gitHub(context);
+                words = SyncStore.gitHubEnrolment(context, config);
+                if (words == null) {
+                    return;
+                }
                 String token;
                 try {
                     token = config.token();
@@ -231,8 +236,15 @@ final class SyncWorker {
                 }
                 source = new GitHubClient(config.owner, config.repo, config.branch, config.user, words.device, token,
                         SyncStore.gitHubWait(context));
-            } else if (gateway != null) {
+            } else if (gateway != null && gatewayEnrolment != null) {
+                // The gateway's words only while they are still the active source, for
+                // the enrolment this client's token came with.
+                Enrolment active = SyncStore.wordEnrolment(context);
+                if (active == null || !WordLists.folderKey(active).equals(WordLists.folderKey(gatewayEnrolment))) {
+                    return;
+                }
                 source = gateway;
+                words = gatewayEnrolment;
             } else {
                 return;
             }

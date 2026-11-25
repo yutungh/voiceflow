@@ -345,6 +345,22 @@ public class GitHubWordListsTest {
         assertFalse(WordLists.current(context).state.reachable);
     }
 
+    /** GitHub serves any size: an edit over the app's limit is skipped, and the edits after it still arrive. */
+    @Test
+    public void anOversizedEditNeverBlocksTheNextOnes() throws Exception {
+        SyncStore.saveGitHub(context, "sam-lee/words", "main", "sam", TOKEN);
+        StringBuilder big = new StringBuilder();
+        while (big.length() <= WordOp.MAX_OP_BYTES) {
+            big.append("x");
+        }
+        github.put("profiles/sam/ops/pc1-aaa.json", op("pc1-aaa", "\"type\":\"term\",\"term\":{\"text\":\"Velmorin\",\"gloss\":\"" + big + "\"}"));
+        github.put("profiles/sam/ops/pc1-bbb.json", op("pc1-bbb", "\"type\":\"term\",\"term\":{\"text\":\"Zephlet\"}"));
+        assertEquals(WordLists.Outcome.UPDATED, sync());
+        assertTrue(texts().contains("Zephlet"));
+        assertFalse(texts().contains("Velmorin"));
+        assertTrue("accepted on the first sync", WordLists.current(context).state.accepted);
+    }
+
     @Test
     public void aBadLayerKeepsTheLastGoodCopyAndIsNotFetchedAgain() throws Exception {
         SyncStore.saveGitHub(context, "sam-lee/words", "main", "sam", TOKEN);
@@ -515,10 +531,36 @@ public class GitHubWordListsTest {
         // A refused GitHub token is noted but never counted in the gateway's evidence.
         SyncStore.saveGitHub(context, "sam-lee/words", "main", "sam", "github_pat_11SOMEONEELSE000000_abcdefghijklmnop");
         github.commits++;
-        SyncWorker.refreshWordLists(context, null, SelfUpdater.installedVersionCode(context));
+        SyncWorker.refreshWordLists(context, null, null, SelfUpdater.installedVersionCode(context));
         UpdateEvidence evidence = SyncStore.evidence(context, SelfUpdater.installedVersionCode(context), System.currentTimeMillis());
         assertEquals(0, evidence.authErrors);
         assertEquals("github-401", evidence.lastError);
+    }
+
+    /**
+     * The worker's gateway client belongs to the enrolment its token came with: after a
+     * re-enrolment to another gateway, the old client's words go nowhere.
+     */
+    @Test
+    public void aGatewayClientNeverFillsAnotherGatewaysCopy() throws Exception {
+        WordListsTest.FakeGateway old = new WordListsTest.FakeGateway("sam", SyncStore.deviceId(context));
+        try {
+            old.layers.put("personal", layer("personal", "sam", "\"terms\":[{\"id\":\"quorvane\",\"text\":\"Quorvane\"}]")
+                    .getBytes(StandardCharsets.UTF_8));
+            Enrolment a = SyncStore.enrol(context, "sam", "https://a.pinewood.example", GATEWAY_TOKEN);
+            Enrolment b = SyncStore.enrol(context, "sam", "https://b.pinewood.example", GATEWAY_TOKEN);
+            SyncWorker.refreshWordLists(context, new GatewayClient(old.origin(), GATEWAY_TOKEN), a,
+                    SelfUpdater.installedVersionCode(context));
+            assertEquals("nothing was asked", 0, old.requests.size());
+            assertFalse(new File(WordLists.folder(context, b), "layer-personal.json").exists());
+            assertFalse(WordLists.folder(context, a).exists());
+            // With the enrolment still current, the same call reads.
+            SyncWorker.refreshWordLists(context, new GatewayClient(old.origin(), GATEWAY_TOKEN), b,
+                    SelfUpdater.installedVersionCode(context));
+            assertTrue(new File(WordLists.folder(context, b), "layer-personal.json").exists());
+        } finally {
+            old.stop();
+        }
     }
 
     /** Test connection reads only, and says what it found. */

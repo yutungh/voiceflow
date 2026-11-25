@@ -425,6 +425,13 @@ final class GitHubClient implements WordSource {
             if (in != null) {
                 try (InputStream stream = in) {
                     body = GatewayClient.readCapped(stream, code >= 400 ? GatewayClient.MAX_JSON_BYTES : max);
+                } catch (IOException e) {
+                    // A file larger than the app reads (GitHub serves any size): refused like
+                    // the gateway's 413, so it is skipped and never stops the files after it.
+                    if (code == 200 && "response-too-large".equals(e.getMessage())) {
+                        return new Response(413, new byte[0], served);
+                    }
+                    throw e;
                 }
             }
             if (code == 429 || code == 403) {

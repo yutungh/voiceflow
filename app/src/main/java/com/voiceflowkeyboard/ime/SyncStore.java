@@ -65,6 +65,12 @@ final class SyncStore {
 
     /** This phone's device id, made the first time it is asked for and never changed. */
     static String deviceId(Context context) {
+        // An id already made is read without the lock: the keyboard asks for it when a
+        // dictation starts, and the lock is held by evidence writes that sync to disk.
+        String existing = prefs(context).getString(KEY_DEVICE, "");
+        if (Enrolment.validDevice(existing)) {
+            return existing;
+        }
         synchronized (LOCK) {
             SharedPreferences prefs = prefs(context);
             String id = prefs.getString(KEY_DEVICE, "");
@@ -187,13 +193,16 @@ final class SyncStore {
         switch (wordSource(context)) {
             case SOURCE_NONE:
                 return null;
-            case SOURCE_GITHUB: {
-                GitHubConfig config = gitHub(context);
-                return config == null ? null : new Enrolment(deviceId(context), config.user, config.identity());
-            }
+            case SOURCE_GITHUB:
+                return gitHubEnrolment(context, gitHub(context));
             default:
                 return enrolment(context);
         }
+    }
+
+    /** The word-list identity of one GitHub configuration (null for none). */
+    static Enrolment gitHubEnrolment(Context context, GitHubConfig config) {
+        return config == null ? null : new Enrolment(deviceId(context), config.user, config.identity());
     }
 
     /** Anything to sync: the gateway (updates, status, perhaps words) or a GitHub word source. */
