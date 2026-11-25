@@ -1,6 +1,6 @@
 [package]
 name = "voiceflow"
-version = "0.9.17"
+version = "0.9.18"
 description = "VoiceFlow desktop dictation app (based on Whispering)"
 authors = ["you"]
 edition = "2021"

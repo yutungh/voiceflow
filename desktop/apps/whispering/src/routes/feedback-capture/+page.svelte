@@ -2,6 +2,8 @@
 	import { onDestroy, onMount } from 'svelte';
 	import type { FeedbackPayload } from '$lib/bar/contract';
 	import type { FeedbackClient } from '$lib/feedback/client';
+	import type { FeedbackRecord } from '$lib/feedback/log';
+	import { ORIGINAL_TEXT } from '$lib/feedback/result-view';
 	import Icon from '$lib/vf/Icon.svelte';
 	import FeedbackFix from '$lib/vf/FeedbackFix.svelte';
 
@@ -39,6 +41,16 @@
 		subjectAppId: 'telegram.exe',
 	};
 
+	/**
+	 * VoiceFlow 0.9.18: the browser preview can open on an invented result
+	 * (`?demo=both` or `?demo=none`), in a dev build only, to check the layout.
+	 */
+	let demoRecord = $state<FeedbackRecord | null>(null);
+	/** 0.9.18: the result is showing, so the About card is one line. */
+	let showingResult = $state(false);
+	let showOriginal = $state(false);
+	let demoPopover = $state(false);
+
 	async function take() {
 		if (!desktop) {
 			payload = DEMO;
@@ -68,9 +80,17 @@
 
 	onMount(() => {
 		void (async () => {
-			client = desktop
-				? (await import('$lib/feedback/rpc')).windowFeedbackClient
-				: (await import('$lib/feedback/service.svelte')).feedbackService;
+			const demo = !desktop && import.meta.env.DEV ? new URLSearchParams(location.search).get('demo') : null;
+			if (demo === 'both' || demo === 'none') {
+				const m = await import('$lib/feedback/demo');
+				client = m.demoClient(demo);
+				demoRecord = m.demoRecord(demo);
+				// History shows the same component in a scrolling popover.
+				demoPopover = location.hash === '#popover';
+			} else
+				client = desktop
+					? (await import('$lib/feedback/rpc')).windowFeedbackClient
+					: (await import('$lib/feedback/service.svelte')).feedbackService;
 			await take();
 		})();
 		if (!desktop) return;
@@ -90,27 +110,38 @@
 		{#if !loaded || !client}
 			<p class="note">Loading…</p>
 		{:else}
-			<section class="subj" aria-label="The dictation this is about">
-				<p class="lab">About</p>
+			<section class="subj" class:compact={showingResult} aria-label="The dictation this is about">
 				{#if payload?.subject}
 					<p class="who">
+						<span class="lab">About</span>
 						<b>{payload.subject.appName ?? 'A dictation'}</b>
 						{#if when}<span class="sub">{when}</span>{/if}
 						{#if payload.subjectStyleName}<span class="sub">· {payload.subjectStyleName} style</span>{/if}
 					</p>
-					<p class="rawq small">{payload.subjectFinalText || payload.subjectRawText || payload.subject.snippet || '—'}</p>
-					{#if payload.subjectRawText && payload.subjectFinalText}
-						<button class="btn text sm" type="button" aria-expanded={showRaw} onclick={() => (showRaw = !showRaw)}>
-							<Icon name={showRaw ? 'caret-down' : 'caret-right'} class="i sm" />What you said
+					{#if showingResult}
+						<!-- 0.9.18: with the result showing, the text it was about folds to one line. -->
+						<button class="btn text sm" type="button" aria-expanded={showOriginal} onclick={() => (showOriginal = !showOriginal)}>
+							<Icon name={showOriginal ? 'caret-down' : 'caret-right'} class="i sm" />{ORIGINAL_TEXT}
 						</button>
-						{#if showRaw}<p class="rawq small">{payload.subjectRawText}</p>{/if}
+					{/if}
+					{#if !showingResult || showOriginal}
+						<p class="rawq small">{payload.subjectFinalText || payload.subjectRawText || payload.subject.snippet || '—'}</p>
+						{#if payload.subjectRawText && payload.subjectFinalText}
+							<button class="btn text sm" type="button" aria-expanded={showRaw} onclick={() => (showRaw = !showRaw)}>
+								<Icon name={showRaw ? 'caret-down' : 'caret-right'} class="i sm" />What you said
+							</button>
+							{#if showRaw}<p class="rawq small">{payload.subjectRawText}</p>{/if}
+						{/if}
 					{/if}
 				{:else}
+					<p class="lab">About</p>
 					<p class="sub">No earlier dictation was found, so there is nothing to attach this to yet.</p>
 				{/if}
 			</section>
 
-			{#if payload?.transcriptProblem}
+			{#if showingResult}
+				<!-- The note below is about the feedback box, which the result doesn't show. -->
+			{:else if payload?.transcriptProblem}
 				<p class="note warnline"><Icon name="warning" class="i sm" />{payload.transcriptProblem}</p>
 			{:else if payload?.transcript}
 				<p class="note"><Icon name="microphone" class="i sm" />Transcribed from what you said. Fix anything it misheard.</p>
@@ -122,6 +153,9 @@
 						{client}
 						recordingId={payload.subject.recordingId}
 						initialFeedback={payload.transcript}
+						initialRecord={demoRecord}
+						popover={demoPopover}
+						onStep={(s) => (showingResult = s === 'result')}
 						onClose={() => void close()}
 					/>
 				{/key}
@@ -157,6 +191,20 @@
 	}
 	.subj p {
 		margin: 0;
+	}
+	/* 0.9.18: one line while the result shows; the text folds under "Original text". */
+	.subj.compact {
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-items: center;
+		column-gap: 10px;
+		padding: 8px 14px;
+	}
+	.subj.compact .rawq {
+		flex-basis: 100%;
+	}
+	.who .lab {
+		margin-right: 2px;
 	}
 	.who {
 		display: flex;
