@@ -406,6 +406,8 @@ pub struct GitHubSource {
     upload: bool,
     deadline: Instant,
     now: i64,
+    /// When this check started (`now` is the same moment in unix seconds).
+    started: Instant,
     /// Requests stop for the rest of this check (rate limit, refused token).
     stopped: Option<String>,
     uploads_refused: bool,
@@ -449,6 +451,7 @@ impl GitHubSource {
             upload: options.upload,
             deadline: options.deadline,
             now: options.now,
+            started: Instant::now(),
             stopped: None,
             uploads_refused: false,
             issue: None,
@@ -502,7 +505,9 @@ impl GitHubSource {
         if (200..300).contains(&response.status) || response.status == 304 {
             return Ok(response);
         }
-        if let Some(until) = rate_limit_until(&response, self.now) {
+        // A wait GitHub gives runs from when its answer came, not from the start of the check.
+        let received = self.now.saturating_add(self.started.elapsed().as_secs() as i64);
+        if let Some(until) = rate_limit_until(&response, received) {
             self.meta.not_before = self.meta.not_before.max(until);
             let message = self.wait_message(self.meta.not_before);
             self.stopped = Some(message.clone());
@@ -881,11 +886,33 @@ pub struct TestReport {
     pub user_found: bool,
     pub layers: Vec<LayerCheck>,
     pub warnings: Vec<String>,
+    /// GitHub asked to wait until then (unix seconds): kept with the word
+    /// lists' other state, so the next check waits too. Not sent to the page.
+    #[serde(skip)]
+    pub not_before: Option<i64>,
 }
 
 /// Reads the repository, its branch and this user's layers; writes nothing.
 /// `branch` empty: the repository's default branch.
 pub fn test_connection(http: &dyn Transport, api: &str, token: &str, repo: &str, branch: &str, user: &str, now: i64, not_before: i64) -> TestReport {
+    let limited: std::cell::Cell<Option<i64>> = std::cell::Cell::new(None);
+    let mut report = run_test(http, api, token, repo, branch, user, now, not_before, &limited);
+    report.not_before = limited.get();
+    report
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_test(
+    http: &dyn Transport,
+    api: &str,
+    token: &str,
+    repo: &str,
+    branch: &str,
+    user: &str,
+    now: i64,
+    not_before: i64,
+    limited: &std::cell::Cell<Option<i64>>,
+) -> TestReport {
     let mut report = TestReport::default();
     if not_before > now {
         report.message = format!(
@@ -903,7 +930,12 @@ pub fn test_connection(http: &dyn Transport, api: &str, token: &str, repo: &str,
         }
     };
     let deadline = Instant::now() + Duration::from_secs(25);
+    let started = Instant::now();
+    // After a rate limit, nothing more is asked.
     let send = |url: String, accept: &'static str, max: usize| -> Result<HttpResponse, String> {
+        if limited.get().is_some() {
+            return Err("GitHub asked VoiceFlow to slow down; try again later.".into());
+        }
         let left = deadline.saturating_duration_since(Instant::now());
         if left < Duration::from_secs(1) {
             return Err("GitHub didn't answer in time.".into());
@@ -917,8 +949,9 @@ pub fn test_connection(http: &dyn Transport, api: &str, token: &str, repo: &str,
         if (200..300).contains(&response.status) {
             return Ok(response);
         }
-        if rate_limit_until(&response, now).is_some() {
-            return Err("GitHub asked VoiceFlow to slow down; try again in a few minutes.".into());
+        if let Some(until) = rate_limit_until(&response, now.saturating_add(started.elapsed().as_secs() as i64)) {
+            limited.set(Some(until));
+            return Err("GitHub asked VoiceFlow to slow down; try again later.".into());
         }
         Err(match response.status {
             401 => "GitHub didn't accept the token. Check that it was copied whole and hasn't expired.".to_string(),
@@ -1293,6 +1326,34 @@ mod tests {
         s.fake.put_file("profiles/sam/profile.json", &PERSONAL.replace("Quorvane\",\"priority\":80", "Quorvane\",\"priority\":81"));
         let fixed = s.check();
         assert_eq!(fixed.report.layers[2].state, "ok");
+    }
+
+    #[test]
+    fn a_bad_edit_file_is_not_downloaded_again_until_it_changes() {
+        let s = setup();
+        s.fake.put_file("profiles/sam/ops/ph1-bad.json", r#"{"schema":"voiceflow-op"}"#);
+        let out = s.check();
+        assert_eq!(out.snapshot.issues.iter().filter(|i| i.code == "edit-rejected").count(), 1);
+        s.fake.clear_requests();
+        s.fake.put_file("README.md", "changed, so the listing is read again");
+        let again = s.check();
+        assert_eq!(again.snapshot.issues.iter().filter(|i| i.code == "edit-rejected").count(), 1, "still reported");
+        assert_eq!(s.fake.count("/git/blobs/"), 0, "not downloaded again");
+        // Fixed in place: read again and used.
+        s.fake.put_file("profiles/sam/ops/ph1-bad.json", &op("ph1-bad", "ph1", r#""type":"term","term":{"text":"Zephlet"}"#));
+        let fixed = s.check();
+        assert!(fixed.snapshot.terms.iter().any(|t| t.text == "Zephlet"));
+        assert!(fixed.snapshot.issues.iter().all(|i| i.code != "edit-rejected"));
+    }
+
+    #[test]
+    fn test_connection_stops_at_a_rate_limit_and_reports_the_wait() {
+        let s = setup();
+        s.fake.set(|st| st.force = Some((429, vec![("retry-after".into(), "120".into())], "{}".into())));
+        let report = test_connection(&s.fake, "https://fake.test", "github_pat_test_token_0000000000", "sam-lee/words", "main", "sam", s.now, 0);
+        assert!(!report.ok);
+        assert_eq!(report.not_before, Some(s.now + 120));
+        assert_eq!(s.fake.count(""), 1, "nothing asked after the limit");
     }
 
     #[test]

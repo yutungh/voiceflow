@@ -235,8 +235,10 @@ impl Paths {
     pub fn scope_key(&self) -> String {
         let mut source = self.source.to_string_lossy().trim().to_string();
         if let Some(repo) = &self.github {
-            // Not a path: no Windows case folding (a branch name keeps its case).
-            source = repo.identity();
+            // Not a path: no Windows case folding (a branch name keeps its case),
+            // and a NUL first, which no folder path has, so a folder can never
+            // share a GitHub source's cache.
+            source = format!("\u{0}{}", repo.identity());
         } else if cfg!(windows) {
             source = source.replace('/', "\\").to_lowercase();
         }
@@ -345,7 +347,7 @@ struct Revision {
 }
 
 fn load_revisions(paths: &Paths) -> BTreeMap<String, Revision> {
-    read_limited(&paths.revisions_file(), 64 * 1024)
+    read_limited(&paths.revisions_file(), 4 * 1024 * 1024)
         .ok()
         .and_then(|t| serde_json::from_str(&t).ok())
         .unwrap_or_default()
@@ -621,14 +623,6 @@ pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &st
         layers.push((layer, file));
         infos.push(info);
     }
-    if revisions != revisions_before {
-        if let Err(e) = serde_json::to_string_pretty(&revisions)
-            .map_err(|e| e.to_string())
-            .and_then(|t| write_atomic(&paths.revisions_file(), t.as_bytes()))
-        {
-            errors.push(format!("Couldn't note which files were read: {e}"));
-        }
-    }
 
     // Edits made here: only this profile's. An edit not seen before is
     // claimed by the profile set now (it was just made, or made before word
@@ -727,13 +721,28 @@ pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &st
         // kept, even when keeping the copy fails.
         let cache_ops = paths.cache_ops();
         let mut later = 0;
-        for name in source.list_json(&remote) {
+        let listed = source.list_json(&remote);
+        // Rejections of edit files no longer there are forgotten.
+        revisions.retain(|key, _| key.strip_prefix("op:").is_none_or(|n| listed.iter().any(|l| l == n)));
+        for name in listed {
             let cached = cache_ops.join(&name);
             if let Ok(op) = read_op(&cached, &name) {
                 ops.entry(op.id.clone()).or_insert(op);
                 continue;
             }
-            match source.read(&format!("{remote}/{name}"), MAX_OP_BYTES) {
+            // A source with content ids (GitHub): an edit file already found
+            // bad isn't downloaded again until it changes, so a pile of bad
+            // files can't use up every check's time before a good one.
+            let rel = format!("{remote}/{name}");
+            let revision = source.revision(&rel);
+            let key = format!("op:{name}");
+            if let (Some(rev), Some(kept)) = (&revision, revisions.get(&key)) {
+                if kept.rejected.as_ref() == Some(rev) {
+                    issues.push(rejected_edit(&name, kept.error.as_deref().unwrap_or("not a valid edit")));
+                    continue;
+                }
+            }
+            match source.read(&rel, MAX_OP_BYTES) {
                 Fetch::Text(text) => match parse_op(&text, Some(stem(&name))) {
                     Ok(op) => {
                         if let Err(e) = write_atomic(&cached, text.as_bytes()) {
@@ -741,7 +750,12 @@ pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &st
                         }
                         ops.entry(op.id.clone()).or_insert(op);
                     }
-                    Err(e) => issues.push(rejected_edit(&name, &e)),
+                    Err(e) => {
+                        if let Some(rev) = revision {
+                            revisions.insert(key, Revision { accepted: None, rejected: Some(rev), error: Some(e.clone()) });
+                        }
+                        issues.push(rejected_edit(&name, &e));
+                    }
                 },
                 Fetch::Deferred(_) => later += 1,
                 Fetch::NotFound => errors.push(format!("Couldn't read {name}: it is no longer there")),
@@ -761,6 +775,14 @@ pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &st
     for (name, path) in json_files(&paths.cache_ops()) {
         if let Ok(op) = read_op(&path, &name) {
             ops.entry(op.id.clone()).or_insert(op);
+        }
+    }
+    if revisions != revisions_before {
+        if let Err(e) = serde_json::to_string_pretty(&revisions)
+            .map_err(|e| e.to_string())
+            .and_then(|t| write_atomic(&paths.revisions_file(), t.as_bytes()))
+        {
+            errors.push(format!("Couldn't note which files were read: {e}"));
         }
     }
     let pending_edits = local_files

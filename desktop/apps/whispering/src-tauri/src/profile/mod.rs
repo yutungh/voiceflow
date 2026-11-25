@@ -246,14 +246,20 @@ pub fn start(app: &AppHandle) {
             let service = handle.state::<ProfileService>();
             refresh_local(&handle, &service);
             emit(&handle, &service);
-            // Only whether a token is stored, for Settings.
+            // Only whether a token is stored, for Settings: on its own, so a slow
+            // credential store never holds up the word-list checks.
             let reader = handle.clone();
-            let stored = tokio::task::spawn_blocking(move || crate::secrets::github_token(&reader).map(|t| t.is_some())).await;
-            if let Ok(Ok(stored)) = stored {
-                if let Ok(mut state) = service.state.lock() {
-                    state.github_token = stored;
+            tauri::async_runtime::spawn(async move {
+                let probe = reader.clone();
+                let stored = tokio::task::spawn_blocking(move || crate::secrets::github_token(&probe).map(|t| t.is_some())).await;
+                if let Ok(Ok(stored)) = stored {
+                    let service = reader.state::<ProfileService>();
+                    if let Ok(mut state) = service.state.lock() {
+                        state.github_token = stored;
+                    }
+                    emit(&reader, &service);
                 }
-            }
+            });
         }
         let mut first = true;
         loop {
@@ -352,7 +358,7 @@ pub fn profile_set_config(
     };
     config.check()?;
     // A pasted link (`https://github.com/owner/name.git`) is kept as owner/name.
-    if config.is_github() {
+    if config.enabled && config.is_github() {
         let repo = github::Repo::parse(&config.repo, &config.branch)?;
         config.repo = format!("{}/{}", repo.owner, repo.name);
     }
@@ -458,12 +464,19 @@ pub async fn profile_github_test(app: AppHandle, repo: String, branch: String, u
             device: "test".into(),
             ..Config::default()
         };
-        let not_before = probe
-            .github_repo()
-            .map(|_| github::load_meta(&Paths::new(&dir, &probe).github_meta()).not_before)
-            .unwrap_or(0);
+        let meta_path = probe.github_repo().map(|_| Paths::new(&dir, &probe).github_meta());
+        let not_before = meta_path.as_ref().map(|p| github::load_meta(p).not_before).unwrap_or(0);
         let transport = ReqwestTransport::new(&version)?;
-        Ok(github::test_connection(&transport, github::API, &token, &repo, &branch, &user, sync::now_unix(), not_before))
+        let report = github::test_connection(&transport, github::API, &token, &repo, &branch, &user, sync::now_unix(), not_before);
+        // A wait GitHub asked for here holds for the next check too.
+        if let (Some(until), Some(path)) = (report.not_before, &meta_path) {
+            let mut meta = github::load_meta(path);
+            meta.not_before = meta.not_before.max(until);
+            if let Ok(text) = serde_json::to_string(&meta) {
+                let _ = sync::write_atomic(path, text.as_bytes());
+            }
+        }
+        Ok(report)
     });
     match tokio::time::timeout(SHARE_TIMEOUT, task).await {
         Ok(Ok(result)) => result,

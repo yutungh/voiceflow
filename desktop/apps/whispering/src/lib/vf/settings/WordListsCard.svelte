@@ -131,8 +131,21 @@
 
 	function toggle(on: boolean) {
 		enabled = on;
-		// Turning it off needs nothing else; turning it on waits for the form.
-		if (!on && current?.enabled) void save();
+		// Turning it off needs nothing else (the saved settings, switched off:
+		// nothing half-typed in the form, and no token); turning it on waits for
+		// the form.
+		if (!on && current?.enabled) void disable();
+	}
+
+	async function disable() {
+		if (!current) return;
+		error = null;
+		try {
+			await wordLists.setConfig({ ...current, enabled: false });
+		} catch (err) {
+			enabled = true;
+			error = err instanceof Error ? err.message : String(err);
+		}
 	}
 
 	const layerName = { household: 'Household', generated: 'From notes', personal: 'Your list' } as Record<string, string>;
