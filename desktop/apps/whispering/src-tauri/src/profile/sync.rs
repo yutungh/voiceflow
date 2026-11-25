@@ -40,10 +40,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use super::github::Repo;
 use super::merge::{merge, Issue, Snapshot};
 use super::model::{
     parse_op, parse_profile, valid_name, Layer, Op, ProfileFile, OP_TYPES_READ, PROFILE_VERSIONS_READ, UPLOADABLE_OP_TYPES,
 };
+use super::source::{Fetch, FolderSource, Source, Upload};
 
 /// A layer file larger than this is not read (the format allows 2,000 entries).
 pub const MAX_PROFILE_BYTES: u64 = 1024 * 1024;
@@ -64,14 +66,54 @@ pub struct Config {
     pub assistant: String,
     /// This device's id (the same one its edit files carry).
     pub device: String,
+    /// 0.9.19: where the word lists are: `folder` (also when empty: every
+    /// earlier settings file) or `github`.
+    pub kind: String,
+    /// GitHub: `owner/name`.
+    pub repo: String,
+    /// GitHub: the branch read and written.
+    pub branch: String,
+    /// GitHub: this computer only reads (no edits or status are uploaded).
+    pub read_only: bool,
 }
 
 impl Config {
+    pub fn is_github(&self) -> bool {
+        self.kind == "github"
+    }
+
+    /// The repository, for a GitHub source with valid settings.
+    pub fn github_repo(&self) -> Option<Repo> {
+        self.is_github().then(|| Repo::parse(&self.repo, &self.branch).ok()).flatten()
+    }
+
+    /// Which word lists these settings name: two settings with the same
+    /// identity read the same files.
+    pub fn identity(&self) -> String {
+        match self.github_repo() {
+            Some(repo) => format!("{}#{}", repo.identity(), self.user),
+            None => format!("folder:{}#{}", self.source, self.user),
+        }
+    }
+
+    /// For messages: the folder, or the repository.
+    pub fn where_label(&self) -> String {
+        match self.github_repo() {
+            Some(repo) => repo.label(),
+            None => self.source.clone(),
+        }
+    }
+
     pub fn check(&self) -> Result<(), String> {
         if !self.enabled {
             return Ok(());
         }
-        if self.source.trim().is_empty() {
+        if !matches!(self.kind.as_str(), "" | "folder" | "github") {
+            return Err("Choose where the word lists are.".into());
+        }
+        if self.is_github() {
+            Repo::parse(&self.repo, &self.branch)?;
+        } else if self.source.trim().is_empty() {
             return Err("Choose the folder that holds the word lists.".into());
         }
         if !valid_name(&self.user) || self.user == "household" {
@@ -117,6 +159,12 @@ pub struct SyncReport {
     pub pending_edits: usize,
     pub uploaded_now: usize,
     pub errors: Vec<String>,
+    /// 0.9.19: why the source couldn't be reached (`offline`, `auth`,
+    /// `not-found`, `rate-limited`, `empty`, `truncated`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_issue: Option<String>,
+    /// 0.9.19: calm notes that need no fixing (uploads refused or off).
+    pub notices: Vec<String>,
 }
 
 pub struct Paths {
@@ -124,6 +172,8 @@ pub struct Paths {
     pub app_data: PathBuf,
     pub user: String,
     pub device: String,
+    /// 0.9.19: set when the word lists are in a GitHub repository.
+    pub github: Option<Repo>,
 }
 
 impl Paths {
@@ -133,7 +183,29 @@ impl Paths {
             app_data: app_data.to_path_buf(),
             user: config.user.clone(),
             device: config.device.clone(),
+            github: config.github_repo(),
         }
+    }
+    /// The same files, relative to the source (`/`-separated).
+    pub fn layer_rel(&self, layer: Layer) -> String {
+        match layer {
+            Layer::Household => "profiles/household/profile.json".into(),
+            Layer::Generated => format!("profiles/{}/generated/profile.json", self.user),
+            _ => format!("profiles/{}/profile.json", self.user),
+        }
+    }
+    pub fn ops_rel(&self) -> String {
+        format!("profiles/{}/ops", self.user)
+    }
+    pub fn status_rel(&self) -> String {
+        format!("status/{}/{}.json", self.user, self.device)
+    }
+    /// What a GitHub source keeps between checks (listing, ETag, retry time).
+    pub fn github_meta(&self) -> PathBuf {
+        self.cache_dir().join("github.json")
+    }
+    fn revisions_file(&self) -> PathBuf {
+        self.cache_dir().join("revisions.json")
     }
     pub fn layer_file(&self, layer: Layer) -> PathBuf {
         let profiles = self.source.join("profiles");
@@ -162,7 +234,12 @@ impl Paths {
     /// aside on Windows). Caches, receipts and edit owners are kept per key.
     pub fn scope_key(&self) -> String {
         let mut source = self.source.to_string_lossy().trim().to_string();
-        if cfg!(windows) {
+        if let Some(repo) = &self.github {
+            // Not a path: no Windows case folding (a branch name keeps its case),
+            // and a NUL first, which no folder path has, so a folder can never
+            // share a GitHub source's cache.
+            source = format!("\u{0}{}", repo.identity());
+        } else if cfg!(windows) {
             source = source.replace('/', "\\").to_lowercase();
         }
         let source = source.trim_end_matches(['/', '\\']);
@@ -258,25 +335,75 @@ fn layer_info(layer: Layer, state: &str, file: Option<&ProfileFile>, error: Opti
     }
 }
 
-/// One layer: the share's file when it is valid (and then cached), else
-/// the last good copy, else nothing.
-fn load_layer(paths: &Paths, layer: Layer, online: bool) -> (Option<ProfileFile>, LayerInfo) {
+/// What was decided about the file behind each layer, by content id, for a
+/// source that has ids (GitHub): an accepted file isn't downloaded again,
+/// and the same bad file isn't downloaded every check.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+struct Revision {
+    accepted: Option<String>,
+    rejected: Option<String>,
+    error: Option<String>,
+}
+
+fn load_revisions(paths: &Paths) -> BTreeMap<String, Revision> {
+    read_limited(&paths.revisions_file(), 4 * 1024 * 1024)
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or_default()
+}
+
+/// One layer: the source's file when it is valid (and then cached), else
+/// the last good copy, else nothing. `source` is `None` offline.
+fn load_layer(
+    paths: &Paths,
+    layer: Layer,
+    source: Option<&mut dyn Source>,
+    revisions: &mut BTreeMap<String, Revision>,
+) -> (Option<ProfileFile>, LayerInfo) {
     let cached = || {
         read_limited(&paths.cache_layer(layer), MAX_PROFILE_BYTES)
             .ok()
             .and_then(|t| parse_profile(&t, layer, &paths.user).ok())
     };
-    if !online {
+    let Some(source) = source else {
         let file = cached();
         let state = if file.is_some() { "offline" } else { "missing" };
         let info = layer_info(layer, state, file.as_ref(), None);
         return (file, info);
+    };
+    let rel = paths.layer_rel(layer);
+    let revision = source.revision(&rel);
+    let kept = revisions.get(layer.as_str()).cloned().unwrap_or_default();
+    if let Some(rev) = &revision {
+        if kept.accepted.as_ref() == Some(rev) {
+            if let Some(file) = cached() {
+                let info = layer_info(layer, "ok", Some(&file), None);
+                return (Some(file), info);
+            }
+        }
+        if kept.rejected.as_ref() == Some(rev) {
+            if let Some(error) = kept.error.clone() {
+                let file = cached();
+                let state = if file.is_some() { "cached" } else { "missing" };
+                let info = layer_info(layer, state, file.as_ref(), Some(error));
+                return (file, info);
+            }
+        }
     }
-    let remote = paths.layer_file(layer);
-    let problem = match read_limited(&remote, MAX_PROFILE_BYTES) {
-        Ok(text) => match parse_profile(&text, layer, &paths.user) {
+    let problem = match source.read(&rel, MAX_PROFILE_BYTES) {
+        Fetch::Text(text) => match parse_profile(&text, layer, &paths.user) {
             Ok(file) => {
                 let cache_error = write_atomic(&paths.cache_layer(layer), text.as_bytes()).err();
+                // Only a copy actually kept counts as accepted.
+                match (&revision, &cache_error) {
+                    (Some(rev), None) => {
+                        revisions.insert(layer.as_str().into(), Revision { accepted: Some(rev.clone()), ..Revision::default() });
+                    }
+                    _ => {
+                        revisions.remove(layer.as_str());
+                    }
+                }
                 let info = layer_info(
                     layer,
                     "ok",
@@ -285,9 +412,18 @@ fn load_layer(paths: &Paths, layer: Layer, online: bool) -> (Option<ProfileFile>
                 );
                 return (Some(file), info);
             }
-            Err(e) => format!("{} was not used: {e}", display_name(paths, &remote)),
+            Err(e) => {
+                let message = format!("{rel} was not used: {e}");
+                if let Some(rev) = &revision {
+                    revisions.insert(
+                        layer.as_str().into(),
+                        Revision { accepted: kept.accepted.clone(), rejected: Some(rev.clone()), error: Some(message.clone()) },
+                    );
+                }
+                message
+            }
         },
-        Err(e) if e.kind() == ErrorKind::NotFound => {
+        Fetch::NotFound => {
             match cached() {
                 // A layer that was there before and now is not: keep the
                 // copy rather than dropping everyone's words on a glitch.
@@ -296,30 +432,19 @@ fn load_layer(paths: &Paths, layer: Layer, online: bool) -> (Option<ProfileFile>
                         layer,
                         "cached",
                         Some(&file),
-                        Some(format!(
-                            "{} is missing; using the last good copy",
-                            display_name(paths, &remote)
-                        )),
+                        Some(format!("{rel} is missing; using the last good copy")),
                     );
                     return (Some(file), info);
                 }
                 None => return (None, layer_info(layer, "missing", None, None)),
             }
         }
-        Err(e) => format!("{} couldn't be read: {e}", display_name(paths, &remote)),
+        Fetch::Deferred(e) | Fetch::Failed(e) => format!("{rel} couldn't be read: {e}"),
     };
     let file = cached();
     let state = if file.is_some() { "cached" } else { "missing" };
     let info = layer_info(layer, state, file.as_ref(), Some(problem));
     (file, info)
-}
-
-/// The path relative to the source, for messages.
-fn display_name(paths: &Paths, path: &Path) -> String {
-    path.strip_prefix(&paths.source)
-        .unwrap_or(path)
-        .to_string_lossy()
-        .replace('\\', "/")
 }
 
 fn json_files(dir: &Path) -> Vec<(String, PathBuf)> {
@@ -416,20 +541,82 @@ pub struct Outcome {
 /// Reads everything, uploads pending edits when `online`, merges.
 /// With `online` false, nothing on the share is touched (fast start-up from
 /// the cache, and the fallback when the share can't be reached).
+///
+/// A folder only: a GitHub source needs its token and a client, so the
+/// service builds one and calls [`check`]. Offline, both read the cache.
 pub fn refresh(paths: &Paths, online: bool, now: &str) -> Outcome {
+    if online && paths.github.is_none() {
+        let mut folder = FolderSource::new(&paths.source);
+        refresh_with(paths, Some(&mut folder), now)
+    } else {
+        refresh_with(paths, None, now)
+    }
+}
+
+/// One check against a source: refresh, then this device's status, then
+/// whatever the source keeps for next time.
+pub fn check(paths: &Paths, source: &mut dyn Source, version: &str, now: &str) -> Outcome {
+    let mut outcome = refresh_with(paths, Some(&mut *source), now);
+    if outcome.report.source_reachable && source.uploads() {
+        let synced = outcome.report.synced_at.clone();
+        let written = status_text(paths, version, &outcome.snapshot, &outcome.report, synced.as_deref())
+            .and_then(|text| source.put_status(&paths.status_rel(), &text));
+        if let Err(e) = written {
+            outcome.report.errors.push(format!("Couldn't write this device's status: {e}"));
+        }
+        let (errors, notices) = source.take_messages();
+        merge_messages(&mut outcome.report, errors, notices);
+    }
+    source.finish();
+    outcome
+}
+
+fn merge_messages(report: &mut SyncReport, errors: Vec<String>, notices: Vec<String>) {
+    for e in errors {
+        if !report.errors.contains(&e) {
+            report.errors.push(e);
+        }
+    }
+    for n in notices {
+        if !report.notices.contains(&n) {
+            report.notices.push(n);
+        }
+    }
+}
+
+/// [`refresh`] with a source; `None` reads the cache only.
+pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &str) -> Outcome {
     let mut errors = Vec::new();
-    let reached = online && reachable(paths);
-    if online && !reached {
-        errors.push(format!(
-            "Can't reach {}; using the last good copy.",
-            paths.source.display()
-        ));
+    let mut notices: Vec<String> = Vec::new();
+    let mut source_issue = None;
+    let reached = match source.as_deref_mut() {
+        Some(s) => match s.open() {
+            Ok(()) => true,
+            Err(message) => {
+                errors.push(message);
+                source_issue = s.issue().map(str::to_string);
+                false
+            }
+        },
+        None => false,
+    };
+    // The source, only when it was reached.
+    macro_rules! live {
+        () => {
+            if reached {
+                source.as_mut().map(|s| &mut **s as &mut dyn Source)
+            } else {
+                None
+            }
+        };
     }
 
+    let mut revisions = load_revisions(paths);
+    let revisions_before = revisions.clone();
     let mut layers = Vec::new();
     let mut infos = Vec::new();
     for layer in [Layer::Household, Layer::Generated, Layer::Personal] {
-        let (file, info) = load_layer(paths, layer, reached);
+        let (file, info) = load_layer(paths, layer, live!(), &mut revisions);
         if let Some(e) = &info.error {
             errors.push(e.clone());
         }
@@ -500,59 +687,111 @@ pub fn refresh(paths: &Paths, online: bool, now: &str) -> Outcome {
     // Upload what the share hasn't confirmed, then read every device's edits.
     let mut uploaded = load_uploaded(paths);
     let mut uploaded_now = 0;
-    if reached {
-        let remote = paths.remote_ops();
-        for (name, path) in &local_files {
-            let id = stem(name).to_string();
-            if uploaded.contains(&id) || saved_owners.get(&id) != Some(&key) {
-                continue;
-            }
-            match upload_op(path, &remote, name) {
-                Ok(()) => {
-                    uploaded.insert(id);
-                    uploaded_now += 1;
+    let mut uploads_off = false;
+    if let Some(source) = live!() {
+        let remote = paths.ops_rel();
+        if source.uploads() {
+            let mut refused = false;
+            for (name, path) in &local_files {
+                let id = stem(name).to_string();
+                if refused || uploaded.contains(&id) || saved_owners.get(&id) != Some(&key) {
+                    continue;
                 }
-                Err(e) => errors.push(format!("Couldn't upload an edit: {e}")),
+                match source.create(&remote, name, path) {
+                    Upload::Done => {
+                        uploaded.insert(id);
+                        uploaded_now += 1;
+                    }
+                    Upload::Deferred => {}
+                    // Said once, as a notice (from the source).
+                    Upload::Refused(_) => refused = true,
+                    Upload::Failed(e) => errors.push(format!("Couldn't upload an edit: {e}")),
+                }
             }
-        }
-        if uploaded_now > 0 {
-            if let Err(e) = save_uploaded(paths, &uploaded) {
-                errors.push(format!("Couldn't note the uploaded edits: {e}"));
+            if uploaded_now > 0 {
+                if let Err(e) = save_uploaded(paths, &uploaded) {
+                    errors.push(format!("Couldn't note the uploaded edits: {e}"));
+                }
             }
+        } else {
+            uploads_off = true;
         }
         // Every device's edits: a good copy here is enough (edits never
         // change); otherwise the share's file is read, checked, used now and
         // kept, even when keeping the copy fails.
         let cache_ops = paths.cache_ops();
-        for (name, path) in json_files(&remote) {
+        let mut later = 0;
+        let listed = source.list_json(&remote);
+        // Rejections of edit files no longer there are forgotten.
+        revisions.retain(|key, _| key.strip_prefix("op:").is_none_or(|n| listed.iter().any(|l| l == n)));
+        for name in listed {
             let cached = cache_ops.join(&name);
             if let Ok(op) = read_op(&cached, &name) {
                 ops.entry(op.id.clone()).or_insert(op);
                 continue;
             }
-            match read_limited(&path, MAX_OP_BYTES) {
-                Ok(text) => match parse_op(&text, Some(stem(&name))) {
+            // A source with content ids (GitHub): an edit file already found
+            // bad isn't downloaded again until it changes, so a pile of bad
+            // files can't use up every check's time before a good one.
+            let rel = format!("{remote}/{name}");
+            let revision = source.revision(&rel);
+            let key = format!("op:{name}");
+            if let (Some(rev), Some(kept)) = (&revision, revisions.get(&key)) {
+                if kept.rejected.as_ref() == Some(rev) {
+                    issues.push(rejected_edit(&name, kept.error.as_deref().unwrap_or("not a valid edit")));
+                    continue;
+                }
+            }
+            match source.read(&rel, MAX_OP_BYTES) {
+                Fetch::Text(text) => match parse_op(&text, Some(stem(&name))) {
                     Ok(op) => {
                         if let Err(e) = write_atomic(&cached, text.as_bytes()) {
                             errors.push(format!("Couldn't keep a copy of {name}: {e}"));
                         }
                         ops.entry(op.id.clone()).or_insert(op);
                     }
-                    Err(e) => issues.push(rejected_edit(&name, &e)),
+                    Err(e) => {
+                        if let Some(rev) = revision {
+                            revisions.insert(key, Revision { accepted: None, rejected: Some(rev), error: Some(e.clone()) });
+                        }
+                        issues.push(rejected_edit(&name, &e));
+                    }
                 },
-                Err(e) => errors.push(format!("Couldn't read {name}: {e}")),
+                Fetch::Deferred(_) => later += 1,
+                Fetch::NotFound => errors.push(format!("Couldn't read {name}: it is no longer there")),
+                Fetch::Failed(e) => errors.push(format!("Couldn't read {name}: {e}")),
             }
         }
+        if later > 0 {
+            notices.push(format!(
+                "{later} {} from your other devices will be read at the next check.",
+                if later == 1 { "edit" } else { "edits" }
+            ));
+        }
+        let (more_errors, more_notices) = source.take_messages();
+        errors.extend(more_errors);
+        notices.extend(more_notices);
     }
     for (name, path) in json_files(&paths.cache_ops()) {
         if let Ok(op) = read_op(&path, &name) {
             ops.entry(op.id.clone()).or_insert(op);
         }
     }
+    if revisions != revisions_before {
+        if let Err(e) = serde_json::to_string_pretty(&revisions)
+            .map_err(|e| e.to_string())
+            .and_then(|t| write_atomic(&paths.revisions_file(), t.as_bytes()))
+        {
+            errors.push(format!("Couldn't note which files were read: {e}"));
+        }
+    }
     let pending_edits = local_files
         .iter()
         .filter(|(name, _)| !uploaded.contains(stem(name)))
         .count();
+    if uploads_off && pending_edits > 0 {
+        notices.push("Uploads are off on this computer, so your changes stay here.".into());
+    }
 
     let refs: Vec<(Layer, Option<&ProfileFile>)> = layers.iter().map(|(l, f)| (*l, f.as_ref())).collect();
     let all_ops: Vec<Op> = ops.into_values().collect();
@@ -569,6 +808,8 @@ pub fn refresh(paths: &Paths, online: bool, now: &str) -> Outcome {
         pending_edits,
         uploaded_now,
         errors,
+        source_issue,
+        notices,
     };
     Outcome { snapshot, report }
 }
@@ -633,7 +874,15 @@ pub fn redact_quoted(message: &str) -> String {
     }
 }
 
+/// The status file written to a folder (tests and tools; the service goes
+/// through [`check`]).
 pub fn write_status(paths: &Paths, version: &str, snapshot: &Snapshot, report: &SyncReport, last_sync: Option<&str>) -> Result<(), String> {
+    let text = status_text(paths, version, snapshot, report, last_sync)?;
+    write_atomic(&paths.status_file(), text.as_bytes())
+}
+
+/// The status file's text: counts and short messages, never a word.
+pub fn status_text(paths: &Paths, version: &str, snapshot: &Snapshot, report: &SyncReport, last_sync: Option<&str>) -> Result<String, String> {
     let layers: Vec<LayerInfo> = report
         .layers
         .iter()
@@ -670,8 +919,15 @@ pub fn write_status(paths: &Paths, version: &str, snapshot: &Snapshot, report: &
             errors: &errors,
         },
     };
-    let text = serde_json::to_string_pretty(&status).map_err(|e| e.to_string())?;
-    write_atomic(&paths.status_file(), text.as_bytes())
+    serde_json::to_string_pretty(&status).map_err(|e| e.to_string())
+}
+
+/// Unix seconds now.
+pub fn now_unix() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
 }
 
 /// UTC now as `YYYY-MM-DDTHH:MM:SSZ`.
@@ -727,6 +983,7 @@ mod tests {
             user: "sam".into(),
             assistant: "Ada".into(),
             device: "dev1".into(),
+            ..Config::default()
         };
         let paths = Paths::new(&app_data, &config);
         Fixture { _root: root, paths }
@@ -936,6 +1193,7 @@ mod tests {
             user: "sam".into(),
             assistant: "Ada".into(),
             device: "demo9".into(),
+            ..Config::default()
         };
         let paths = Paths::new(app_data.path(), &config);
         let out = refresh(&paths, true, "2026-11-17T09:10:00Z");
@@ -957,6 +1215,31 @@ mod tests {
         assert_eq!(s.privacy.block_apps, vec!["vault-demo.exe".to_string()]);
     }
 
+    /// `pack/template` (what a new GitHub repository starts from) reads with
+    /// no problem for its user, and for a user with no folder yet.
+    #[test]
+    fn pack_template_reads_cleanly() {
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../pack/template");
+        for user in ["sam", "newcomer"] {
+            let app_data = tempfile::tempdir().unwrap();
+            let config = Config {
+                enabled: true,
+                source: source.to_string_lossy().to_string(),
+                user: user.into(),
+                device: "tmpl1".into(),
+                ..Config::default()
+            };
+            let out = refresh(&Paths::new(app_data.path(), &config), true, "2026-11-25T09:00:00Z");
+            assert!(out.report.errors.is_empty(), "{user}: {:?}", out.report.errors);
+            assert!(out.snapshot.issues.is_empty(), "{user}: {:?}", out.snapshot.issues);
+            assert_eq!(out.report.layers[0].state, "ok");
+            if user == "sam" {
+                assert_eq!(out.snapshot.terms.len(), 5);
+                assert_eq!(out.snapshot.corrections.len(), 3);
+            }
+        }
+    }
+
     /// A real word-list folder (for example a network share), read only: no edit
     /// is uploaded and no status is written. `VOICEFLOW_PROFILE_DUMP=<file>`
     /// also saves the merged snapshot there. Run with
@@ -974,6 +1257,7 @@ mod tests {
             user,
             assistant: String::new(),
             device: "readonly-check".into(),
+            ..Config::default()
         };
         let paths = Paths::new(app_data.path(), &config);
         let started = std::time::Instant::now();
@@ -1022,6 +1306,7 @@ mod tests {
             app_data: f.paths.app_data.clone(),
             user: "alex".into(),
             device: "dev1".into(),
+            github: None,
         };
         let out = refresh(&alex, true, "t2");
         assert_eq!(out.snapshot.terms.len(), 0, "Sam's word must not reach Alex");
@@ -1054,6 +1339,7 @@ mod tests {
             app_data: f.paths.app_data.clone(),
             user: "sam".into(),
             device: "dev1".into(),
+            github: None,
         };
         let out = refresh(&b, true, "t2");
         assert_eq!(out.report.layers[2].state, "missing", "A's personal layer must not stand in for B's");
@@ -1130,7 +1416,7 @@ mod tests {
 
     #[test]
     fn scope_key_ignores_case_and_trailing_slash_on_windows() {
-        let p = |s: &str| Paths { source: PathBuf::from(s), app_data: PathBuf::new(), user: "sam".into(), device: "d".into() };
+        let p = |s: &str| Paths { source: PathBuf::from(s), app_data: PathBuf::new(), user: "sam".into(), device: "d".into(), github: None };
         assert_ne!(p("C:/a").scope_key(), p("C:/b").scope_key());
         assert!(p("C:/a").scope_key().starts_with("sam-"));
         if cfg!(windows) {
@@ -1146,6 +1432,7 @@ mod tests {
             user: "Sam".into(),
             assistant: String::new(),
             device: "dev1".into(),
+            ..Config::default()
         };
         assert!(c.check().is_err());
         c.user = "household".into();

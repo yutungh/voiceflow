@@ -12,7 +12,7 @@ This page is for Windows and Mac. The word-list format itself is in [`pack/READM
 - **One folder for a household or team:** shared words everyone gets, plus each person's own words.
 - **Daily updates from an AI**, picked up by VoiceFlow within the hour.
 - **Offline is fine:** VoiceFlow keeps a last good copy of every list on each computer.
-- **Not the phone:** the Android keyboard can't read a Drive folder (see [Limits](#limits)).
+- **Not the phone:** the Android keyboard can't read a Drive folder (see [Limits](#limits)). For computers and phones together with no server, see [Keep your word lists in a private GitHub repository](../GITHUB-SYNC.md).
 
 ## 1. Set up the folder
 
@@ -163,7 +163,7 @@ It is the generator version of the rules in [Connect your own AI](CONNECT-YOUR-O
 
 ## Limits
 
-- **Phones:** the Android keyboard can't read a Google Drive folder. It gets word lists only through the [sync gateway](../../sync/README.md), a small server you run on a computer that stays on, which serves a folder from that computer. Using a Drive-synced folder as the gateway's folder hasn't been tested. Without a gateway, the phone keeps its own word list.
+- **Phones:** the Android keyboard can't read a Google Drive folder. It gets word lists only through the [sync gateway](../../sync/README.md), a small server you run on a computer that stays on, which serves a folder from that computer. Using a Drive-synced folder as the gateway's folder hasn't been tested. Without a gateway, the phone keeps its own word list. A [private GitHub repository](../GITHUB-SYNC.md) is the other way to reach a phone, once the phone's GitHub support is released.
 - **Not tested with a real Google Drive folder.** VoiceFlow's own loader code was run against a local folder with this layout, which checked:
   - a path with a space in it (`My Drive`);
   - a household list plus two people;

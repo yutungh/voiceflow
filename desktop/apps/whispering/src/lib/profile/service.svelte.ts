@@ -16,7 +16,12 @@ import { SUPPORTED_LANGUAGES } from '$lib/constants/languages';
 import { setProfilePrivacy } from '$lib/privacy/profile-blocklist';
 import { effectiveSnapshot, profileOverlay } from './ownership';
 import { createPins } from './pins';
-import type { ProfileConfig, ProfileSnapshot, ProfileState } from './types';
+import type {
+	GithubTestReport,
+	ProfileConfig,
+	ProfileSnapshot,
+	ProfileState,
+} from './types';
 
 const isDesktop = () =>
 	typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__;
@@ -92,6 +97,25 @@ export const wordLists = {
 	async refresh(): Promise<void> {
 		if (!isDesktop()) return;
 		apply(await invoke<ProfileState>('profile_refresh'));
+	},
+	/**
+	 * 0.9.19: stores the GitHub token in the OS credential store ('' removes
+	 * it). It is never read back into the page.
+	 */
+	async setGithubToken(token: string): Promise<void> {
+		apply(await invoke<ProfileState>('profile_github_set_token', { token }));
+	},
+	/**
+	 * Reads a GitHub repository without writing anything. `token` '' uses the
+	 * stored one; a typed token is used for this test only.
+	 */
+	async testGithub(args: {
+		repo: string;
+		branch: string;
+		user: string;
+		token: string;
+	}): Promise<GithubTestReport> {
+		return invoke<GithubTestReport>('profile_github_test', args);
 	},
 	/** An edit file was saved: merge it now and upload it in the background. */
 	async editsChanged(): Promise<void> {

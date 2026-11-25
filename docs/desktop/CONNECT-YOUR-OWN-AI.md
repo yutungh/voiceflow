@@ -8,7 +8,7 @@ The format is in [`pack/README.md`](../../pack/README.md); the JSON Schemas are 
 
 ## 1. Set up the folder
 
-1. Make a folder, for example `Documents/VoiceFlow` (or a shared folder on a home server or NAS so all your devices see it). To keep it in Google Drive, shared with your household or team and refreshed by an AI every day, see [Keep your word lists in Google Drive](GOOGLE-DRIVE.md).
+1. Make a folder, for example `Documents/VoiceFlow` (or a shared folder on a home server or NAS so all your devices see it). To keep it in Google Drive, shared with your household or team and refreshed by an AI every day, see [Keep your word lists in Google Drive](GOOGLE-DRIVE.md). To keep them in a private GitHub repository instead (computers and, once released, phones in sync with no server; every change in the history), see [Keep your word lists in a private GitHub repository](../GITHUB-SYNC.md).
 2. Create `profiles/<you>/profile.json`, where `<you>` is a short lower-case name:
 
    ```json
@@ -41,7 +41,9 @@ Paste this to your assistant, with the folder path:
 > 6. **Words are one line,** at most 60 characters, without `<` or `>`. A `gloss` is at most 80 characters.
 > 7. **Write the whole file at once,** then check it: valid JSON, matches the schema, `layer` and `user` unchanged. A file that fails is ignored by VoiceFlow (it keeps the last good copy), so a mistake never empties my lists, but nothing you changed takes effect until it passes.
 > 8. **Tell me what you changed,** in one line per entry.
-> 9. **Stay on version 1** unless every device that reads the file reports it reads version 2: each `status/<user>/<device>.json` must list 2 under `reads.profile`. Version 2 (`pack/schema/voiceflow-profile.v2.schema.json`) adds style fields (`icon`, `kind`, `guidance`, `expressionOverride`, `models`, `hidden`) and `defaults.pinnedStyles`; a file using any of them says `"schemaVersion": 2`, and an app that can't read it ignores the whole file.
+> 9. **Stay on version 1** unless every device that reads the file reports it reads version 2: each `status/<user>/<device>.json` must list 2 under `reads.profile`. Version 2 (`pack/schema/voiceflow-profile.v2.schema.json`) adds style fields (`icon`, `kind`, `guidance`, `expressionOverride`, `models`, `hidden`) and `defaults.pinnedStyles`; a file using any of them says `"schemaVersion": 2`, and an app that can't read it ignores the whole file. A phone counts too: it reads version 1 only, and with a GitHub repository it writes no status file, so if anyone in the repository dictates on a phone, stay on version 1.
+
+**In a GitHub repository,** add to the rules: run `git pull --rebase` before changing anything (VoiceFlow adds files from your devices), commit only the file you changed with a message that says what changed, then `git push`. Your assistant's commits then show in the repository's history, where you can review or revert them. The full setup is in [Keep your word lists in a private GitHub repository](../GITHUB-SYNC.md#6-let-an-ai-agent-update-the-words).
 
 ## 3. Everyday requests
 

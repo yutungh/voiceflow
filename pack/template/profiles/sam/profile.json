@@ -1,0 +1,19 @@
+{
+	"$schema": "https://raw.githubusercontent.com/yutungh/voiceflow/main/pack/schema/voiceflow-profile.v1.schema.json",
+	"schema": "voiceflow-profile",
+	"schemaVersion": 1,
+	"layer": "personal",
+	"user": "sam",
+	"updatedAt": "2026-11-25T08:00:00Z",
+	"updatedBy": "template",
+	"note": "Sam's own words. Rename the folder (and the user field) to your own short lower-case name. Every word here is invented.",
+	"terms": [
+		{ "id": "quorvane", "text": "Quorvane", "heardAs": ["Core Vane"], "kind": "project", "gloss": "Sam's side project", "priority": 80 },
+		{ "id": "ellisande", "text": "Ellisande", "heardAs": ["Ellis Sand"], "kind": "person", "priority": 70 },
+		{ "id": "zephlet", "text": "Zephlet", "kind": "product", "priority": 60 }
+	],
+	"corrections": [
+		{ "id": "quorvane-core-vane", "from": ["Core Vane", "Corvane"], "to": "Quorvane" },
+		{ "id": "ellisande-ellis-sand", "from": ["Ellis Sand"], "to": "Ellisande" }
+	]
+}

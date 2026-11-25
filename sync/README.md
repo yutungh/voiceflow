@@ -122,13 +122,13 @@ The phone makes its own device id the first time it is asked, so you ask it firs
 
    The reply is `enrolled device=ph1a2b3c4d user=sam gateway=https://sync.example.com`. It never repeats the token. A refusal names the field that was wrong, never its value. On Windows PowerShell, use `--es token (Get-Content ph1a2b3c4d.token)` and a backtick instead of `\` for line breaks.
 
-4. Delete the token file. Check the phone with the `SYNC_INFO` action again (`enrolled=yes`), or ask for an immediate run with `-a com.voiceflowkeyboard.ime.action.SYNC_NOW`. The phone then downloads the word lists, keeps an offline copy and sends edits and a status file back.
+4. Delete the token file. Check the phone with the `SYNC_INFO` action again (`enrolled=yes`), or ask for an immediate run with `-a com.voiceflowkeyboard.ime.action.SYNC_NOW`. The phone then downloads the word lists, keeps an offline copy and sends its status file back. It sends no word edits: words added on the phone stay in its own list.
 
 Other actions the receiver understands: `RESET_STYLES` and `STYLE_DIGEST`, used for maintenance.
 
 ### 6. Connect the desktop app
 
-The desktop app does not use the gateway or a token. It reads the data folder itself. In **Settings > Word lists**, turn on **Use word lists**, enter the folder (a path on the PC, or the server's share of the same folder, for example `\\server\voiceflow` or `/Volumes/voiceflow`) and your user name under **Whose words**. So the desktop needs either a profile folder it can open, or none at all (it works without word lists), and the phone needs the gateway. If the gateway's data folder is on another machine, share it with the PC (SMB or a synced folder) and give the PC write access to `profiles/<user>/` and `status/<user>/` only.
+The desktop app does not use the gateway or a token. It reads the data folder itself. In **Settings > Word lists**, turn on **Use word lists**, enter the folder (a path on the PC, or the server's share of the same folder, for example `\\server\voiceflow` or `/Volumes/voiceflow`) and your user name under **Whose words**. So the desktop needs either a profile folder it can open, or none at all (it works without word lists), and the phone needs the gateway. (Without a gateway, a [private GitHub repository](../docs/GITHUB-SYNC.md) can hold the word lists for the desktop app now, and for the phone once its GitHub support is released.) If the gateway's data folder is on another machine, share it with the PC (SMB or a synced folder) and give the PC write access to `profiles/<user>/` and `status/<user>/` only.
 
 ### 7. Revoke a device
 
