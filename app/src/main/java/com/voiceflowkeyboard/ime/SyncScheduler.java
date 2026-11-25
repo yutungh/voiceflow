@@ -30,10 +30,10 @@ final class SyncScheduler {
     private SyncScheduler() {
     }
 
-    /** From the keyboard being shown: a run at most every 15 minutes, only when enrolled. */
+    /** From the keyboard being shown: a run at most every 15 minutes, only with a gateway or a GitHub word source. */
     static void onKeyboardOpened(Context context) {
         try {
-            if (SyncStore.enrolment(context) == null) {
+            if (!SyncStore.anySync(context)) {
                 return;
             }
             if (SyncStore.claimKick(context, System.currentTimeMillis(), KEYBOARD_KICK_INTERVAL_MS)) {
@@ -52,7 +52,7 @@ final class SyncScheduler {
     /** A run as soon as there is a network, plus the hourly job if it is missing. */
     static void kick(Context context) {
         JobScheduler scheduler = scheduler(context);
-        if (scheduler == null || SyncStore.enrolment(context) == null) {
+        if (scheduler == null || !SyncStore.anySync(context)) {
             return;
         }
         ensurePeriodic(context, scheduler);
@@ -63,7 +63,7 @@ final class SyncScheduler {
 
     static void ensurePeriodic(Context context) {
         JobScheduler scheduler = scheduler(context);
-        if (scheduler != null && SyncStore.enrolment(context) != null) {
+        if (scheduler != null && SyncStore.anySync(context)) {
             ensurePeriodic(context, scheduler);
         }
     }
