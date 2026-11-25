@@ -5,7 +5,7 @@
   "tts-ash"
  ],
  "runs": 3,
- "generated": "2026-11-25T15:25:08.120Z",
+ "generated": "2026-11-25T15:29:39.833Z",
  "speech": {
   "list0": {
    "perRun": [
@@ -8781,10 +8781,12 @@
     "empty": 0,
     "wrapped": 0,
     "failed": 0,
-    "rightIn": 29,
+    "targetsRightIn": 20,
+    "targetsBroken": 0,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 0,
+    "intoListedName": 0,
     "wrongIn": 1,
-    "wrongCorrections": 0,
-    "intoPair": 0,
     "fixes": 0,
     "examples": [],
     "answers": [
@@ -9088,10 +9090,12 @@
     "empty": 0,
     "wrapped": 0,
     "failed": 0,
-    "rightIn": 29,
+    "targetsRightIn": 20,
+    "targetsBroken": 0,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 0,
+    "intoListedName": 0,
     "wrongIn": 1,
-    "wrongCorrections": 0,
-    "intoPair": 0,
     "fixes": 0,
     "examples": [],
     "answers": [
@@ -9395,10 +9399,12 @@
     "empty": 0,
     "wrapped": 0,
     "failed": 0,
-    "rightIn": 29,
+    "targetsRightIn": 20,
+    "targetsBroken": 0,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 0,
+    "intoListedName": 0,
     "wrongIn": 1,
-    "wrongCorrections": 0,
-    "intoPair": 0,
     "fixes": 0,
     "examples": [],
     "answers": [
@@ -9707,10 +9713,12 @@
     "empty": 0,
     "wrapped": 0,
     "failed": 0,
-    "rightIn": 29,
+    "targetsRightIn": 20,
+    "targetsBroken": 0,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 1,
+    "intoListedName": 1,
     "wrongIn": 1,
-    "wrongCorrections": 1,
-    "intoPair": 1,
     "fixes": 0,
     "examples": [
      "tts-coral/s25: \"I rebuilt the image and restarted Docker.\" -> \"I rebuilt the image and restarted Dockra.\""
@@ -10059,10 +10067,12 @@
     "empty": 0,
     "wrapped": 0,
     "failed": 0,
-    "rightIn": 29,
+    "targetsRightIn": 20,
+    "targetsBroken": 0,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 3,
+    "intoListedName": 3,
     "wrongIn": 1,
-    "wrongCorrections": 3,
-    "intoPair": 3,
     "fixes": 0,
     "examples": [
      "tts-coral/s03: \"This morning, Docker would not start the container.\" -> \"This morning, Dockra would not start the container.\"",
@@ -10412,10 +10422,12 @@
     "empty": 0,
     "wrapped": 0,
     "failed": 0,
-    "rightIn": 29,
+    "targetsRightIn": 20,
+    "targetsBroken": 0,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 0,
+    "intoListedName": 0,
     "wrongIn": 1,
-    "wrongCorrections": 0,
-    "intoPair": 0,
     "fixes": 0,
     "examples": [],
     "answers": [
@@ -10742,6 +10754,1062 @@
     ]
    }
   ],
+  "text-mini-nohint": [
+   {
+    "targetsRight": 20,
+    "targets": 20,
+    "namesRight": 14,
+    "names": 14,
+    "productsRight": 6,
+    "products": 6,
+    "protectedRight": 9,
+    "protected": 10,
+    "neverSaid": 1,
+    "sentencesWithNeverSaid": 1,
+    "controlsWithNeverSaid": 0,
+    "controls": 10,
+    "wer": 0.0029411764705882353,
+    "neverSaidWords": {
+     "Bepra": 1
+    },
+    "empty": 0,
+    "wrapped": 0,
+    "failed": 0,
+    "targetsRightIn": 20,
+    "targetsBroken": 0,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 0,
+    "intoListedName": 0,
+    "wrongIn": 1,
+    "fixes": 0,
+    "examples": [],
+    "answers": [
+     {
+      "set": "tts-coral",
+      "id": "s01",
+      "type": "control",
+      "output": "Please leave the package beside the front door.",
+      "format": "ok",
+      "input": "Please leave the package beside the front door."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s02",
+      "type": "target",
+      "output": "Can you ask Bepra to send the slides before the meeting?",
+      "format": "ok",
+      "input": "Can you ask Bepra to send the slides before the meeting?"
+     },
+     {
+      "set": "tts-coral",
+      "id": "s03",
+      "type": "protected",
+      "output": "This morning, Docker would not start the container.",
+      "format": "ok",
+      "input": "This morning, Docker would not start the container."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s04",
+      "type": "target",
+      "output": "The cluster runs on Kubernetes now.",
+      "format": "ok",
+      "input": "The cluster runs on Kubernetes now."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s05",
+      "type": "target",
+      "output": "I think Mirva already booked the room for Friday.",
+      "format": "ok",
+      "input": "I think Mirva already booked the room for Friday."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s06",
+      "type": "control",
+      "output": "The blue cable is in the top drawer.",
+      "format": "ok",
+      "input": "The blue cable is in the top drawer."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s07",
+      "type": "protected",
+      "output": "Please light the candle on the dining table.",
+      "format": "ok",
+      "input": "Please light the candle on the dining table."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s08",
+      "type": "target",
+      "output": "Could you check whether Zoravyn has the spare key?",
+      "format": "ok",
+      "input": "Could you check whether Zoravyn has the spare key?"
+     },
+     {
+      "set": "tts-coral",
+      "id": "s09",
+      "type": "target",
+      "output": "I keep all my notes in Obsidian on the laptop.",
+      "format": "ok",
+      "input": "I keep all my notes in Obsidian on the laptop."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s10",
+      "type": "protected",
+      "output": "I read the reply in Bepra on my laptop.",
+      "format": "ok",
+      "input": "I read the reply in Biber on my laptop."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s11",
+      "type": "target",
+      "output": "Tell Harbra the parcel arrived this afternoon.",
+      "format": "ok",
+      "input": "Tell Harbra the parcel arrived this afternoon."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s12",
+      "type": "control",
+      "output": "We moved the meeting to Friday afternoon.",
+      "format": "ok",
+      "input": "We moved the meeting to Friday afternoon."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s13",
+      "type": "target",
+      "output": "Please remind Dockra that the train leaves early tomorrow.",
+      "format": "ok",
+      "input": "Please remind Dockra that the train leaves early tomorrow."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s14",
+      "type": "protected",
+      "output": "We sketched the plan on a Miro board.",
+      "format": "ok",
+      "input": "We sketched the plan on a Miro board."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s15",
+      "type": "target",
+      "output": "I asked Kavren to water the plants while we are away.",
+      "format": "ok",
+      "input": "I asked Kavren to water the plants while we are away."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s16",
+      "type": "target",
+      "output": "The office printer is only reachable over Tailscale.",
+      "format": "ok",
+      "input": "The office printer is only reachable over Tailscale."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s17",
+      "type": "control",
+      "output": "I need another copy of the revised page.",
+      "format": "ok",
+      "input": "I need another copy of the revised page."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s18",
+      "type": "protected",
+      "output": "The boats came back to the harbor before the storm.",
+      "format": "ok",
+      "input": "The boats came back to the harbor before the storm."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s19",
+      "type": "target",
+      "output": "Yesterday, Kandrel said she would call back after lunch.",
+      "format": "ok",
+      "input": "Yesterday, Kandrel said she would call back after lunch."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s20",
+      "type": "target",
+      "output": "I had coffee with Bepra, and we talked about the trip.",
+      "format": "ok",
+      "input": "I had coffee with Bepra, and we talked about the trip."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s21",
+      "type": "control",
+      "output": "The kettle should be ready in a minute.",
+      "format": "ok",
+      "input": "The kettle should be ready in a minute."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s22",
+      "type": "protected",
+      "output": "All my chats are in Beeper, so I only check one app.",
+      "format": "ok",
+      "input": "All my chats are in Beeper, so I only check one app."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s23",
+      "type": "target",
+      "output": "I need to update the Kubernetes settings before the release.",
+      "format": "ok",
+      "input": "I need to update the Kubernetes settings before the release."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s24",
+      "type": "target",
+      "output": "The flowers are from Zoravyn and her sister.",
+      "format": "ok",
+      "input": "The flowers are from Zoravyn and her sister."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s25",
+      "type": "protected",
+      "output": "I rebuilt the image and restarted Docker.",
+      "format": "ok",
+      "input": "I rebuilt the image and restarted Docker."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s26",
+      "type": "control",
+      "output": "That window faces the quiet side street.",
+      "format": "ok",
+      "input": "That window faces the quiet side street."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s27",
+      "type": "target",
+      "output": "We should invite Mirva to the planning call.",
+      "format": "ok",
+      "input": "We should invite Mirva to the planning call."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s28",
+      "type": "target",
+      "output": "Can you open the daily page in Obsidian?",
+      "format": "ok",
+      "input": "Can you open the daily page in Obsidian?"
+     },
+     {
+      "set": "tts-coral",
+      "id": "s29",
+      "type": "protected",
+      "output": "The candle burned all evening in the living room.",
+      "format": "ok",
+      "input": "The candle burned all evening in the living room."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s30",
+      "type": "target",
+      "output": "My neighbor Harbra lent us a ladder for the weekend.",
+      "format": "ok",
+      "input": "My neighbor Harbra lent us a ladder for the weekend."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s31",
+      "type": "control",
+      "output": "Please keep the receipt until next week.",
+      "format": "ok",
+      "input": "Please keep the receipt until next week."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s32",
+      "type": "target",
+      "output": "The new designer, Dockra, starts on Monday.",
+      "format": "ok",
+      "input": "The new designer, Dockra, starts on Monday."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s33",
+      "type": "protected",
+      "output": "Please share the Miro link with the whole team.",
+      "format": "ok",
+      "input": "Please share the Miro link with the whole team."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s34",
+      "type": "target",
+      "output": "I turned on Tailscale so the laptop can reach the server.",
+      "format": "ok",
+      "input": "I turned on Tailscale so the laptop can reach the server."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s35",
+      "type": "control",
+      "output": "The train was late again this morning.",
+      "format": "ok",
+      "input": "The train was late again this morning."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s36",
+      "type": "target",
+      "output": "We met Kavren at the station last night.",
+      "format": "ok",
+      "input": "We met Kavren at the station last night."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s37",
+      "type": "protected",
+      "output": "We walked along the harbor after dinner.",
+      "format": "ok",
+      "input": "We walked along the harbor after dinner."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s38",
+      "type": "control",
+      "output": "I saved the image in the shared folder.",
+      "format": "ok",
+      "input": "I saved the image in the shared folder."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s39",
+      "type": "target",
+      "output": "I sent the invoice to Kandrel this morning.",
+      "format": "ok",
+      "input": "I sent the invoice to Kandrel this morning."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s40",
+      "type": "control",
+      "output": "We can review the changes after lunch.",
+      "format": "ok",
+      "input": "We can review the changes after lunch."
+     }
+    ]
+   },
+   {
+    "targetsRight": 20,
+    "targets": 20,
+    "namesRight": 14,
+    "names": 14,
+    "productsRight": 6,
+    "products": 6,
+    "protectedRight": 9,
+    "protected": 10,
+    "neverSaid": 0,
+    "sentencesWithNeverSaid": 0,
+    "controlsWithNeverSaid": 0,
+    "controls": 10,
+    "wer": 0.0029411764705882353,
+    "neverSaidWords": {},
+    "empty": 0,
+    "wrapped": 0,
+    "failed": 0,
+    "targetsRightIn": 20,
+    "targetsBroken": 0,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 0,
+    "intoListedName": 0,
+    "wrongIn": 1,
+    "fixes": 0,
+    "examples": [],
+    "answers": [
+     {
+      "set": "tts-coral",
+      "id": "s01",
+      "type": "control",
+      "output": "Please leave the package beside the front door.",
+      "format": "ok",
+      "input": "Please leave the package beside the front door."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s02",
+      "type": "target",
+      "output": "Can you ask Bepra to send the slides before the meeting?",
+      "format": "ok",
+      "input": "Can you ask Bepra to send the slides before the meeting?"
+     },
+     {
+      "set": "tts-coral",
+      "id": "s03",
+      "type": "protected",
+      "output": "This morning, Docker would not start the container.",
+      "format": "ok",
+      "input": "This morning, Docker would not start the container."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s04",
+      "type": "target",
+      "output": "The cluster runs on Kubernetes now.",
+      "format": "ok",
+      "input": "The cluster runs on Kubernetes now."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s05",
+      "type": "target",
+      "output": "I think Mirva already booked the room for Friday.",
+      "format": "ok",
+      "input": "I think Mirva already booked the room for Friday."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s06",
+      "type": "control",
+      "output": "The blue cable is in the top drawer.",
+      "format": "ok",
+      "input": "The blue cable is in the top drawer."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s07",
+      "type": "protected",
+      "output": "Please light the candle on the dining table.",
+      "format": "ok",
+      "input": "Please light the candle on the dining table."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s08",
+      "type": "target",
+      "output": "Could you check whether Zoravyn has the spare key?",
+      "format": "ok",
+      "input": "Could you check whether Zoravyn has the spare key?"
+     },
+     {
+      "set": "tts-coral",
+      "id": "s09",
+      "type": "target",
+      "output": "I keep all my notes in Obsidian on the laptop.",
+      "format": "ok",
+      "input": "I keep all my notes in Obsidian on the laptop."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s10",
+      "type": "protected",
+      "output": "I read the reply in Biber on my laptop.",
+      "format": "ok",
+      "input": "I read the reply in Biber on my laptop."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s11",
+      "type": "target",
+      "output": "Tell Harbra the parcel arrived this afternoon.",
+      "format": "ok",
+      "input": "Tell Harbra the parcel arrived this afternoon."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s12",
+      "type": "control",
+      "output": "We moved the meeting to Friday afternoon.",
+      "format": "ok",
+      "input": "We moved the meeting to Friday afternoon."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s13",
+      "type": "target",
+      "output": "Please remind Dockra that the train leaves early tomorrow.",
+      "format": "ok",
+      "input": "Please remind Dockra that the train leaves early tomorrow."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s14",
+      "type": "protected",
+      "output": "We sketched the plan on a Miro board.",
+      "format": "ok",
+      "input": "We sketched the plan on a Miro board."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s15",
+      "type": "target",
+      "output": "I asked Kavren to water the plants while we are away.",
+      "format": "ok",
+      "input": "I asked Kavren to water the plants while we are away."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s16",
+      "type": "target",
+      "output": "The office printer is only reachable over Tailscale.",
+      "format": "ok",
+      "input": "The office printer is only reachable over Tailscale."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s17",
+      "type": "control",
+      "output": "I need another copy of the revised page.",
+      "format": "ok",
+      "input": "I need another copy of the revised page."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s18",
+      "type": "protected",
+      "output": "The boats came back to the harbor before the storm.",
+      "format": "ok",
+      "input": "The boats came back to the harbor before the storm."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s19",
+      "type": "target",
+      "output": "Yesterday, Kandrel said she would call back after lunch.",
+      "format": "ok",
+      "input": "Yesterday, Kandrel said she would call back after lunch."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s20",
+      "type": "target",
+      "output": "I had coffee with Bepra, and we talked about the trip.",
+      "format": "ok",
+      "input": "I had coffee with Bepra, and we talked about the trip."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s21",
+      "type": "control",
+      "output": "The kettle should be ready in a minute.",
+      "format": "ok",
+      "input": "The kettle should be ready in a minute."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s22",
+      "type": "protected",
+      "output": "All my chats are in Beeper, so I only check one app.",
+      "format": "ok",
+      "input": "All my chats are in Beeper, so I only check one app."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s23",
+      "type": "target",
+      "output": "I need to update the Kubernetes settings before the release.",
+      "format": "ok",
+      "input": "I need to update the Kubernetes settings before the release."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s24",
+      "type": "target",
+      "output": "The flowers are from Zoravyn and her sister.",
+      "format": "ok",
+      "input": "The flowers are from Zoravyn and her sister."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s25",
+      "type": "protected",
+      "output": "I rebuilt the image and restarted Docker.",
+      "format": "ok",
+      "input": "I rebuilt the image and restarted Docker."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s26",
+      "type": "control",
+      "output": "That window faces the quiet side street.",
+      "format": "ok",
+      "input": "That window faces the quiet side street."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s27",
+      "type": "target",
+      "output": "We should invite Mirva to the planning call.",
+      "format": "ok",
+      "input": "We should invite Mirva to the planning call."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s28",
+      "type": "target",
+      "output": "Can you open the daily page in Obsidian?",
+      "format": "ok",
+      "input": "Can you open the daily page in Obsidian?"
+     },
+     {
+      "set": "tts-coral",
+      "id": "s29",
+      "type": "protected",
+      "output": "The candle burned all evening in the living room.",
+      "format": "ok",
+      "input": "The candle burned all evening in the living room."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s30",
+      "type": "target",
+      "output": "My neighbor Harbra lent us a ladder for the weekend.",
+      "format": "ok",
+      "input": "My neighbor Harbra lent us a ladder for the weekend."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s31",
+      "type": "control",
+      "output": "Please keep the receipt until next week.",
+      "format": "ok",
+      "input": "Please keep the receipt until next week."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s32",
+      "type": "target",
+      "output": "The new designer, Dockra, starts on Monday.",
+      "format": "ok",
+      "input": "The new designer, Dockra, starts on Monday."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s33",
+      "type": "protected",
+      "output": "Please share the Miro link with the whole team.",
+      "format": "ok",
+      "input": "Please share the Miro link with the whole team."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s34",
+      "type": "target",
+      "output": "I turned on Tailscale so the laptop can reach the server.",
+      "format": "ok",
+      "input": "I turned on Tailscale so the laptop can reach the server."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s35",
+      "type": "control",
+      "output": "The train was late again this morning.",
+      "format": "ok",
+      "input": "The train was late again this morning."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s36",
+      "type": "target",
+      "output": "We met Kavren at the station last night.",
+      "format": "ok",
+      "input": "We met Kavren at the station last night."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s37",
+      "type": "protected",
+      "output": "We walked along the harbor after dinner.",
+      "format": "ok",
+      "input": "We walked along the harbor after dinner."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s38",
+      "type": "control",
+      "output": "I saved the image in the shared folder.",
+      "format": "ok",
+      "input": "I saved the image in the shared folder."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s39",
+      "type": "target",
+      "output": "I sent the invoice to Kandrel this morning.",
+      "format": "ok",
+      "input": "I sent the invoice to Kandrel this morning."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s40",
+      "type": "control",
+      "output": "We can review the changes after lunch.",
+      "format": "ok",
+      "input": "We can review the changes after lunch."
+     }
+    ]
+   },
+   {
+    "targetsRight": 20,
+    "targets": 20,
+    "namesRight": 14,
+    "names": 14,
+    "productsRight": 6,
+    "products": 6,
+    "protectedRight": 8,
+    "protected": 10,
+    "neverSaid": 2,
+    "sentencesWithNeverSaid": 2,
+    "controlsWithNeverSaid": 0,
+    "controls": 10,
+    "wer": 0.0058823529411764705,
+    "neverSaidWords": {
+     "Dockra": 1,
+     "Bepra": 1
+    },
+    "empty": 0,
+    "wrapped": 0,
+    "failed": 0,
+    "targetsRightIn": 20,
+    "targetsBroken": 0,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 1,
+    "intoListedName": 1,
+    "wrongIn": 1,
+    "fixes": 0,
+    "examples": [
+     "tts-coral/s03: \"This morning, Docker would not start the container.\" -> \"This morning, Dockra would not start the container.\""
+    ],
+    "answers": [
+     {
+      "set": "tts-coral",
+      "id": "s01",
+      "type": "control",
+      "output": "Please leave the package beside the front door.",
+      "format": "ok",
+      "input": "Please leave the package beside the front door."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s02",
+      "type": "target",
+      "output": "Can you ask Bepra to send the slides before the meeting?",
+      "format": "ok",
+      "input": "Can you ask Bepra to send the slides before the meeting?"
+     },
+     {
+      "set": "tts-coral",
+      "id": "s03",
+      "type": "protected",
+      "output": "This morning, Dockra would not start the container.",
+      "format": "ok",
+      "input": "This morning, Docker would not start the container."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s04",
+      "type": "target",
+      "output": "The cluster runs on Kubernetes now.",
+      "format": "ok",
+      "input": "The cluster runs on Kubernetes now."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s05",
+      "type": "target",
+      "output": "I think Mirva already booked the room for Friday.",
+      "format": "ok",
+      "input": "I think Mirva already booked the room for Friday."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s06",
+      "type": "control",
+      "output": "The blue cable is in the top drawer.",
+      "format": "ok",
+      "input": "The blue cable is in the top drawer."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s07",
+      "type": "protected",
+      "output": "Please light the candle on the dining table.",
+      "format": "ok",
+      "input": "Please light the candle on the dining table."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s08",
+      "type": "target",
+      "output": "Could you check whether Zoravyn has the spare key?",
+      "format": "ok",
+      "input": "Could you check whether Zoravyn has the spare key?"
+     },
+     {
+      "set": "tts-coral",
+      "id": "s09",
+      "type": "target",
+      "output": "I keep all my notes in Obsidian on the laptop.",
+      "format": "ok",
+      "input": "I keep all my notes in Obsidian on the laptop."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s10",
+      "type": "protected",
+      "output": "I read the reply in Bepra on my laptop.",
+      "format": "ok",
+      "input": "I read the reply in Biber on my laptop."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s11",
+      "type": "target",
+      "output": "Tell Harbra the parcel arrived this afternoon.",
+      "format": "ok",
+      "input": "Tell Harbra the parcel arrived this afternoon."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s12",
+      "type": "control",
+      "output": "We moved the meeting to Friday afternoon.",
+      "format": "ok",
+      "input": "We moved the meeting to Friday afternoon."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s13",
+      "type": "target",
+      "output": "Please remind Dockra that the train leaves early tomorrow.",
+      "format": "ok",
+      "input": "Please remind Dockra that the train leaves early tomorrow."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s14",
+      "type": "protected",
+      "output": "We sketched the plan on a Miro board.",
+      "format": "ok",
+      "input": "We sketched the plan on a Miro board."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s15",
+      "type": "target",
+      "output": "I asked Kavren to water the plants while we are away.",
+      "format": "ok",
+      "input": "I asked Kavren to water the plants while we are away."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s16",
+      "type": "target",
+      "output": "The office printer is only reachable over Tailscale.",
+      "format": "ok",
+      "input": "The office printer is only reachable over Tailscale."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s17",
+      "type": "control",
+      "output": "I need another copy of the revised page.",
+      "format": "ok",
+      "input": "I need another copy of the revised page."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s18",
+      "type": "protected",
+      "output": "The boats came back to the harbor before the storm.",
+      "format": "ok",
+      "input": "The boats came back to the harbor before the storm."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s19",
+      "type": "target",
+      "output": "Yesterday, Kandrel said she would call back after lunch.",
+      "format": "ok",
+      "input": "Yesterday, Kandrel said she would call back after lunch."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s20",
+      "type": "target",
+      "output": "I had coffee with Bepra, and we talked about the trip.",
+      "format": "ok",
+      "input": "I had coffee with Bepra, and we talked about the trip."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s21",
+      "type": "control",
+      "output": "The kettle should be ready in a minute.",
+      "format": "ok",
+      "input": "The kettle should be ready in a minute."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s22",
+      "type": "protected",
+      "output": "All my chats are in Beeper, so I only check one app.",
+      "format": "ok",
+      "input": "All my chats are in Beeper, so I only check one app."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s23",
+      "type": "target",
+      "output": "I need to update the Kubernetes settings before the release.",
+      "format": "ok",
+      "input": "I need to update the Kubernetes settings before the release."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s24",
+      "type": "target",
+      "output": "The flowers are from Zoravyn and her sister.",
+      "format": "ok",
+      "input": "The flowers are from Zoravyn and her sister."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s25",
+      "type": "protected",
+      "output": "I rebuilt the image and restarted Docker.",
+      "format": "ok",
+      "input": "I rebuilt the image and restarted Docker."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s26",
+      "type": "control",
+      "output": "That window faces the quiet side street.",
+      "format": "ok",
+      "input": "That window faces the quiet side street."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s27",
+      "type": "target",
+      "output": "We should invite Mirva to the planning call.",
+      "format": "ok",
+      "input": "We should invite Mirva to the planning call."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s28",
+      "type": "target",
+      "output": "Can you open the daily page in Obsidian?",
+      "format": "ok",
+      "input": "Can you open the daily page in Obsidian?"
+     },
+     {
+      "set": "tts-coral",
+      "id": "s29",
+      "type": "protected",
+      "output": "The candle burned all evening in the living room.",
+      "format": "ok",
+      "input": "The candle burned all evening in the living room."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s30",
+      "type": "target",
+      "output": "My neighbor Harbra lent us a ladder for the weekend.",
+      "format": "ok",
+      "input": "My neighbor Harbra lent us a ladder for the weekend."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s31",
+      "type": "control",
+      "output": "Please keep the receipt until next week.",
+      "format": "ok",
+      "input": "Please keep the receipt until next week."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s32",
+      "type": "target",
+      "output": "The new designer, Dockra, starts on Monday.",
+      "format": "ok",
+      "input": "The new designer, Dockra, starts on Monday."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s33",
+      "type": "protected",
+      "output": "Please share the Miro link with the whole team.",
+      "format": "ok",
+      "input": "Please share the Miro link with the whole team."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s34",
+      "type": "target",
+      "output": "I turned on Tailscale so the laptop can reach the server.",
+      "format": "ok",
+      "input": "I turned on Tailscale so the laptop can reach the server."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s35",
+      "type": "control",
+      "output": "The train was late again this morning.",
+      "format": "ok",
+      "input": "The train was late again this morning."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s36",
+      "type": "target",
+      "output": "We met Kavren at the station last night.",
+      "format": "ok",
+      "input": "We met Kavren at the station last night."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s37",
+      "type": "protected",
+      "output": "We walked along the harbor after dinner.",
+      "format": "ok",
+      "input": "We walked along the harbor after dinner."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s38",
+      "type": "control",
+      "output": "I saved the image in the shared folder.",
+      "format": "ok",
+      "input": "I saved the image in the shared folder."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s39",
+      "type": "target",
+      "output": "I sent the invoice to Kandrel this morning.",
+      "format": "ok",
+      "input": "I sent the invoice to Kandrel this morning."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s40",
+      "type": "control",
+      "output": "We can review the changes after lunch.",
+      "format": "ok",
+      "input": "We can review the changes after lunch."
+     }
+    ]
+   }
+  ],
   "text-audio15": [
    {
     "targetsRight": 20,
@@ -10765,10 +11833,12 @@
     "empty": 0,
     "wrapped": 0,
     "failed": 0,
-    "rightIn": 29,
+    "targetsRightIn": 20,
+    "targetsBroken": 0,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 4,
+    "intoListedName": 4,
     "wrongIn": 1,
-    "wrongCorrections": 4,
-    "intoPair": 4,
     "fixes": 0,
     "examples": [
      "tts-coral/s03: \"This morning, Docker would not start the container.\" -> \"This morning, Dockra would not start the container.\"",
@@ -11120,10 +12190,12 @@
     "empty": 0,
     "wrapped": 0,
     "failed": 0,
-    "rightIn": 29,
+    "targetsRightIn": 20,
+    "targetsBroken": 0,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 3,
+    "intoListedName": 3,
     "wrongIn": 1,
-    "wrongCorrections": 3,
-    "intoPair": 3,
     "fixes": 0,
     "examples": [
      "tts-coral/s03: \"This morning, Docker would not start the container.\" -> \"This morning, Dockra would not start the container.\"",
@@ -11475,10 +12547,12 @@
     "empty": 0,
     "wrapped": 0,
     "failed": 0,
-    "rightIn": 29,
+    "targetsRightIn": 20,
+    "targetsBroken": 0,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 4,
+    "intoListedName": 4,
     "wrongIn": 1,
-    "wrongCorrections": 4,
-    "intoPair": 4,
     "fixes": 0,
     "examples": [
      "tts-coral/s03: \"This morning, Docker would not start the container.\" -> \"This morning, Dockra would not start the container.\"",
@@ -11833,10 +12907,12 @@
     "empty": 0,
     "wrapped": 8,
     "failed": 0,
-    "rightIn": 29,
+    "targetsRightIn": 20,
+    "targetsBroken": 0,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 4,
+    "intoListedName": 4,
     "wrongIn": 1,
-    "wrongCorrections": 4,
-    "intoPair": 4,
     "fixes": 0,
     "examples": [
      "tts-coral/s03: \"This morning, Docker would not start the container.\" -> \"This morning, Dockra would not start the container.\"",
@@ -12197,10 +13273,12 @@
     "empty": 1,
     "wrapped": 3,
     "failed": 0,
-    "rightIn": 29,
+    "targetsRightIn": 20,
+    "targetsBroken": 0,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 6,
+    "intoListedName": 5,
     "wrongIn": 1,
-    "wrongCorrections": 6,
-    "intoPair": 5,
     "fixes": 0,
     "examples": [
      "tts-coral/s03: \"This morning, Docker would not start the container.\" -> \"This morning, Dockra would not start the container.\"",
@@ -12558,10 +13636,12 @@
     "empty": 1,
     "wrapped": 6,
     "failed": 0,
-    "rightIn": 29,
+    "targetsRightIn": 20,
+    "targetsBroken": 0,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 3,
+    "intoListedName": 2,
     "wrongIn": 1,
-    "wrongCorrections": 3,
-    "intoPair": 2,
     "fixes": 0,
     "examples": [
      "tts-coral/s03: \"This morning, Docker would not start the container.\" -> \"This morning, Dockra would not start the container.\"",
@@ -12899,6 +13979,127 @@
     ]
    }
   ],
+  "audio15-fix-spoken": [
+   {
+    "targetsRight": 0,
+    "targets": 0,
+    "namesRight": 0,
+    "names": 0,
+    "productsRight": 0,
+    "products": 0,
+    "protectedRight": 4,
+    "protected": 10,
+    "neverSaid": 6,
+    "sentencesWithNeverSaid": 6,
+    "controlsWithNeverSaid": 0,
+    "controls": 0,
+    "wer": 0.06896551724137931,
+    "neverSaidWords": {
+     "Dockra": 2,
+     "Bepra": 2,
+     "Mirva": 2
+    },
+    "empty": 0,
+    "wrapped": 0,
+    "failed": 0,
+    "targetsRightIn": 0,
+    "targetsBroken": 0,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 5,
+    "intoListedName": 5,
+    "wrongIn": 1,
+    "fixes": 0,
+    "examples": [
+     "tts-coral/s03: \"This morning, Docker would not start the container.\" -> \"This morning, Dockra would not start the container.\"",
+     "tts-coral/s14: \"We sketched the plan on a Miro board.\" -> \"We sketched the plan on a Mirva board.\"",
+     "tts-coral/s22: \"All my chats are in Beeper, so I only check one app.\" -> \"All my chats are in Bepra, so I only check one app.\"",
+     "tts-coral/s25: \"I rebuilt the image and restarted Docker.\" -> \"I rebuilt the image and restarted Dockra.\"",
+     "tts-coral/s33: \"Please share the Miro link with the whole team.\" -> \"Please share the Mirva link with the whole team.\""
+    ],
+    "answers": [
+     {
+      "set": "tts-coral",
+      "id": "s03",
+      "type": "protected",
+      "output": "This morning, Dockra would not start the container.",
+      "format": "ok",
+      "input": "This morning, Docker would not start the container."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s07",
+      "type": "protected",
+      "output": "Please light the candle on the dining table.",
+      "format": "ok",
+      "input": "Please light the candle on the dining table."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s10",
+      "type": "protected",
+      "output": "I read the reply in Bepra on my laptop.",
+      "format": "ok",
+      "input": "I read the reply in Biber on my laptop."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s14",
+      "type": "protected",
+      "output": "We sketched the plan on a Mirva board.",
+      "format": "ok",
+      "input": "We sketched the plan on a Miro board."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s18",
+      "type": "protected",
+      "output": "The boats came back to the harbor before the storm.",
+      "format": "ok",
+      "input": "The boats came back to the harbor before the storm."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s22",
+      "type": "protected",
+      "output": "All my chats are in Bepra, so I only check one app.",
+      "format": "ok",
+      "input": "All my chats are in Beeper, so I only check one app."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s25",
+      "type": "protected",
+      "output": "I rebuilt the image and restarted Dockra.",
+      "format": "ok",
+      "input": "I rebuilt the image and restarted Docker."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s29",
+      "type": "protected",
+      "output": "The candle burned all evening in the living room.",
+      "format": "ok",
+      "input": "The candle burned all evening in the living room."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s33",
+      "type": "protected",
+      "output": "Please share the Mirva link with the whole team.",
+      "format": "ok",
+      "input": "Please share the Miro link with the whole team."
+     },
+     {
+      "set": "tts-coral",
+      "id": "s37",
+      "type": "protected",
+      "output": "We walked along the harbor after dinner.",
+      "format": "ok",
+      "input": "We walked along the harbor after dinner."
+     }
+    ]
+   }
+  ],
   "audio15-direct": [
    {
     "targetsRight": 18,
@@ -12923,10 +14124,12 @@
     "empty": 5,
     "wrapped": 20,
     "failed": 0,
-    "rightIn": 29,
+    "targetsRightIn": 20,
+    "targetsBroken": 2,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 7,
+    "intoListedName": 4,
     "wrongIn": 1,
-    "wrongCorrections": 9,
-    "intoPair": 4,
     "fixes": 0,
     "examples": [
      "tts-coral/s03: \"This morning, Docker would not start the container.\" -> \"This morning Dockra would not start the container.\"",
@@ -13309,10 +14512,12 @@
     "empty": 1,
     "wrapped": 22,
     "failed": 0,
-    "rightIn": 29,
+    "targetsRightIn": 20,
+    "targetsBroken": 1,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 6,
+    "intoListedName": 6,
     "wrongIn": 1,
-    "wrongCorrections": 7,
-    "intoPair": 6,
     "fixes": 0,
     "examples": [
      "tts-coral/s03: \"This morning, Docker would not start the container.\" -> \"This morning Dockra would not start the container.\"",
@@ -13691,10 +14896,12 @@
     "empty": 4,
     "wrapped": 23,
     "failed": 0,
-    "rightIn": 29,
+    "targetsRightIn": 20,
+    "targetsBroken": 3,
+    "soundAlikesRightIn": 9,
+    "soundAlikesBroken": 6,
+    "intoListedName": 5,
     "wrongIn": 1,
-    "wrongCorrections": 9,
-    "intoPair": 5,
     "fixes": 0,
     "examples": [
      "tts-coral/s03: \"This morning, Docker would not start the container.\" -> \"This morning Dockra would not start the container.\"",
@@ -14069,6 +15276,19 @@
     2,
     2,
     1
+   ],
+   "of": 10
+  },
+  "text-mini-nohint": {
+   "repaired": [
+    7,
+    6,
+    7
+   ],
+   "leftAsSoundAlike": [
+    2,
+    3,
+    2
    ],
    "of": 10
   },

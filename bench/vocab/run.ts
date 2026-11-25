@@ -6,9 +6,10 @@
  *   bun run.ts --phase real  --set real --step all
  *   add --estimate to print the plan and its cost without calling anything
  *
- * --step      speech | correction | constructed | smoke | all
+ * --step      speech | correction | constructed | smoke | all (speech, then correction, then constructed)
  * --types     which sentences the correction step covers (default: target,protected,control)
- * --arms      correction arms (default: text-mini,text-opus,text-audio15,audio15-fix,audio15-direct)
+ * --arms      correction arms (default: text-mini,text-mini-nohint,text-opus,text-audio15,audio15-fix,audio15-direct;
+ *             also audio15-fix-spoken, audio15-direct-spoken)
  * --runs      repeats (default 3)
  * --budget    USD cap for the phase, counting what the ledger already spent
  *             (default 5 for pilot, 10 for real)
@@ -46,7 +47,7 @@ const budget = Number(args.get('budget') ?? (phase === 'pilot' ? 5 : 10));
 const concurrency = Number(args.get('concurrency') ?? 4);
 const estimateOnly = args.has('estimate');
 const types = (args.get('types') ?? 'target,protected,control').split(',');
-const armIds = (args.get('arms') ?? 'text-mini,text-opus,text-audio15,audio15-fix,audio15-direct').split(',') as ArmId[];
+const armIds = (args.get('arms') ?? 'text-mini,text-mini-nohint,text-opus,text-audio15,audio15-fix,audio15-direct').split(',') as ArmId[];
 for (const a of armIds) if (!ARMS[a]) throw new Error(`unknown arm ${a}`);
 const SEED = 20261125;
 
@@ -150,50 +151,70 @@ function smokeJobs(): Job[] {
 	return sentences.map((s) => correctionJob('smoke', 'text-opus', 1, s, speechOutput(set, 20, 1, s.id)));
 }
 
-let jobs: Job[] = [];
-if (step === 'speech' || step === 'all') jobs.push(...speechJobs());
-if (step === 'correction' || step === 'all') jobs.push(...naturalJobs());
-if (step === 'constructed' || step === 'all') jobs.push(...constructedJobs());
-if (step === 'smoke') jobs.push(...smokeJobs());
-const todo = jobs.filter((j) => !load(set, j.key) || load(set, j.key)?.error);
+/** The steps in the order they must run: the correction steps read the speech step's answers. */
+const STEPS = step === 'all' ? ['speech', 'correction', 'constructed'] : [step];
+const known = ['speech', 'correction', 'constructed', 'smoke'];
+for (const s of STEPS) if (!known.includes(s)) throw new Error(`unknown step ${s}`);
 
+function jobsFor(s: string): Job[] {
+	if (s === 'speech') return speechJobs();
+	if (s === 'correction') return naturalJobs();
+	if (s === 'constructed') return constructedJobs();
+	return smokeJobs();
+}
+const pending = (jobs: Job[]) => jobs.filter((j) => !load(set, j.key) || load(set, j.key)?.error);
+const phaseSpent = () => spent((r) => r.step.startsWith(`${phase}:`));
+
+// The whole plan and its cost, before anything is called.
+const plan = STEPS.flatMap((s) => jobsFor(s));
+const todoAll = pending(plan);
 const byArm = new Map<string, { n: number; usd: number }>();
-for (const j of todo) {
+for (const j of todoAll) {
 	const a = byArm.get(j.arm) ?? { n: 0, usd: 0 };
 	a.n++;
 	a.usd += j.estimate;
 	byArm.set(j.arm, a);
 }
 const estimate = [...byArm.values()].reduce((a, b) => a + b.usd, 0);
-const already = spent((r) => r.step.startsWith(`${phase}:`));
-console.log(`set ${set}, step ${step}: ${todo.length} calls to make (${jobs.length - todo.length} already stored)`);
-for (const [arm, a] of byArm) console.log(`  ${arm.padEnd(16)} ${String(a.n).padStart(4)} calls  ~$${a.usd.toFixed(3)}`);
+const already = phaseSpent();
+console.log(`set ${set}, step ${step}: ${todoAll.length} calls to make (${plan.length - todoAll.length} already stored)`);
+for (const [arm, a] of byArm) console.log(`  ${arm.padEnd(22)} ${String(a.n).padStart(4)} calls  ~$${a.usd.toFixed(3)}`);
 console.log(`estimate $${estimate.toFixed(2)}; ${phase} spent so far $${already.toFixed(2)}; cap $${budget.toFixed(2)}`);
 if (estimateOnly) process.exit(0);
 if (already + estimate > budget) {
-	console.error(`STOP: this step would take the ${phase} total to about $${(already + estimate).toFixed(2)}, over the $${budget} cap.`);
+	console.error(`STOP: this would take the ${phase} total to about $${(already + estimate).toFixed(2)}, over the $${budget} cap.`);
 	process.exit(3);
 }
-// Correction steps need the frozen transcripts first.
-if (todo.some((j) => j.key[0] === 'correction' && j.key[1] !== 'constructed')) {
-	const need = new Set(todo.filter((j) => j.key[1] !== 'constructed' && ARMS[j.arm as ArmId]?.usesTranscript).map((j) => j.key.at(-1)!));
-	const absent = [...need].filter((id) => speechOutput(set, 20, 1, id) === null);
-	if (absent.length) throw new Error(`run the speech step first: no 20-word transcript (run 1) for ${absent.join(', ')}`);
+
+async function runAll(todo: Job[]): Promise<{ done: number; failed: number }> {
+	let done = 0;
+	let failed = 0;
+	const queue = [...todo];
+	async function worker() {
+		for (let j = queue.shift(); j; j = queue.shift()) {
+			await j.run();
+			const stored = load(set, j.key);
+			if (stored?.error) {
+				failed++;
+				console.log(`  error ${j.key.join('/')}: ${stored.error}`);
+			}
+			if (++done % 25 === 0) console.log(`  ${done}/${todo.length}  spent $${phaseSpent().toFixed(3)}`);
+		}
+	}
+	await Promise.all(Array.from({ length: concurrency }, () => worker()));
+	return { done, failed };
 }
 
-let done = 0;
-let failed = 0;
-async function worker(queue: Job[]) {
-	for (let j = queue.shift(); j; j = queue.shift()) {
-		await j.run();
-		const stored = load(set, j.key);
-		if (stored?.error) {
-			failed++;
-			console.log(`  error ${j.key.join('/')}: ${stored.error}`);
-		}
-		if (++done % 25 === 0) console.log(`  ${done}/${todo.length}  spent $${spent((r) => r.step.startsWith(`${phase}:`)).toFixed(3)}`);
+for (const s of STEPS) {
+	// Built now, not earlier, so the correction steps read the speech answers just made.
+	const todo = pending(jobsFor(s));
+	if (!todo.length) continue;
+	if (s === 'correction' || s === 'smoke') {
+		const need = new Set(todo.filter((j) => ARMS[j.arm as ArmId]?.usesTranscript).map((j) => j.key.at(-1)!));
+		const absent = [...need].filter((id) => speechOutput(set, 20, 1, id) === null);
+		if (absent.length) throw new Error(`no 20-word transcript (run 1) for ${absent.join(', ')}: run the speech step first`);
 	}
+	console.log(`${s}: ${todo.length} calls`);
+	const { done, failed } = await runAll(todo);
+	console.log(`${s} done: ${done} calls, ${failed} errors; ${phase} spent $${phaseSpent().toFixed(3)}`);
 }
-const queue = [...todo];
-await Promise.all(Array.from({ length: concurrency }, () => worker(queue)));
-console.log(`done: ${done} calls, ${failed} errors; ${phase} spent $${spent((r) => r.step.startsWith(`${phase}:`)).toFixed(3)}`);

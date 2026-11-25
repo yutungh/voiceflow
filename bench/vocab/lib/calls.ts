@@ -106,21 +106,23 @@ export function tidyAnthropic(system: string, user: string): Promise<CallResult>
  * models refuse a text-only request ("either input content or output modality
  * must contain audio"), so the control asks for text and audio and keeps the
  * text of the spoken answer (`message.audio.transcript`); the audio is dropped.
+ * `spoken` asks for that same text-and-audio answer even with a recording, so
+ * all gpt-audio arms can be run in one output mode.
  */
-export function audioChat(model: string, system: string, user: string, wav: string | null): Promise<CallResult> {
+export function audioChat(model: string, system: string, user: string, wav: string | null, spoken = !wav): Promise<CallResult> {
 	return withRetry(model, async () => {
 		const content: OpenAI.Chat.ChatCompletionContentPart[] = [{ type: 'text', text: user }];
 		if (wav) content.push({ type: 'input_audio', input_audio: { data: wav, format: 'wav' } });
 		const r = await openai().chat.completions.create({
 			model,
-			...(wav ? { modalities: ['text'] } : { modalities: ['text', 'audio'], audio: { voice: 'alloy', format: 'wav' } }),
+			...(spoken ? { modalities: ['text', 'audio'], audio: { voice: 'alloy', format: 'wav' } } : { modalities: ['text'] }),
 			messages: [
 				{ role: 'system', content: system },
 				{ role: 'user', content },
 			],
 		} as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming);
 		const msg = r.choices[0]?.message;
-		const text = wav ? (msg?.content ?? '') : (msg?.audio?.transcript ?? msg?.content ?? '');
+		const text = spoken ? (msg?.audio?.transcript ?? msg?.content ?? '') : (msg?.content ?? '');
 		return { text, model: r.model, usage: r.usage, stop: r.choices[0]?.finish_reason };
 	});
 }

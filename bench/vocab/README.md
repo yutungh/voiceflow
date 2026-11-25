@@ -43,7 +43,9 @@ front and the 20 core words keep the same order and position at the end.
 
 "Heard-as" hints are seeded for the test, not observed: each of the five
 paired names lists its sound-alike ("Bepra: speech-to-text wrote 'Beeper'"),
-as in the real case. A few padding words carry hints too.
+the hardest case for a tidy-up. A few padding words carry hints too. Whether
+the real word list had such a hint in the Beeper case is not known, so the
+`text-mini-nohint` arm runs the same list with no heard-as notes.
 
 ## Speech step
 
@@ -69,6 +71,8 @@ VoiceFlow's `tidyWordsFor`.
 | `text-audio15` | gpt-audio-1.5 | transcript + list, no recording |
 | `audio15-fix` | gpt-audio-1.5 | transcript + list + the recording |
 | `audio15-direct` | gpt-audio-1.5 | the recording + list, no transcript |
+| `text-mini-nohint` | gpt-5.4-mini | as `text-mini`, list without heard-as notes |
+| `audio15-fix-spoken`, `audio15-direct-spoken` | gpt-audio-1.5 | as the recording arms, answering in the control's output mode |
 
 - `text-audio15` and `audio15-fix` get the same prompt plus one line saying
   the transcript is a draft and an attached recording is the authority. They
@@ -76,9 +80,15 @@ VoiceFlow's `tidyWordsFor`.
   the model held fixed.
 - **One forced difference:** gpt-audio-1.5 refuses a request with no audio
   in or out, so `text-audio15` asks for a spoken answer and keeps the text of
-  it. Its audio is thrown away.
+  it (its audio is thrown away), while the recording arms answer in text. The
+  `-spoken` arms remove that difference. Answering in text, gpt-audio-1.5
+  often wraps its answer in JSON or returns nothing; answering by voice it
+  did not, in the pilot.
 - No Claude model takes audio input (the Models API lists image and PDF input
-  for claude-opus-5-5, not audio), so the audio arms are OpenAI only.
+  for claude-opus-5-5, not audio, and the Messages content blocks are text,
+  image and document: https://platform.claude.com/docs/en/api/messages), so the
+  audio arms are OpenAI only. OpenAI's audio-in models for Chat Completions:
+  https://developers.openai.com/api/docs/guides/audio-chat-completions.
 - **Repair cases.** The ten recordings of a paired name are also given a
   transcript with the sound-alike written in ("Can you ask Beeper to send the
   slides…"). These made-up errors measure repair only and are reported apart.
@@ -117,18 +127,20 @@ bun lib/selftest.ts                                   # no API calls
 bun tts.ts --voices coral,ash
 bun run.ts --phase pilot --set tts-coral --step speech
 bun run.ts --phase pilot --set tts-ash --step speech
-bun run.ts --phase pilot --set tts-coral --step correction --arms text-mini,text-audio15,audio15-fix,audio15-direct
-bun run.ts --phase pilot --set tts-coral --step constructed --arms text-mini,text-audio15,audio15-fix
+bun run.ts --phase pilot --set tts-coral --step correction --arms text-mini,text-mini-nohint,text-audio15,audio15-fix,audio15-direct
+bun run.ts --phase pilot --set tts-coral --step constructed --arms text-mini,text-mini-nohint,text-audio15,audio15-fix
 bun run.ts --phase pilot --set tts-coral --step smoke  # 10 unscored Opus calls
 bun report.ts --sets tts-coral,tts-ash --label pilot-synthetic
 
 # A person's own recordings (RECORDING.md), then everything
+# (--step all runs speech, then the tidy-up steps that read its answers)
 bun collect.ts --since "2026-11-26 19:00"
+bun run.ts --phase real --set real --step all --estimate
 bun run.ts --phase real --set real --step all
 bun report.ts --sets real --label real
 ```
 
-Add `--estimate` to any `run.ts` command to see the calls and cost first.
+On Windows PowerShell, quote comma lists: `--arms "a,b"`. Add `--estimate` to any `run.ts` command to see the calls and cost first.
 `run.ts` stops before a step that would take the phase past its budget
 (`--budget`, default $5 pilot / $10 real), counting what the ledger already
 spent. A rerun only makes the calls that are missing or failed.

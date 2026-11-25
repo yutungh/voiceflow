@@ -92,9 +92,13 @@ function measure(rows: Row[]) {
 	};
 }
 
-/** Right->wrong and wrong->right against the frozen transcript, per designated word. */
+/**
+ * Right->wrong and wrong->right against the frozen transcript, per designated
+ * word, kept apart by sentence type: a broken sound-alike (Beeper -> Bepra)
+ * and a broken target are different failures.
+ */
 function transitions(rows: (Row & { input: string | null })[]) {
-	let rightIn = 0, wrongIn = 0, wrongCorrections = 0, intoPair = 0, fixes = 0;
+	const t = { targetsRightIn: 0, targetsBroken: 0, soundAlikesRightIn: 0, soundAlikesBroken: 0, intoListedName: 0, wrongIn: 0, fixes: 0 };
 	const examples: string[] = [];
 	for (const r of rows) {
 		const sen = SENTENCES.find((x) => x.id === r.id)!;
@@ -102,18 +106,21 @@ function transitions(rows: (Row & { input: string | null })[]) {
 		const before = designatedRight(sen, r.input);
 		const after = designatedRight(sen, r.output);
 		if (before) {
-			rightIn++;
+			if (sen.type === 'protected') t.soundAlikesRightIn++;
+			else t.targetsRightIn++;
 			if (!after) {
-				wrongCorrections++;
-				if (sen.type === 'protected' && sen.pair && neverSaid(sen, r.output)[sen.pair]) intoPair++;
+				if (sen.type === 'protected') {
+					t.soundAlikesBroken++;
+					if (sen.pair && neverSaid(sen, r.output)[sen.pair]) t.intoListedName++;
+				} else t.targetsBroken++;
 				if (examples.length < 8) examples.push(`${r.set}/${r.id}: "${r.input}" -> "${r.output}"`);
 			}
 		} else {
-			wrongIn++;
-			if (after) fixes++;
+			t.wrongIn++;
+			if (after) t.fixes++;
 		}
 	}
-	return { rightIn, wrongIn, wrongCorrections, intoPair, fixes, examples };
+	return { ...t, examples };
 }
 
 type Stat = { median: number; min: number; max: number; runs: number[] };
@@ -174,7 +181,7 @@ if (Object.values(speechRows).some((x) => x.some((r) => r.length))) {
 
 const correction: Record<string, unknown> = {};
 const corrMd: string[] = [];
-const armOrder: (ArmId | 'none')[] = ['none', 'text-mini', 'text-opus', 'text-audio15', 'audio15-fix', 'audio15-direct'];
+const armOrder: (ArmId | 'none')[] = ['none', 'text-mini', 'text-mini-nohint', 'text-opus', 'text-audio15', 'audio15-fix', 'audio15-fix-spoken', 'audio15-direct', 'audio15-direct-spoken'];
 const chartCorr: unknown[] = [];
 for (const arm of armOrder) {
 	const perRun: unknown[] = [];
@@ -204,20 +211,26 @@ for (const arm of armOrder) {
 	}
 	if (!ms.length) continue;
 	correction[arm] = perRun;
-	const label = arm === 'none' ? 'No tidy-up (the transcript)' : ARMS[arm].label;
+	const baseRows = (correction['none'] as { answers: unknown[] }[] | undefined)?.[0]?.answers.length;
+	const myRows = (perRun[0] as { answers: unknown[] }).answers.length;
+	const partial = arm !== 'none' && (ms.length !== runs || (baseRows !== undefined && myRows !== baseRows));
+	const label = (arm === 'none' ? 'No tidy-up (the transcript)' : ARMS[arm].label) + (partial ? ` (probe only: ${myRows} sentences × ${ms.length} run${ms.length > 1 ? 's' : ''})` : '');
 	const tr = stat(ms.map((m) => m.targetsRight)), pr = stat(ms.map((m) => m.protectedRight)), ns = stat(ms.map((m) => m.neverSaid)), w = stat(ms.map((m) => m.wer));
-	const wc = stat(ts.map((t) => t.wrongCorrections)), ip = stat(ts.map((t) => t.intoPair)), fx = stat(ts.map((t) => t.fixes));
+	const sb = stat(ts.map((t) => t.soundAlikesBroken)), ln = stat(ts.map((t) => t.intoListedName));
+	const tb = stat(ts.map((t) => t.targetsBroken)), fx = stat(ts.map((t) => t.fixes));
 	const t0 = ts[0]!, m0 = ms[0]!;
-	corrMd.push(`| ${label} | ${fmt(tr)} of ${m0.targets} | ${fmt(pr)} of ${m0.protected} | ${arm === 'none' ? '–' : `${fmt(wc)} of ${t0.rightIn}`} | ${arm === 'none' ? '–' : `${fmt(ip)}`} | ${arm === 'none' ? '–' : `${fmt(fx)} of ${t0.wrongIn}`} | ${fmt(ns)} | ${pct(w)} | ${ms.reduce((a, m) => a + m.wrapped, 0)} / ${ms.reduce((a, m) => a + m.empty, 0)} / ${ms.reduce((a, m) => a + m.failed, 0)} |`);
-	chartCorr.push({ arm, label, targetsRight: tr, targetsOf: m0.targets, protectedRight: pr, protectedOf: m0.protected, wrongCorrections: wc, rightIn: t0.rightIn, intoSoundAlike: ip, fixes: fx, wrongIn: t0.wrongIn, neverSaid: ns, wer: w, wrapped: ms.reduce((a, m) => a + m.wrapped, 0), empty: ms.reduce((a, m) => a + m.empty, 0), failed: ms.reduce((a, m) => a + m.failed, 0) });
+	const dash = (s: string) => (arm === 'none' ? '–' : s);
+	const shape = `${ms.reduce((a, m) => a + m.wrapped, 0)} / ${ms.reduce((a, m) => a + m.empty, 0)} / ${ms.reduce((a, m) => a + m.failed, 0)}`;
+	corrMd.push(`| ${label} | ${fmt(tr)} of ${m0.targets} | ${fmt(pr)} of ${m0.protected} | ${dash(`${fmt(ln)} of ${t0.soundAlikesRightIn}`)} | ${dash(`${fmt(sb)} of ${t0.soundAlikesRightIn}`)} | ${dash(`${fmt(tb)} of ${t0.targetsRightIn}`)} | ${dash(`${fmt(fx)} of ${t0.wrongIn}`)} | ${fmt(ns)} | ${pct(w)} | ${shape} |`);
+	chartCorr.push({ arm, label, targetsRight: tr, targetsOf: m0.targets, soundAlikesRight: pr, soundAlikesOf: m0.protected, soundAlikesIntoListedName: ln, soundAlikesBroken: sb, soundAlikesRightInTranscript: t0.soundAlikesRightIn, targetsBroken: tb, targetsRightInTranscript: t0.targetsRightIn, fixes: fx, wrongInTranscript: t0.wrongIn, neverSaid: ns, wer: w, wrapped: ms.reduce((a, m) => a + m.wrapped, 0), empty: ms.reduce((a, m) => a + m.empty, 0), failed: ms.reduce((a, m) => a + m.failed, 0) });
 }
 all.correction = correction;
 if (corrMd.length) {
 	const per = (correction['none'] as { answers: unknown[] }[] | undefined)?.[0]?.answers.length ?? 0;
 	md.push(`## Correction step: the same transcript, tidied with the 80-word list`, '', `Input: the 20-word speech answer (run 1) for each sentence, frozen before any result was seen. ${nSent(per)}.`);
-	md.push('"Wrong corrections" counts words that were right in the transcript and wrong after the tidy-up; "into the sound-alike" is how many of those became the listed name that sounds like it (the Beeper case). "Fixes" counts words that were wrong in the transcript and right after. For the direct-audio arm, which never sees the transcript, the same columns compare its answer with the transcript. An answer wrapped in JSON is scored on the text inside it; an empty answer (or a bare control token) scores as wrong; failed API calls are not scored. All three are counted in the last column.', '');
-	md.push('| Arm | Targets right | Sound-alikes kept right | Wrong corrections | …into the sound-alike | Fixes | Never-said listed words | Word error rate | Wrapped / empty / failed answers (all runs) |');
-	md.push('|---|---|---|---|---|---|---|---|---|');
+	md.push('"Sound-alike → listed name" counts unlisted words that were right in the transcript and came out as the listed name they sound like (the Beeper case), out of the sound-alikes the transcript had right; "sound-alikes broken" counts every way they went wrong. "Targets broken" is the same for listed words. "Fixes" counts words that were wrong in the transcript and right after. For the direct-audio arm, which never sees the transcript, the same columns compare its answer with the transcript. An answer wrapped in JSON is scored on the text inside it; an empty answer (or a bare control token) scores as wrong; failed API calls are not scored. All three are counted in the last column.', '');
+	md.push('| Arm | Targets right | Sound-alikes kept right | Sound-alike → listed name | Sound-alikes broken | Targets broken | Fixes | Never-said listed words | Word error rate | Wrapped / empty / failed answers (all runs) |');
+	md.push('|---|---|---|---|---|---|---|---|---|---|');
 	md.push(...corrMd);
 	const examples = Object.entries(correction)
 		.filter(([a]) => a !== 'none')

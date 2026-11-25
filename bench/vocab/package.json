@@ -1,14 +1,13 @@
-﻿{
+{
   "name": "voiceflow-vocab-bench",
   "private": true,
   "type": "module",
   "description": "Does a custom word list help or hurt speech-to-text? A small reproducible test of VoiceFlow's vocabulary prompt and tidy-up step.",
   "scripts": {
     "check": "bun lib/selftest.ts",
-    "estimate": "bun run.ts --estimate",
-    "pilot": "bun run.ts --audio synthetic",
-    "real": "bun run.ts --audio real",
-    "score": "bun score.ts"
+    "collect": "bun collect.ts",
+    "real": "bun run.ts --phase real --set real --step all",
+    "report": "bun report.ts --sets real --label real"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.14.0",

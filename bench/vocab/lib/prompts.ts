@@ -101,10 +101,12 @@ export type TidyPrompts = {
 	noted: string[];
 };
 
-let cached: TidyPrompts | null = null;
+const cached = new Map<boolean, TidyPrompts>();
 
-export function tidyPrompts(): TidyPrompts {
-	if (cached) return cached;
+/** `hints` false: the same list with no heard-as notes (the no-hint variant). */
+export function tidyPrompts(hints = true): TidyPrompts {
+	const hit = cached.get(hints);
+	if (hit) return hit;
 	const src = readFileSync(STYLES_SRC, 'utf8');
 	const language = templateConst(src, 'ANDROID_LANGUAGE_CONTRACT');
 	const output = templateConst(src, 'ANDROID_OUTPUT_CONTRACT');
@@ -114,7 +116,7 @@ export function tidyPrompts(): TidyPrompts {
 	if (!clean) throw new Error('pack: no Clean style');
 	// everyday(): `${prompt}\n\n${ANDROID_LANGUAGE_CONTRACT}\n\n${ANDROID_OUTPUT_CONTRACT}` (prompt trimmed, packBuiltIn)
 	const style = `${String(clean.prompt).trim()}\n\n${language}\n\n${output}`;
-	const built = buildPrompt(snapshot(WORDS, true), null);
+	const built = buildPrompt(snapshot(WORDS, hints), null);
 	if (built.chosen.length !== WORDS.length || built.skipped.length) {
 		throw new Error(`profile budget dropped words: chosen ${built.chosen.length}, skipped ${built.skipped.join(', ')}`);
 	}
@@ -124,12 +126,14 @@ export function tidyPrompts(): TidyPrompts {
 		.split('\n')
 		.filter((l) => /^- .+ \(.+\)$/.test(l))
 		.map((l) => l.slice(2, l.indexOf(' (')));
-	return (cached = { style, user, block: tidy.text, noted });
+	const result = { style, user, block: tidy.text, noted };
+	cached.set(hints, result);
+	return result;
 }
 
 /** withTidyWords(): the style, trimmed, then a blank line and the block. */
-export function tidySystem(): string {
-	const t = tidyPrompts();
+export function tidySystem(hints = true): string {
+	const t = tidyPrompts(hints);
 	return `${t.style.trimEnd()}\n\n${t.block}`;
 }
 

@@ -12,6 +12,10 @@
  * | audio15-fix    | gpt-audio-1.5   | transcript + list + recording          |
  * | audio15-direct | gpt-audio-1.5   | recording + list, no transcript        |
  *
+ * Variants: text-mini-nohint is text-mini with no heard-as notes in the list;
+ * the -spoken arms are the two recording arms in the same output mode as the
+ * no-recording control (a spoken answer, its text kept).
+ *
  * text-audio15 and audio15-fix differ only in the recording, so that pair
  * shows what hearing the audio adds with the model held fixed. One forced
  * difference: gpt-audio-1.5 refuses a request with no audio in or out, so the
@@ -21,7 +25,15 @@
 import { audioChat, tidyAnthropic, tidyOpenAI, type CallResult } from './calls';
 import { AUDIO_ADDENDUM, AUDIO_MODEL, DIRECT_AUDIO_USER, OPUS_MODEL, TIDY_MODEL, tidySystem, tidyUser } from './prompts';
 
-export type ArmId = 'text-mini' | 'text-opus' | 'text-audio15' | 'audio15-fix' | 'audio15-direct';
+export type ArmId =
+	| 'text-mini'
+	| 'text-mini-nohint'
+	| 'text-opus'
+	| 'text-audio15'
+	| 'audio15-fix'
+	| 'audio15-direct'
+	| 'audio15-fix-spoken'
+	| 'audio15-direct-spoken';
 
 export type Arm = {
 	id: ArmId;
@@ -45,6 +57,15 @@ export const ARMS: Record<ArmId, Arm> = {
 		usesAudio: false,
 		estimate: 0.003,
 		call: (t) => tidyOpenAI(tidySystem(), tidyUser(t)),
+	},
+	'text-mini-nohint': {
+		id: 'text-mini-nohint',
+		model: TIDY_MODEL,
+		label: 'Text tidy-up, gpt-5.4-mini, list without heard-as notes',
+		usesTranscript: true,
+		usesAudio: false,
+		estimate: 0.001,
+		call: (t) => tidyOpenAI(tidySystem(false), tidyUser(t)),
 	},
 	'text-opus': {
 		id: 'text-opus',
@@ -81,5 +102,23 @@ export const ARMS: Record<ArmId, Arm> = {
 		usesAudio: true,
 		estimate: 0.009,
 		call: (_t, wav) => audioChat(AUDIO_MODEL, tidySystem(), DIRECT_AUDIO_USER, wav()),
+	},
+	'audio15-fix-spoken': {
+		id: 'audio15-fix-spoken',
+		model: AUDIO_MODEL,
+		label: 'Tidy-up with the recording, gpt-audio-1.5, spoken answer',
+		usesTranscript: true,
+		usesAudio: true,
+		estimate: 0.012,
+		call: (t, wav) => audioChat(AUDIO_MODEL, `${tidySystem()}\n\n${AUDIO_ADDENDUM}`, tidyUser(t), wav(), true),
+	},
+	'audio15-direct-spoken': {
+		id: 'audio15-direct-spoken',
+		model: AUDIO_MODEL,
+		label: 'Recording + list, no transcript, gpt-audio-1.5, spoken answer',
+		usesTranscript: false,
+		usesAudio: true,
+		estimate: 0.012,
+		call: (_t, wav) => audioChat(AUDIO_MODEL, tidySystem(), DIRECT_AUDIO_USER, wav(), true),
 	},
 };
