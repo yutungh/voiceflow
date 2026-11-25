@@ -247,10 +247,10 @@ public class ScreenshotsTest {
 
     @Test public void keyboardKeptWords() throws Exception {
         startKeyboard();
-        insert("I talked to my mom and 她说周末可能不来了 because her back is still hurting",
-                "I talked to my mom and 她说周末可能不来了 because her back is still hurting",
+        insert("I talked to Febe and 她说周末可能不来了 because the trail is still flooded",
+                "I talked to Febe and 她说周末可能不来了 because the trail is still flooded",
                 Prefs.PRESET_CLEAN);
-        set("lastVoiceHeldBack", "I talked to my mom, and she said she might not come this weekend because her back still hurts.");
+        set("lastVoiceHeldBack", "I talked to Febe, and she said she might not come this weekend because the trail is still flooded.");
         call("showIdleChips");
         shootKeyboard("keyboard-kept-words");
     }
@@ -505,10 +505,10 @@ public class ScreenshotsTest {
         assumeFalse(DIR.isEmpty());
         RuntimeEnvironment.setQualifiers(qualifiers);
         android.content.Context app = RuntimeEnvironment.getApplication();
-        String id = Prefs.addTranscriptHistory(app, "I talked to my mom and 她说周末可能不来了 because her back is still hurting",
-                "I talked to my mom and 她说周末可能不来了 because her back is still hurting",
+        String id = Prefs.addTranscriptHistory(app, "I talked to Febe and 她说周末可能不来了 because the trail is still flooded",
+                "I talked to Febe and 她说周末可能不来了 because the trail is still flooded",
                 Prefs.PRESET_CLEAN, Prefs.EXPRESSION_NATURAL, VoiceHistoryItem.OPERATION_DICTATION, "");
-        Prefs.setHeldBackCleanup(app, id, "I talked to my mom, and she said she might not come this weekend because her back still hurts.",
+        Prefs.setHeldBackCleanup(app, id, "I talked to Febe, and she said she might not come this weekend because the trail is still flooded.",
                 Prefs.PRESET_CLEAN, Prefs.EXPRESSION_NATURAL);
         shootActivity("history-kept-words", new Intent(app, TranscriptDetailActivity.class)
                 .putExtra(TranscriptDetailActivity.EXTRA_HISTORY_ID, id));

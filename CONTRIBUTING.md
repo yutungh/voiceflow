@@ -64,4 +64,5 @@ The maintainer keeps a private term list outside version control and runs a loca
 
 - `scripts/privacy-check.mjs` scans the added lines, new file names and messages of the commits being pushed, and fails any author, committer or tagger email that is not a GitHub no-reply address. `--tree` scans every tracked file instead.
 - `sh scripts/install-privacy-hook.sh` installs it as `.git/hooks/pre-push`. The hook is local and is not committed.
-- The term list defaults to `private-docs/privacy-terms.txt`, which must stay out of git. The script's header describes its format.
+- The term list defaults to `private-docs/privacy-terms.txt`, which must stay out of git. It is looked for in the working tree being pushed, then in the main checkout, so a linked worktree (`git worktree add`) needs no copy. With no list found, the push is refused; there is no bypass. The script's header describes its format.
+- `node --test scripts/privacy-check.test.mjs` tests the guard itself with a made-up term list in a throwaway repository.

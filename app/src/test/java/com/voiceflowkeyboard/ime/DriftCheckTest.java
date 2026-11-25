@@ -7,24 +7,24 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
 /**
- * The language-drift check, on the shapes real tidy-ups produced on mixed speech
- * (2026-11-19 runs, names invented) and on the legitimate edits it must let
+ * The language-drift check, on the shapes tidy-ups produce on mixed speech
+ * (invented sentences and names) and on the legitimate edits it must let
  * through: fillers in both languages, false starts, abandoned self-corrections.
  */
 public class DriftCheckTest {
-    private static final String MOM = "So, um, I talked to Febe and she's like, 那个，她说周末可能不来了, because, like, "
-            + "her back is, you know, still hurting. I mean, 就是，我们可以, like, go visit her instead? Maybe Sunday afternoon.";
+    private static final String TRAIL = "So, um, I talked to Febe and she's like, 那个，她说周末可能不来了, because, like, "
+            + "the trail is, you know, still flooded. I mean, 就是，我们可以, like, go to the lake instead? Maybe Sunday afternoon.";
     private static final String FLIGHT = "Okay so, like, the flight to Pinewood is on Friday, 不对，是 Saturday morning, "
             + "因为 Friday 的票太贵了。And then, you know, 我们 can rent a car at the airport, 然后 drive to the hotel. 那个，你觉得 that works?";
-    private static final String MEETING = "呃，那个，我今天下午要去 QBR meeting，就是，可能会 late 一点。Um, 你可以帮我 pick up the kids 吗？然后，嗯，晚上我们 order pizza 吧。";
+    private static final String MEETING = "呃，那个，我今天下午要去 QBR meeting，就是，可能会 late 一点。Um, 你可以帮我 pick up the parcel 吗？然后，嗯，晚上我们 order pizza 吧。";
 
     // --- legitimate tidy-ups pass ---
 
     @Test
     public void deletingFillersInBothLanguagesIsNotDrift() {
-        String cleaned = "I talked to Febe and she's like, 她说周末可能不来了, because her back is still hurting. "
-                + "我们可以 go visit her instead? Maybe Sunday afternoon.";
-        DriftCheck.Result result = DriftCheck.check(MOM, cleaned);
+        String cleaned = "I talked to Febe and she's like, 她说周末可能不来了, because the trail is still flooded. "
+                + "我们可以 go to the lake instead? Maybe Sunday afternoon.";
+        DriftCheck.Result result = DriftCheck.check(TRAIL, cleaned);
         assertFalse(result.drift);
         assertTrue(result.mixed);
     }
@@ -38,7 +38,7 @@ public class DriftCheckTest {
 
     @Test
     public void chineseLedSpeechWithFillersRemovedIsNotDrift() {
-        String cleaned = "我今天下午要去 QBR meeting，可能会 late 一点。你可以帮我 pick up the kids 吗？晚上我们 order pizza 吧。";
+        String cleaned = "我今天下午要去 QBR meeting，可能会 late 一点。你可以帮我 pick up the parcel 吗？晚上我们 order pizza 吧。";
         assertFalse(DriftCheck.check(MEETING, cleaned).drift);
     }
 
@@ -69,18 +69,18 @@ public class DriftCheckTest {
 
     @Test
     public void englishConnectorTurnedIntoChineseIsDrift() {
-        String drifted = "I talked to Febe and she's like, 她说周末可能不来了，因为 her back is still hurting. "
-                + "我们可以 go visit her instead? Maybe Sunday afternoon.";
-        DriftCheck.Result result = DriftCheck.check(MOM, drifted);
+        String drifted = "I talked to Febe and she's like, 她说周末可能不来了，因为 the trail is still flooded. "
+                + "我们可以 go to the lake instead? Maybe Sunday afternoon.";
+        DriftCheck.Result result = DriftCheck.check(TRAIL, drifted);
         assertTrue(result.drift);
         assertEquals(DriftCheck.REASON_HAN_ADDED, result.reason);
     }
 
     @Test
     public void chineseClauseTurnedIntoEnglishIsDrift() {
-        String drifted = "I talked to Febe and she's like, 她说周末可能不来了, because her back is still hurting. "
-                + "We can go visit her instead? Maybe Sunday afternoon.";
-        DriftCheck.Result result = DriftCheck.check(MOM, drifted);
+        String drifted = "I talked to Febe and she's like, 她说周末可能不来了, because the trail is still flooded. "
+                + "We can go to the lake instead? Maybe Sunday afternoon.";
+        DriftCheck.Result result = DriftCheck.check(TRAIL, drifted);
         assertTrue(result.drift);
         assertEquals(DriftCheck.REASON_LATIN_ADDED, result.reason);
     }
