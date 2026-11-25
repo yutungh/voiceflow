@@ -313,6 +313,8 @@ final class GitHubClient implements WordSource {
         String branch = "";
         List<String> users = new ArrayList<>();
         boolean userFound;
+        /** GitHub refused the token (401). */
+        boolean authRefused;
         final List<String> warnings = new ArrayList<>();
     }
 
@@ -349,6 +351,7 @@ final class GitHubClient implements WordSource {
             result.ok = true;
             result.message = "Connected to " + owner + "/" + repo + " (" + branch + "). Reading works.";
         } catch (GatewayClient.GatewayException e) {
+            result.authRefused = "github-401".equals(e.code);
             result.message = describe(e.code);
         } catch (IOException e) {
             result.message = "Can't reach GitHub. Check the internet connection.";

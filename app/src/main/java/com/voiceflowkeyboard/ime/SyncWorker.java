@@ -227,15 +227,38 @@ final class SyncWorker {
                 if (words == null) {
                     return;
                 }
-                String token;
+                // The connected App's token (refreshed when it runs out soon) or a pasted one.
+                GitHubCredentials.Access access;
                 try {
-                    token = config.token();
-                } catch (Exception e) {
-                    SyncStore.updateEvidence(context, installed, ev -> ev.lastError = "github-token-unreadable");
+                    access = GitHubCredentials.access(context, System.currentTimeMillis());
+                } catch (GitHubCredentials.Problem p) {
+                    String code = "store".equals(p.code) ? "github-token-unreadable" : "github-" + p.code;
+                    SyncStore.updateEvidence(context, installed, ev -> ev.lastError = code);
                     return;
                 }
-                source = new GitHubClient(config.owner, config.repo, config.branch, config.user, words.device, token,
-                        SyncStore.gitHubWait(context));
+                for (int round = 0; ; round++) {
+                    GitHubClient client = new GitHubClient(config.owner, config.repo, config.branch, config.user, words.device,
+                            access.token, SyncStore.gitHubWait(context));
+                    try {
+                        WordLists.refresh(context, client, words);
+                        return;
+                    } catch (WordLists.AuthRefused e) {
+                        // A refused App token: refreshed once (unless someone already did) and
+                        // read again; refused again while still current: Connect GitHub again.
+                        if (!access.app || !"github-401".equals(e.cause.code)) {
+                            throw e;
+                        }
+                        if (round > 0) {
+                            GitHubCredentials.refusedAgain(context, access);
+                            throw e;
+                        }
+                        try {
+                            access = GitHubCredentials.afterUnauthorized(context, access, System.currentTimeMillis());
+                        } catch (GitHubCredentials.Problem p) {
+                            throw e;
+                        }
+                    }
+                }
             } else if (gateway != null && gatewayEnrolment != null) {
                 // The gateway's words only while they are still the active source, for
                 // the enrolment this client's token came with.

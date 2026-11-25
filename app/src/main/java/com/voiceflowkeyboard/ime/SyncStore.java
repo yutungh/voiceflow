@@ -229,11 +229,10 @@ final class SyncStore {
             throw new IllegalArgumentException("Your name is lower-case letters, digits, - or _ (not household).");
         }
         String t = token == null ? "" : token.trim();
-        String sealed;
+        String sealed = null;
         if (t.isEmpty()) {
-            sealed = prefs(context).getString(KEY_GH_TOKEN, "");
-            if (sealed.isEmpty()) {
-                throw new IllegalArgumentException("Paste the access token.");
+            if (prefs(context).getString(KEY_GH_TOKEN, "").isEmpty()) {
+                throw new IllegalArgumentException("Tap Connect GitHub, or paste an access token.");
             }
         } else if (!GitHubClient.validToken(t)) {
             throw new IllegalArgumentException("That doesn't look like a GitHub token (it starts with github_pat_).");
@@ -242,16 +241,20 @@ final class SyncStore {
         }
         deviceId(context);
         synchronized (LOCK) {
-            boolean saved = prefs(context).edit()
+            SharedPreferences.Editor editor = prefs(context).edit()
                     .putString(KEY_GH_OWNER, repo[0])
                     .putString(KEY_GH_REPO, repo[1])
                     .putString(KEY_GH_BRANCH, b)
                     .putString(KEY_GH_USER, u)
-                    .putString(KEY_GH_TOKEN, sealed)
                     .putString(KEY_WORD_SOURCE, SOURCE_GITHUB)
-                    .remove(KEY_GH_NOT_BEFORE)
-                    .commit();
-            if (!saved) {
+                    .remove(KEY_GH_NOT_BEFORE);
+            // A credential already saved (a connection, rotated meanwhile, or a token) is
+            // left exactly as it is: rewriting a copy read earlier could undo a rotation.
+            if (sealed != null) {
+                editor.putString(KEY_GH_TOKEN, sealed);
+                gitHubGeneration++;
+            }
+            if (!editor.commit()) {
                 throw new IllegalStateException("could not save the GitHub settings");
             }
         }
@@ -278,9 +281,55 @@ final class SyncStore {
             if (SOURCE_GITHUB.equals(prefs(context).getString(KEY_WORD_SOURCE, ""))) {
                 editor.remove(KEY_WORD_SOURCE);
             }
+            gitHubGeneration++;
             editor.commit();
         }
+        GitHubAuth.cancelAll();
         WordLists.removeOtherCopies(context, wordEnrolment(context));
+    }
+
+    /**
+     * Moves on with every explicit change of the GitHub credential (Connect, a pasted
+     * token, Forget): work that read the credential before it never writes over the new
+     * one ({@link GitHubCredentials}). In memory: a new process starts with nothing in flight.
+     */
+    private static long gitHubGeneration;
+
+    static long gitHubGeneration() {
+        synchronized (LOCK) {
+            return gitHubGeneration;
+        }
+    }
+
+    /** The sealed GitHub credential ("" for none). */
+    static String gitHubSealed(Context context) {
+        return prefs(context).getString(KEY_GH_TOKEN, "");
+    }
+
+    /**
+     * Writes rotated tokens unless an explicit change came after {@code generation}
+     * (then false, nothing written). Throws when the phone couldn't write them.
+     */
+    static boolean putGitHubSealed(Context context, long generation, String sealed) throws IOException {
+        synchronized (LOCK) {
+            if (generation != gitHubGeneration) {
+                return false;
+            }
+            if (!prefs(context).edit().putString(KEY_GH_TOKEN, sealed).commit()) {
+                throw new IOException("not saved");
+            }
+            return true;
+        }
+    }
+
+    /** Connect GitHub: the App's tokens replace the credential (the repository is chosen at Save). */
+    static void replaceGitHubSealed(Context context, String sealed) throws IOException {
+        synchronized (LOCK) {
+            gitHubGeneration++;
+            if (!prefs(context).edit().putString(KEY_GH_TOKEN, sealed).commit()) {
+                throw new IOException("not saved");
+            }
+        }
     }
 
     /** No request to GitHub before this time: GitHub asked to wait. */
