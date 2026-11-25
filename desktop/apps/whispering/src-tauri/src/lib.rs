@@ -47,7 +47,7 @@ pub mod profile;
 use profile::{
     profile_edits_changed, profile_github_set_token, profile_github_test, profile_list_users, profile_refresh,
     profile_set_busy, profile_set_config,
-    profile_state,
+    profile_state, github_connect_cancel, github_connect_start, github_connect_status, github_links, github_list_repos,
 };
 // VoiceFlow A2: the floating recording bar and the voice feedback window.
 pub mod bar;
@@ -265,6 +265,12 @@ pub async fn run() {
         // 0.9.19: word lists in a private GitHub repository
         profile_github_set_token,
         profile_github_test,
+        // 0.9.20: Connect GitHub (the VoiceFlow GitHub App, device flow)
+        github_connect_start,
+        github_connect_status,
+        github_connect_cancel,
+        github_list_repos,
+        github_links,
         // VoiceFlow A2: the recording bar and the feedback window
         bar::bar_target,
         bar::bar_present,

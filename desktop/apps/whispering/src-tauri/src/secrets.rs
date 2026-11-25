@@ -84,6 +84,20 @@ pub fn set_github_token(app: &AppHandle, token: &str) -> Result<(), String> {
     entry.set_password(token).map_err(|e| e.to_string())
 }
 
+/// 0.9.20: the same entry, as the GitHub sign-in's store: a pasted token
+/// (raw, as 0.9.19 kept it) or the connected App's tokens
+/// (`profile::github_auth`). Blocking: use it on a worker thread.
+pub struct GithubStore(pub AppHandle);
+
+impl crate::profile::github_auth::Store for GithubStore {
+    fn load(&self) -> Result<Option<String>, String> {
+        github_token(&self.0)
+    }
+    fn save(&self, value: &str) -> Result<(), String> {
+        set_github_token(&self.0, value)
+    }
+}
+
 async fn blocking<T: Send + 'static>(
     f: impl FnOnce() -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
