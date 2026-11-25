@@ -6,8 +6,11 @@
 // public CI does not depend on it.
 //
 // Maintainers keep a private term list outside version control (default:
-// private-docs/privacy-terms.txt, which .git/info/exclude keeps out of git).
-// This script holds no terms of its own.
+// private-docs/privacy-terms.txt, which .git/info/exclude keeps out of git). The default is
+// looked for in the working tree being checked, then in the main working tree, so a linked
+// worktree uses the main checkout's list. With no list found the check fails (exit 2) and the
+// push is blocked; there is no bypass. This script holds no terms of its own.
+// Self-test: node --test scripts/privacy-check.test.mjs
 //
 // Modes:
 //   node scripts/privacy-check.mjs --pre-push <remote> [url]   (stdin: git pre-push lines)
@@ -75,8 +78,47 @@ try {
 } catch {
 	fail('not inside a git repository');
 }
-termsPath = termsPath ? path.resolve(termsPath) : path.join(root, 'private-docs', 'privacy-terms.txt');
-if (!existsSync(termsPath)) fail(`term list not found: ${termsPath} (refusing to pass without it)`);
+termsPath = resolveTerms(termsPath);
+
+// The term list: --terms if given (it must exist); otherwise private-docs/privacy-terms.txt in
+// this working tree, then in the main working tree, so a linked worktree (git worktree add)
+// uses the main checkout's list. Nothing found means a setup error: never a silent pass.
+function resolveTerms(given) {
+	if (given) {
+		const p = path.resolve(given);
+		if (!existsSync(p)) fail(`term list not found: ${p} (given with --terms). Push blocked.`);
+		return p;
+	}
+	const rel = path.join('private-docs', 'privacy-terms.txt');
+	const tried = [path.join(root, rel)];
+	const main = mainWorktree();
+	if (main && path.resolve(main) !== path.resolve(root)) tried.push(path.join(main, rel));
+	const found = tried.find((p) => existsSync(p));
+	if (found) return found;
+	fail(
+		[
+			'no private term list found, so nothing can be checked. Push blocked.',
+			...tried.map((p) => `  looked for: ${p}`),
+			'  Put the list at one of these paths (it stays out of git), or pass --terms <file>.',
+		].join('\n'),
+	);
+}
+
+// The main working tree: the parent of the shared .git folder. Null for a bare repository
+// or a layout where the common git folder is not named .git.
+function mainWorktree() {
+	let common;
+	try {
+		common = git(['rev-parse', '--git-common-dir']).trim();
+	} catch {
+		return null;
+	}
+	if (!common) return null;
+	// git may print it relative to the directory it ran in, which is repoDir.
+	common = path.resolve(repoDir, common);
+	if (path.basename(common).toLowerCase() !== '.git') return null;
+	return path.dirname(common);
+}
 
 // ---------- term list ----------
 function globToRegex(glob) {
