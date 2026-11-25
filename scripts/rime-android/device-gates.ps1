@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Runs the Rime device gates (0.9.0) over adb on one plugged-in phone and writes the results.
+  Runs the Rime device gates (from 0.9.0; 0.9.1 by default) over adb on one plugged-in phone and writes the results.
 
 .DESCRIPTION
   The checks run inside the app (RimeGateActivity, guarded by the DUMP permission only the adb
@@ -15,13 +15,13 @@
     16 KB    zipalign -c -P 16 on the installed APK                           aligned
 
   It never changes her data: nothing is learned (the soak runs with learning off) and nothing is
-  cleared. The replay fixture is a first-day user's, so run it on a fresh install of 0.9.0, before
+  cleared. The replay fixture is a first-day user's, so run it right after installing the release (-ExpectedVersion, 0.9.1 by default), before
   she has typed with Rime. Installs only when -Apk is given.
 
 .EXAMPLE
   ./scripts/rime-android/device-gates.ps1 -OutDir C:\gates
 .EXAMPLE
-  ./scripts/rime-android/device-gates.ps1 -Serial R5CX... -Apk VoiceFlow-keyboard-0.9.0.apk -SoakSeconds 900
+  ./scripts/rime-android/device-gates.ps1 -Serial R5CX... -Apk VoiceFlow-keyboard-0.9.1.apk -SoakSeconds 900
 #>
 [CmdletBinding()]
 param(
@@ -31,7 +31,7 @@ param(
     [string]$Apk = "",
     [string]$Adb = "",
     [string]$Package = "com.voiceflowkeyboard.ime",
-    [string]$ExpectedVersion = "0.9.0"
+    [string]$ExpectedVersion = "0.9.1"
 )
 
 $ErrorActionPreference = "Stop"
