@@ -38,6 +38,18 @@ final class SyncStore {
     private static final String KEY_RELEASE_BODY = "release_body";
     private static final String KEY_RELAUNCH_UNTIL = "relaunch_until_ms";
     private static final String KEY_PENDING_OFFER = "pending_offer";
+    /** Where the word lists come from: "" (the gateway when enrolled), "none", "gateway" or "github". */
+    private static final String KEY_WORD_SOURCE = "word_source";
+    private static final String KEY_GH_OWNER = "github_owner";
+    private static final String KEY_GH_REPO = "github_repo";
+    private static final String KEY_GH_BRANCH = "github_branch";
+    private static final String KEY_GH_USER = "github_user";
+    private static final String KEY_GH_TOKEN = "github_token_sealed";
+    private static final String KEY_GH_NOT_BEFORE = "github_not_before_ms";
+
+    static final String SOURCE_NONE = "none";
+    static final String SOURCE_GATEWAY = "gateway";
+    static final String SOURCE_GITHUB = "github";
 
     /** Swapped for a plain key in unit tests, where there is no Android Keystore. */
     static volatile TokenVault.KeySource keys = TokenVault.ANDROID_KEYSTORE;
@@ -111,9 +123,187 @@ final class SyncStore {
             }
         }
         Enrolment enrolment = new Enrolment(device, user, origin);
-        // Another user's (or gateway's) offline word lists never stay on the phone.
-        WordLists.removeOtherCopies(context, enrolment);
+        // Another user's (or gateway's) offline word lists never stay on the phone. The
+        // copy kept is the active word source's (a GitHub copy survives a gateway enrolment).
+        WordLists.removeOtherCopies(context, wordEnrolment(context));
         return enrolment;
+    }
+
+    // ------------------------------------------------------------ word source
+
+    /** A GitHub repository as the word source: what Settings > Word lists source saved. */
+    static final class GitHubConfig {
+        final String owner;
+        final String repo;
+        final String branch;
+        final String user;
+        final String sealedToken;
+
+        GitHubConfig(String owner, String repo, String branch, String user, String sealedToken) {
+            this.owner = owner;
+            this.repo = repo;
+            this.branch = branch;
+            this.user = user;
+            this.sealedToken = sealedToken;
+        }
+
+        /** The plain token, for one run. Never log or store what this returns. */
+        String token() throws Exception {
+            return TokenVault.open(keys, sealedToken);
+        }
+
+        String identity() {
+            return GitHubClient.identity(owner, repo, branch);
+        }
+    }
+
+    /** The saved GitHub settings with a token, or null. */
+    static GitHubConfig gitHub(Context context) {
+        SharedPreferences prefs = prefs(context);
+        String owner = prefs.getString(KEY_GH_OWNER, "");
+        String repo = prefs.getString(KEY_GH_REPO, "");
+        String branch = prefs.getString(KEY_GH_BRANCH, "");
+        String user = prefs.getString(KEY_GH_USER, "");
+        String sealed = prefs.getString(KEY_GH_TOKEN, "");
+        if (GitHubClient.parseRepo(owner + "/" + repo) == null || !GitHubClient.validBranch(branch)
+                || !Enrolment.validUser(user) || sealed.isEmpty()) {
+            return null;
+        }
+        return new GitHubConfig(owner, repo, branch, user, sealed);
+    }
+
+    /** What was chosen: "none", "gateway" or "github"; a phone that never chose uses the gateway. */
+    static String wordSource(Context context) {
+        String chosen = prefs(context).getString(KEY_WORD_SOURCE, "");
+        return SOURCE_NONE.equals(chosen) || SOURCE_GITHUB.equals(chosen) ? chosen : SOURCE_GATEWAY;
+    }
+
+    /**
+     * Who this phone is to the word lists it reads now, or null for none (the phone's
+     * own list only). For GitHub, {@link Enrolment#gateway} carries the repository's
+     * identity, which keys the offline copy.
+     */
+    static Enrolment wordEnrolment(Context context) {
+        switch (wordSource(context)) {
+            case SOURCE_NONE:
+                return null;
+            case SOURCE_GITHUB: {
+                GitHubConfig config = gitHub(context);
+                return config == null ? null : new Enrolment(deviceId(context), config.user, config.identity());
+            }
+            default:
+                return enrolment(context);
+        }
+    }
+
+    /** Anything to sync: the gateway (updates, status, perhaps words) or a GitHub word source. */
+    static boolean anySync(Context context) {
+        return enrolment(context) != null || (SOURCE_GITHUB.equals(wordSource(context)) && gitHub(context) != null);
+    }
+
+    /**
+     * Saves a GitHub repository as the word source. A token is checked and sealed
+     * first; an empty one keeps the token already saved. A bad value leaves
+     * everything as it was.
+     */
+    static void saveGitHub(Context context, String repository, String branch, String user, String token) throws Exception {
+        String[] repo = GitHubClient.parseRepo(repository);
+        if (repo == null) {
+            throw new IllegalArgumentException("Enter the repository as owner/name.");
+        }
+        String b = branch == null ? "" : branch.trim();
+        if (!GitHubClient.validBranch(b)) {
+            throw new IllegalArgumentException("Enter the branch name (usually main).");
+        }
+        String u = user == null ? "" : user.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!Enrolment.validUser(u) || "household".equals(u)) {
+            throw new IllegalArgumentException("Your name is lower-case letters, digits, - or _ (not household).");
+        }
+        String t = token == null ? "" : token.trim();
+        String sealed;
+        if (t.isEmpty()) {
+            sealed = prefs(context).getString(KEY_GH_TOKEN, "");
+            if (sealed.isEmpty()) {
+                throw new IllegalArgumentException("Paste the access token.");
+            }
+        } else if (!GitHubClient.validToken(t)) {
+            throw new IllegalArgumentException("That doesn't look like a GitHub token (it starts with github_pat_).");
+        } else {
+            sealed = TokenVault.seal(keys, t);
+        }
+        deviceId(context);
+        synchronized (LOCK) {
+            boolean saved = prefs(context).edit()
+                    .putString(KEY_GH_OWNER, repo[0])
+                    .putString(KEY_GH_REPO, repo[1])
+                    .putString(KEY_GH_BRANCH, b)
+                    .putString(KEY_GH_USER, u)
+                    .putString(KEY_GH_TOKEN, sealed)
+                    .putString(KEY_WORD_SOURCE, SOURCE_GITHUB)
+                    .remove(KEY_GH_NOT_BEFORE)
+                    .commit();
+            if (!saved) {
+                throw new IllegalStateException("could not save the GitHub settings");
+            }
+        }
+        WordLists.removeOtherCopies(context, wordEnrolment(context));
+    }
+
+    /** Chooses "none" or "gateway" (GitHub is chosen by {@link #saveGitHub}). */
+    static void chooseWordSource(Context context, String source) {
+        if (!SOURCE_NONE.equals(source) && !SOURCE_GATEWAY.equals(source)) {
+            throw new IllegalArgumentException("not a source");
+        }
+        synchronized (LOCK) {
+            prefs(context).edit().putString(KEY_WORD_SOURCE, source).commit();
+        }
+        WordLists.removeOtherCopies(context, wordEnrolment(context));
+    }
+
+    /** Removes the GitHub settings and their token; the phone goes back to the gateway, if enrolled. */
+    static void forgetGitHub(Context context) {
+        synchronized (LOCK) {
+            SharedPreferences.Editor editor = prefs(context).edit()
+                    .remove(KEY_GH_OWNER).remove(KEY_GH_REPO).remove(KEY_GH_BRANCH).remove(KEY_GH_USER)
+                    .remove(KEY_GH_TOKEN).remove(KEY_GH_NOT_BEFORE);
+            if (SOURCE_GITHUB.equals(prefs(context).getString(KEY_WORD_SOURCE, ""))) {
+                editor.remove(KEY_WORD_SOURCE);
+            }
+            editor.commit();
+        }
+        WordLists.removeOtherCopies(context, wordEnrolment(context));
+    }
+
+    /** No request to GitHub before this time: GitHub asked to wait. */
+    static GitHubClient.Wait gitHubWait(Context context) {
+        return new GitHubClient.Wait() {
+            @Override
+            public long notBefore() {
+                return gitHubNotBefore(context);
+            }
+
+            @Override
+            public void setNotBefore(long millis) {
+                prefs(context).edit().putLong(KEY_GH_NOT_BEFORE, millis).commit();
+            }
+        };
+    }
+
+    static long gitHubNotBefore(Context context) {
+        return prefs(context).getLong(KEY_GH_NOT_BEFORE, 0L);
+    }
+
+    /** The saved GitHub fields for the settings screen (no token). */
+    static String[] gitHubFields(Context context) {
+        SharedPreferences prefs = prefs(context);
+        String owner = prefs.getString(KEY_GH_OWNER, "");
+        String repo = prefs.getString(KEY_GH_REPO, "");
+        return new String[]{
+                owner.isEmpty() ? "" : owner + "/" + repo,
+                prefs.getString(KEY_GH_BRANCH, ""),
+                prefs.getString(KEY_GH_USER, ""),
+                prefs.getString(KEY_GH_TOKEN, "").isEmpty() ? "" : "stored"
+        };
     }
 
     /** The enrolment and its sealed token, read together under the enrolment lock. */

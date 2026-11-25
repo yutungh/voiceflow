@@ -20,7 +20,7 @@ import java.util.Locale;
  * followed, and size caps on everything read. The user and device always come
  * from the token on the server; no route here names them.
  */
-final class GatewayClient {
+final class GatewayClient implements WordSource {
     static final int MAX_JSON_BYTES = 64 * 1024;
     private static final int CONNECT_TIMEOUT_MS = 15_000;
     private static final int READ_TIMEOUT_MS = 30_000;
@@ -144,12 +144,14 @@ final class GatewayClient {
     static final int MAX_MANIFEST_BYTES = 4 * 1024 * 1024;
 
     /** The manifest of this device's user: layer hashes and edit names. */
-    Fetched manifest(String etag) throws IOException {
+    @Override
+    public Fetched manifest(String etag) throws IOException {
         return fetch("/v1/manifest", etag, MAX_MANIFEST_BYTES);
     }
 
     /** One layer file: "household", "generated" or "personal". */
-    Fetched layer(String layer) throws IOException {
+    @Override
+    public Fetched layer(String layer) throws IOException {
         if (!WordLayer.FILE_LAYERS.contains(layer)) {
             throw new IllegalArgumentException("not a layer");
         }
@@ -157,7 +159,8 @@ final class GatewayClient {
     }
 
     /** One edit file, by a name the manifest listed (checked again here). */
-    Fetched op(String name) throws IOException {
+    @Override
+    public Fetched op(String name) throws IOException {
         if (!name.matches("[a-z0-9][a-z0-9._-]{0,99}\\.json")) {
             throw new IllegalArgumentException("not an edit name");
         }
@@ -185,6 +188,12 @@ final class GatewayClient {
         } finally {
             connection.disconnect();
         }
+    }
+
+    /** The gateway names a layer by the SHA-256 of its bytes. */
+    @Override
+    public String revisionOf(byte[] bytes) {
+        return "sha256:" + WordLists.sha256(bytes);
     }
 
     /** A short quoted tag (optionally weak), nothing that could break a header. */

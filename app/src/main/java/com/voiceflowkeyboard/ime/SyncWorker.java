@@ -53,23 +53,30 @@ final class SyncWorker {
     static void run(Context context) {
         synchronized (RUN_LOCK) {
             SyncStore.Credentials credentials = SyncStore.credentials(context);
+            int installed = SelfUpdater.installedVersionCode(context);
+            // A GitHub word source needs no gateway: its words are read either way.
             if (credentials == null) {
+                if (SyncStore.SOURCE_GITHUB.equals(SyncStore.wordSource(context))) {
+                    refreshWordLists(context, null, installed);
+                }
                 return;
             }
             Enrolment enrolment = credentials.enrolment;
-            int installed = SelfUpdater.installedVersionCode(context);
             String token;
             try {
                 token = credentials.token();
             } catch (Exception e) {
                 SyncStore.updateEvidence(context, installed, evidence -> evidence.lastError = "token-unreadable");
+                if (SyncStore.SOURCE_GITHUB.equals(SyncStore.wordSource(context))) {
+                    refreshWordLists(context, null, installed);
+                }
                 return;
             }
             removeInstalledDownloads(context, installed);
             // Sessions this app no longer tracks (a crash mid-install) are abandoned.
             SelfUpdater.abandonOthers(context, SyncStore.evidence(context, installed, System.currentTimeMillis()).pendingSessionId);
             GatewayClient client = new GatewayClient(enrolment.gateway, token);
-            refreshWordLists(context, client, enrolment, installed);
+            refreshWordLists(context, client, installed);
             checkRelease(context, client, installed);
             noteInstallProgress(context);
             reportStatus(context, client, enrolment, installed);
@@ -200,15 +207,44 @@ final class SyncWorker {
     }
 
     /**
-     * The word lists from the sync server, into the offline copy. Content problems (a
-     * rejected file, a missing layer) go to the status file's profile block only;
-     * a refused token counts like any refused request. Never stops the run.
+     * The word lists from the active word source (the sync server, or a GitHub
+     * repository), into the offline copy. Content problems (a rejected file, a
+     * missing layer) go to the status file's profile block only; a refused token
+     * counts like any refused request. Never stops the run. {@code gateway} is null
+     * when this phone has no gateway.
      */
-    private static void refreshWordLists(Context context, GatewayClient client, Enrolment enrolment, int installed) {
+    static void refreshWordLists(Context context, GatewayClient gateway, int installed) {
         try {
-            WordLists.refresh(context, client, enrolment);
+            Enrolment words = SyncStore.wordEnrolment(context);
+            if (words == null) {
+                return;
+            }
+            WordSource source;
+            if (SyncStore.SOURCE_GITHUB.equals(SyncStore.wordSource(context))) {
+                SyncStore.GitHubConfig config = SyncStore.gitHub(context);
+                String token;
+                try {
+                    token = config.token();
+                } catch (Exception e) {
+                    SyncStore.updateEvidence(context, installed, ev -> ev.lastError = "github-token-unreadable");
+                    return;
+                }
+                source = new GitHubClient(config.owner, config.repo, config.branch, config.user, words.device, token,
+                        SyncStore.gitHubWait(context));
+            } else if (gateway != null) {
+                source = gateway;
+            } else {
+                return;
+            }
+            WordLists.refresh(context, source, words);
         } catch (WordLists.AuthRefused e) {
-            recordFailure(context, installed, e.cause);
+            if (e.cause.code.startsWith("github-")) {
+                // A GitHub token is not the gateway's: noted, never counted in the update
+                // evidence the gateway's rollout rule reads. The status block names it.
+                SyncStore.updateEvidence(context, installed, ev -> ev.lastError = e.cause.code);
+            } else {
+                recordFailure(context, installed, e.cause);
+            }
         } catch (RuntimeException | LinkageError e) {
             // LinkageError too: a word-list class that cannot load (0.8.2's regex threw
             // ExceptionInInitializerError) must not stop the release check or the status upload.

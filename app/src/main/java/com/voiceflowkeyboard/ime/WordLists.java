@@ -24,8 +24,9 @@ import java.util.regex.Pattern;
 
 /**
  * This phone's word lists: its own list (kept in the settings, exactly as
- * before) merged with the user's lists on the sync server, read through the vf-sync
- * gateway and kept in an offline copy.
+ * before) merged with the user's shared lists, read from the active
+ * {@link WordSource} (the vf-sync gateway, or a private GitHub repository chosen
+ * on the Word lists source screen) and kept in an offline copy.
  *
  * <h3>Precedence</h3>
  * built-in fixes &lt; household &lt; generated (from the user's notes) &lt; personal
@@ -210,7 +211,7 @@ final class WordLists {
      */
     static DictationWords forRecordStart(Context context, String app) {
         try {
-            Enrolment enrolment = SyncStore.enrolment(context);
+            Enrolment enrolment = SyncStore.wordEnrolment(context);
             if (enrolment == null) {
                 return DictationWords.legacy(Prefs.allPhraseReplacements(context));
             }
@@ -336,7 +337,7 @@ final class WordLists {
     }
 
     static View current(Context context) {
-        Enrolment enrolment = SyncStore.enrolment(context);
+        Enrolment enrolment = SyncStore.wordEnrolment(context);
         String key = enrolment == null ? "" : folderKey(enrolment);
         String rows = Prefs.userPhraseReplacementsJson(context);
         Cached hit = cached;
@@ -559,7 +560,7 @@ final class WordLists {
      * {@link AuthRefused} for a 401/403 so the worker can count it, after the
      * state is saved.
      */
-    static Outcome refresh(Context context, GatewayClient client, Enrolment enrolment) throws AuthRefused {
+    static Outcome refresh(Context context, WordSource client, Enrolment enrolment) throws AuthRefused {
         removeOtherCopies(context, enrolment);
         File dir = folder(context, enrolment);
         File opsDir = new File(dir, "ops");
@@ -582,7 +583,8 @@ final class WordLists {
             state.lastSyncAt = now;
         } catch (GatewayClient.GatewayException e) {
             state.reachable = true;
-            state.errors.add("gateway-" + e.code);
+            // A GitHub refusal keeps its own code ("github-401"); the gateway's are "gateway-...".
+            state.errors.add(e.code.startsWith("github-") ? e.code : "gateway-" + e.code);
             outcome = Outcome.REFUSED;
             if (UpdateEvidence.ERROR_AUTH.equals(e.kind)) {
                 refused = new AuthRefused(e);
@@ -592,7 +594,7 @@ final class WordLists {
             outcome = Outcome.OFFLINE;
         }
         // The enrolment may have changed while this ran: never keep another user's copy.
-        Enrolment after = SyncStore.enrolment(context);
+        Enrolment after = SyncStore.wordEnrolment(context);
         if (after == null || !folderKey(after).equals(folderKey(enrolment))) {
             removeOtherCopies(context, after);
             return Outcome.SKIPPED;
@@ -611,7 +613,7 @@ final class WordLists {
         return outcome;
     }
 
-    private static Outcome fetchAll(GatewayClient client, Enrolment enrolment, File dir, File opsDir, State state)
+    private static Outcome fetchAll(WordSource client, Enrolment enrolment, File dir, File opsDir, State state)
             throws IOException {
         GatewayClient.Fetched fetched = client.manifest(state.accepted ? state.manifestEtag : "");
         byte[] manifestBytes = fetched.notModified ? readFile(new File(dir, "manifest.json"), GatewayClient.MAX_MANIFEST_BYTES)
@@ -696,7 +698,7 @@ final class WordLists {
     }
 
     /** True when the kept copy changed. */
-    private static boolean refreshLayer(GatewayClient client, Enrolment enrolment, File dir, State state, String name,
+    private static boolean refreshLayer(WordSource client, Enrolment enrolment, File dir, State state, String name,
                                         Object entry) throws IOException {
         JSONObject layer = state.layer(name);
         File file = new File(dir, "layer-" + name + ".json");
@@ -709,18 +711,19 @@ final class WordLists {
                 return false;
             }
             JSONObject info = (JSONObject) entry;
-            String sha = info.optString("sha256", "");
-            if (sha.isEmpty()) {
+            // The gateway names a file by its SHA-256, GitHub by its blob id (WordSource#revision).
+            String revision = WordSource.revision(info);
+            if (revision.isEmpty() || info.optLong("size", 0L) > WordLayer.MAX_LAYER_BYTES) {
                 layer.put("state", have ? "cached" : "missing");
                 layer.put("error", "too-large");
                 return false;
             }
-            if (have && sha.equals(layer.optString("sha256", ""))) {
+            if (have && revision.equals(kept(layer, "revision", "sha256"))) {
                 layer.put("state", "ok");
                 layer.put("error", "");
                 return false;
             }
-            if (sha.equals(layer.optString("rejectedSha", ""))) {
+            if (revision.equals(kept(layer, "rejectedRevision", "rejectedSha"))) {
                 layer.put("state", have ? "cached" : "missing");
                 return false; // the same bad file again: its error stays
             }
@@ -735,20 +738,23 @@ final class WordLists {
                 layer.put("error", e.status == 404 ? "missing-on-server" : "http-" + e.status);
                 return false;
             }
-            String got = sha256(bytes);
+            String got = client.revisionOf(bytes);
             WordLayer parsed;
             try {
                 parsed = WordLayer.parse(bytes, name, enrolment.user);
             } catch (WordLayer.Rejected rejected) {
                 layer.put("state", have ? "cached" : "missing");
                 layer.put("error", "rejected-" + rejected.reason);
-                layer.put("rejectedSha", got);
+                layer.put("rejectedRevision", got);
+                layer.remove("rejectedSha");
                 state.errors.add(name + ": rejected (" + rejected.reason + ")");
                 return false;
             }
             writeAtomically(file, bytes);
-            layer.put("sha256", got);
-            layer.put("rejectedSha", "");
+            layer.put("revision", got);
+            layer.remove("sha256");
+            layer.put("rejectedRevision", "");
+            layer.remove("rejectedSha");
             layer.put("state", "ok");
             layer.put("error", "");
             // Only a real timestamp reaches the status file (no text from the list, nothing long).
@@ -759,6 +765,19 @@ final class WordLists {
         } catch (JSONException e) {
             return false;
         }
+    }
+
+    /**
+     * A kept revision: the new field, or a value kept before revisions had a kind
+     * (a bare SHA-256 from the gateway), read as "sha256:..." so nothing is fetched again.
+     */
+    static String kept(JSONObject layer, String key, String legacyKey) {
+        String value = layer.optString(key, "");
+        if (!value.isEmpty()) {
+            return value;
+        }
+        String legacy = layer.optString(legacyKey, "");
+        return legacy.isEmpty() ? "" : "sha256:" + legacy;
     }
 
     // ---------------------------------------------------------------- status

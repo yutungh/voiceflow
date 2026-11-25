@@ -272,6 +272,7 @@ Current privacy model:
 - When a cloud transcription provider is enabled, recorded audio is sent to that provider after recording stops.
 - With compatible OpenAI transcription models, configured personal vocabulary spellings and context are sent with the recording as transcription hints.
 - A phone enrolled with a vf-sync gateway ([`sync/`](sync/README.md)) also downloads its user's word lists (household, generated and personal layers, plus edits made in the apps), keeps an offline copy in app-private storage, and merges them with the phone's own list by the rules in `pack/`. They are used for dictation only: the vocabulary line and keywords sent with the recording, and the corrections applied once to the dictated text. Typed-text corrections keep using the phone's own list. Nothing is uploaded in this release.
+- A phone whose word lists source is a private GitHub repository (Word lists > Shared lists; [docs/GITHUB-SYNC.md](docs/GITHUB-SYNC.md)) downloads the same files from `api.github.com` with its own read-only access token, kept encrypted with an Android Keystore key, and the same offline-copy rules apply. It writes nothing to the repository. A gateway it is enrolled with keeps delivering app updates.
 - When transcript cleanup is enabled, transcript text is sent to the configured transform provider.
 - Offline Vosk and Offline Parakeet transcription keep audio local after the selected local model has been downloaded.
 

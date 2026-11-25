@@ -40,6 +40,12 @@
             android:name=".FindReplaceActivity"
             android:exported="false" />
 
+        <!-- Where the shared word lists come from: none, the sync server or a GitHub repository. -->
+        <activity
+            android:name=".WordSourceActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
         <activity
             android:name=".ApiKeysActivity"
             android:exported="false"
