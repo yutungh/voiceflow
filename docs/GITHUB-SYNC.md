@@ -8,7 +8,7 @@ The word-list format is in [`pack/README.md`](../pack/README.md); the rules for 
 |---|---|
 | **VoiceFlow Desktop** | From **0.9.19** (Windows and Mac) |
 | **Android keyboard** | **Not released yet.** The phone side is built and waiting to ship; until then the phone keeps its own word list. [Phone setup](#5-set-up-the-phone-once-released) describes what is coming. |
-| **Tested how?** | Against a real private repository on GitHub: reading, a re-check with nothing changed, an edit file added by another device, an upload repeated after a lost answer, a status-file conflict, a refused token and no network. The token used was a **classic** one; a fine-grained token made on GitHub's website (what this page tells you to make) has **not** been tested yet. See [Limits](#limits). |
+| **Tested how?** | Against a real private repository on GitHub: reading, a re-check with nothing changed, an edit file added by another device, an upload repeated after a lost answer, a status-file conflict, a refused token and no network. The token used was the GitHub CLI's sign-in token; neither a fine-grained token made on GitHub's website (what this page tells you to make) nor a classic one has been tested yet. See [Limits](#limits). |
 
 ## What you get
 
@@ -92,8 +92,8 @@ Everyone's lists can live in one repository, each person under their own name, w
 The Android keyboard's GitHub support is built but **not released yet**. When it ships:
 
 1. On GitHub, make a **read-only** token for the phone ([section 2](#2-make-an-access-token-for-each-device)).
-2. In the VoiceFlow keyboard app, open **Settings > Word lists source** and choose **Private GitHub repository**.
-3. Enter the repository, the branch, your name and the phone's token, then tap **Test connection** and **Save**.
+2. In the VoiceFlow keyboard app, open **Word lists**, tap the line **Shared lists: …** under the introduction, and choose **Private GitHub repository** on the **Word lists source** screen.
+3. Enter the repository, the branch, your name and the phone's token, then tap **Test connection** and **Save**. **Forget GitHub** removes the settings and the token from the phone.
 
 The phone reads the lists when the keyboard opens (at most every 15 minutes) and every hour, keeps a last good copy, and writes nothing to the repository. A phone that uses the sync gateway keeps using it unless you switch it here.
 
@@ -167,7 +167,7 @@ What a leaked token can do: a computer's token can read and change the files in 
 
 ## Limits
 
-- **Not tested with a fine-grained token made on GitHub's website.** The integration tests used a classic token with the same access to the test repository. If **Test connection** fails with a new fine-grained token, check the repository is selected under **Repository access** and **Contents** is set.
+- **Not tested with a fine-grained token made on GitHub's website.** The integration tests used the GitHub CLI's sign-in token, which reaches the test repository the same way. If **Test connection** fails with a new fine-grained token, check the repository is selected under **Repository access** and **Contents** is set.
 - **Phones:** not released yet ([section 5](#5-set-up-the-phone-once-released)).
 - **Up to an hour:** a change on GitHub reaches a device at its next hourly check, or at **Refresh now**.
 - **History grows:** each word added in the app is one commit, and each computer writes its status when something changed and otherwise once a day.
