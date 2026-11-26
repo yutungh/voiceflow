@@ -18,6 +18,7 @@ public class ApiKeysActivity extends Activity {
     private EditText anthropicInput;
     private EditText xAiInput;
     private EditText deepgramInput;
+    private EditText sonioxInput;
     private ScrollView scroll;
 
     @Override
@@ -72,6 +73,15 @@ public class ApiKeysActivity extends Activity {
         deepgramInput = keyInput("Deepgram API key");
         deepgramInput.setText(Prefs.deepgramApiKey(this));
         providers.addView(field("Deepgram", "Transcription only", deepgramInput));
+        providers.addView(divider());
+
+        sonioxInput = keyInput("Soniox API key");
+        sonioxInput.setText(Prefs.sonioxApiKey(this));
+        providers.addView(field("Soniox", "Transcription only", sonioxInput));
+
+        TextView stored = Ui.text(this, "Keys stay on this phone. They aren't in backups, transfers to a new phone, sync or logs.", 13, false, Ui.MUTED);
+        stored.setPadding(0, dp(12), 0, 0);
+        root.addView(stored);
         return screen;
     }
 
@@ -177,7 +187,8 @@ public class ApiKeysActivity extends Activity {
                 openAiInput.getText().toString(),
                 anthropicInput.getText().toString(),
                 xAiInput.getText().toString(),
-                deepgramInput.getText().toString()
+                deepgramInput.getText().toString(),
+                sonioxInput.getText().toString()
         );
         Toast.makeText(this, "API keys saved", Toast.LENGTH_SHORT).show();
         finish();

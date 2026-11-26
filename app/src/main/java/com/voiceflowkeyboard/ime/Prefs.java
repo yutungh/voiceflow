@@ -24,6 +24,8 @@ final class Prefs {
     static final String PROVIDER_DEEPGRAM = "deepgram";
     static final String PROVIDER_OFFLINE_VOSK = "offline_vosk";
     static final String PROVIDER_OFFLINE_PARAKEET = "offline_parakeet";
+    /** 0.9.3: Soniox speech-to-text ({@link SonioxClient}). */
+    static final String PROVIDER_SONIOX = "soniox";
 
     /** Full QWERTY keys, typing pinyin letter by letter. */
     static final String CHINESE_LAYOUT_QWERTY = "qwerty";
@@ -55,6 +57,11 @@ final class Prefs {
     private static final String KEY_ANTHROPIC_API_KEY = "anthropic_api_key";
     private static final String KEY_XAI_API_KEY = "xai_api_key";
     private static final String KEY_DEEPGRAM_API_KEY = "deepgram_api_key";
+    private static final String KEY_SONIOX_API_KEY = "soniox_api_key";
+    /** 0.9.3: a style's own speech model ({@link SpeechModels}), by style id. */
+    private static final String KEY_SPEECH_MODEL_STYLE_PREFIX = "speech_model_style_";
+    /** 0.9.3: when a style's own speech model fails, try the app default once. On unless turned off. */
+    private static final String KEY_SPEECH_FALLBACK = "speech_fallback_to_app_default";
     private static final String KEY_TRANSCRIPTION_PROVIDER = "transcription_provider";
     private static final String KEY_TRANSFORM_PROVIDER = "transform_provider";
     private static final String KEY_TRANSCRIPTION_MODEL = "transcription_model";
@@ -131,6 +138,57 @@ final class Prefs {
         return shared(context).getString(KEY_DEEPGRAM_API_KEY, "");
     }
 
+    static String sonioxApiKey(Context context) {
+        return shared(context).getString(KEY_SONIOX_API_KEY, "");
+    }
+
+    /** 0.9.3: the Soniox key alone (the USB provisioning path, {@link KeyProvisionProvider}). */
+    static boolean setSonioxApiKey(Context context, String key) {
+        return shared(context).edit().putString(KEY_SONIOX_API_KEY, trim(key)).commit();
+    }
+
+    static void saveApiKeys(Context context, String openAiApiKey, String anthropicApiKey, String xAiApiKey,
+                            String deepgramApiKey, String sonioxApiKey) {
+        shared(context).edit()
+                .putString(KEY_OPENAI_API_KEY, trim(openAiApiKey))
+                .putString(KEY_ANTHROPIC_API_KEY, trim(anthropicApiKey))
+                .putString(KEY_XAI_API_KEY, trim(xAiApiKey))
+                .putString(KEY_DEEPGRAM_API_KEY, trim(deepgramApiKey))
+                .putString(KEY_SONIOX_API_KEY, trim(sonioxApiKey))
+                .apply();
+    }
+
+    /** The raw stored speech-model choice for a style ({@link SpeechModels#parse}); null when it has none. */
+    static String speechModelForStyle(Context context, String styleId) {
+        if (styleId == null || styleId.trim().isEmpty()) {
+            return null;
+        }
+        return shared(context).getString(KEY_SPEECH_MODEL_STYLE_PREFIX + styleId.trim(), null);
+    }
+
+    /** {@code value} null or empty: the style goes back to "Same as app" (nothing stored). */
+    static void setSpeechModelForStyle(Context context, String styleId, String value) {
+        if (styleId == null || styleId.trim().isEmpty()) {
+            return;
+        }
+        String key = KEY_SPEECH_MODEL_STYLE_PREFIX + styleId.trim();
+        synchronized (MODEL_SELECTION_LOCK) {
+            if (value == null || value.trim().isEmpty()) {
+                shared(context).edit().remove(key).apply();
+            } else {
+                shared(context).edit().putString(key, value.trim()).apply();
+            }
+        }
+    }
+
+    static boolean speechFallbackToAppDefault(Context context) {
+        return shared(context).getBoolean(KEY_SPEECH_FALLBACK, true);
+    }
+
+    static void setSpeechFallbackToAppDefault(Context context, boolean enabled) {
+        shared(context).edit().putBoolean(KEY_SPEECH_FALLBACK, enabled).apply();
+    }
+
     static void saveApiKeys(Context context, String openAiApiKey, String anthropicApiKey, String xAiApiKey, String deepgramApiKey) {
         shared(context).edit()
                 .putString(KEY_OPENAI_API_KEY, trim(openAiApiKey))
@@ -156,6 +214,9 @@ final class Prefs {
             count++;
         }
         if (!trim(deepgramApiKey(context)).isEmpty()) {
+            count++;
+        }
+        if (!trim(sonioxApiKey(context)).isEmpty()) {
             count++;
         }
         return count;
@@ -728,8 +789,7 @@ final class Prefs {
         for (int i = 0; i < profiles.size(); i++) {
             if (profiles.get(i).id.equals(sanitized)) {
                 String trimmedName = name == null ? "" : name.trim();
-                profiles.set(i, new PromptProfile(
-                        sanitized,
+                profiles.set(i, profiles.get(i).renamed(
                         trimmedName.isEmpty() ? defaultLabelForPreset(sanitized) : trimmedName,
                         sanitizeStyleIcon(icon)
                 ));
@@ -815,7 +875,8 @@ final class Prefs {
                         .remove(KEY_EXPRESSION_OVERRIDE_PREFIX + sanitized)
                         .remove(KEY_TRANSFORM_MODEL_OVERRIDE_PREFIX + PROVIDER_OPENAI + "_" + sanitized)
                         .remove(KEY_TRANSFORM_MODEL_OVERRIDE_PREFIX + PROVIDER_ANTHROPIC + "_" + sanitized)
-                        .remove(KEY_TRANSFORM_MODEL_OVERRIDE_PREFIX + PROVIDER_XAI + "_" + sanitized);
+                        .remove(KEY_TRANSFORM_MODEL_OVERRIDE_PREFIX + PROVIDER_XAI + "_" + sanitized)
+                        .remove(KEY_SPEECH_MODEL_STYLE_PREFIX + sanitized);
             }
             if (sanitized.equals(activePreset(context))) {
                 editor.putString(KEY_ACTIVE_PRESET, PRESET_CASUAL);
@@ -841,6 +902,7 @@ final class Prefs {
                         || key.startsWith(KEY_STYLE_GUIDANCE_PREFIX)
                         || key.startsWith(KEY_EXPRESSION_PREFIX)
                         || key.startsWith(KEY_TRANSFORM_MODEL_OVERRIDE_PREFIX)
+                        || key.startsWith(KEY_SPEECH_MODEL_STYLE_PREFIX)
                         || key.startsWith(KEY_PRESET_LABEL_PREFIX)) {
                     editor.remove(key);
                 }
@@ -1466,6 +1528,9 @@ final class Prefs {
         if (PROVIDER_OFFLINE_VOSK.equals(provider)) {
             return "Offline Vosk";
         }
+        if (PROVIDER_SONIOX.equals(provider)) {
+            return "Soniox";
+        }
         if (PROVIDER_OFFLINE_PARAKEET.equals(provider)) {
             return "Offline Parakeet";
         }
@@ -1481,6 +1546,9 @@ final class Prefs {
         }
         if (PROVIDER_DEEPGRAM.equals(provider)) {
             return deepgramApiKey(context);
+        }
+        if (PROVIDER_SONIOX.equals(provider)) {
+            return sonioxApiKey(context);
         }
         if (PROVIDER_OFFLINE_VOSK.equals(provider) || PROVIDER_OFFLINE_PARAKEET.equals(provider)) {
             return "";
@@ -1508,6 +1576,9 @@ final class Prefs {
         if (PROVIDER_OFFLINE_PARAKEET.equals(sanitized)) {
             return "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8";
         }
+        if (PROVIDER_SONIOX.equals(sanitized)) {
+            return SonioxClient.MODEL;
+        }
         return "gpt-transcribe";
     }
 
@@ -1534,13 +1605,15 @@ final class Prefs {
      */
     static boolean supportsChineseDictation(String provider) {
         String sanitized = sanitizeTranscriptionProvider(provider);
-        return PROVIDER_OPENAI.equals(sanitized) || PROVIDER_DEEPGRAM.equals(sanitized);
+        return PROVIDER_OPENAI.equals(sanitized) || PROVIDER_DEEPGRAM.equals(sanitized)
+                || PROVIDER_SONIOX.equals(sanitized);
     }
 
     static boolean supportsTranscription(String provider) {
         return PROVIDER_OPENAI.equals(provider)
                 || PROVIDER_XAI.equals(provider)
                 || PROVIDER_DEEPGRAM.equals(provider)
+                || PROVIDER_SONIOX.equals(provider)
                 || PROVIDER_OFFLINE_VOSK.equals(provider)
                 || PROVIDER_OFFLINE_PARAKEET.equals(provider);
     }
@@ -1554,6 +1627,7 @@ final class Prefs {
     static String sanitizeTranscriptionProvider(String provider) {
         if (PROVIDER_XAI.equals(provider)
                 || PROVIDER_DEEPGRAM.equals(provider)
+                || PROVIDER_SONIOX.equals(provider)
                 || PROVIDER_OFFLINE_VOSK.equals(provider)
                 || PROVIDER_OFFLINE_PARAKEET.equals(provider)
                 || PROVIDER_OPENAI.equals(provider)) {
@@ -1617,7 +1691,8 @@ final class Prefs {
                     continue;
                 }
                 if (!name.isEmpty() && !containsProfile(profiles, id)) {
-                    profiles.add(new PromptProfile(id, name, icon));
+                    // 0.9.3: fields a newer version wrote are kept, and written back as they were.
+                    profiles.add(new PromptProfile(id, name, icon, PromptProfile.extrasOf(item)));
                 }
             }
         } catch (JSONException ignored) {
@@ -1640,7 +1715,8 @@ final class Prefs {
         SharedPreferences prefs = shared(context);
         String[] earlierKeys = {
                 KEY_PROMPTS_JSON, KEY_ACTIVE_PRESET, KEY_OPENAI_API_KEY, KEY_ANTHROPIC_API_KEY,
-                KEY_XAI_API_KEY, KEY_DEEPGRAM_API_KEY, KEY_TRANSCRIPT_HISTORY_JSON, KEY_REPLACEMENTS_JSON,
+                KEY_XAI_API_KEY, KEY_DEEPGRAM_API_KEY, KEY_SONIOX_API_KEY, KEY_TRANSCRIPT_HISTORY_JSON,
+                KEY_REPLACEMENTS_JSON,
                 KEY_PRESET_LABEL_PREFIX + "custom_1", KEY_PROMPT_PREFIX + PRESET_CASUAL
         };
         for (String key : earlierKeys) {
@@ -1756,12 +1832,8 @@ final class Prefs {
             if (ListStyles.isListStyle(profile.id)) {
                 continue; // the word lists' styles are never stored on the phone
             }
-            JSONObject item = new JSONObject();
             try {
-                item.put("id", profile.id);
-                item.put("name", profile.name);
-                item.put("icon", profile.icon);
-                array.put(item);
+                array.put(profile.toJson());
             } catch (JSONException ignored) {
             }
         }
