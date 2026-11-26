@@ -262,10 +262,9 @@ final class WordLayer {
                 throw new Rejected("duplicate-id");
             }
             // 0.9.3: kept whole, so the phone can offer it. A label or prompt of only spaces
-            // is still accepted (0.9.2 did) but never offered.
-            if (!label.isEmpty() && !prompt.isEmpty()) {
-                styles.add(new Style(id, label, prompt, model, expression == null ? -1 : expression, expectedLayer));
-            }
+            // is still accepted (0.9.2 did); it replaces a lower layer's style of that id and
+            // is then never offered (WordMerge).
+            styles.add(new Style(id, label, prompt, model, expression == null ? -1 : expression, expectedLayer));
         }
         Map<String, Object> defaults = new LinkedHashMap<>();
         if (json.has("defaults")) {

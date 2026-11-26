@@ -188,6 +188,23 @@ public class ListStylesTest {
     }
 
     @Test
+    public void aBlankHigherEntryReplacesALowerStyleAndIsOfferedNowhere() throws Exception {
+        WordLayer household = layer("household", "household", "\"styles\":[" + PIRATE_LITE + "]");
+        WordLayer personal = layer("personal", "sam", "\"styles\":[{\"id\":\"pebble\",\"label\":\"Pebble\",\"prompt\":\"   \"}]");
+        assertTrue(merge(household, personal).styles.isEmpty());
+        assertEquals(1, merge(household).styles.size());
+    }
+
+    @Test
+    public void aRawDefaultNeverSwitchesEvenToAListStyleCalledRaw() throws Exception {
+        WordMerge.Snapshot snapshot = merge(layer("personal", "sam",
+                "\"styles\":[{\"id\":\"raw\",\"label\":\"Odd\",\"prompt\":\"Odd.\"}],\"defaults\":{\"cleanupStyle\":\"raw\"}"));
+        assertEquals("", ListStyles.target(snapshot, "raw"));
+        ListStyles.publish(context, snapshot);
+        assertEquals(Prefs.PRESET_CLEAN, Prefs.activePreset(context));
+    }
+
+    @Test
     public void aDefaultNamingAStyleNoListHasIsDroppedByTheMerge() throws Exception {
         WordMerge.Snapshot snapshot = merge(layer("personal", "sam", "\"defaults\":{\"cleanupStyle\":\"nowhere\"}"));
         assertNull(snapshot.defaults.get("cleanupStyle"));

@@ -78,8 +78,8 @@ final class ListStyles {
      * phone has no such style (raw included).
      */
     static String target(WordMerge.Snapshot snapshot, String cleanupStyle) {
-        if (cleanupStyle == null) {
-            return "";
+        if (cleanupStyle == null || "raw".equals(cleanupStyle)) {
+            return ""; // raw means no tidy-up, even where a list has a style called raw
         }
         for (WordLayer.Style style : snapshot.styles) {
             if (style.id.equals(cleanupStyle)) {

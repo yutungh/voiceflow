@@ -346,21 +346,18 @@ final class WordLists {
         }
         int gen = generation;
         View view = load(context, enrolment, rows);
-        boolean current;
         synchronized (LOCK) {
             Cached built = new Cached(gen, key, rows, view);
             lastBuilt = built;
-            current = gen == generation;
-            if (current) {
+            if (gen == generation) {
                 cached = built;
-            }
-        }
-        if (current) {
-            // 0.9.3: the lists' styles and default style, from a snapshot that is still current.
-            try {
-                ListStyles.publish(context, view.snapshot);
-            } catch (RuntimeException ignored) {
-                // Styles from the lists must never break dictation.
+                // 0.9.3: the lists' styles and default style, published under the same lock
+                // as the generation check, so an older build can never publish over a newer one.
+                try {
+                    ListStyles.publish(context, view.snapshot);
+                } catch (RuntimeException ignored) {
+                    // Styles from the lists must never break dictation.
+                }
             }
         }
         return view;

@@ -307,8 +307,14 @@ final class WordMerge {
                 phoneTerms.addAll(layer.terms);
             }
         }
-        return new Snapshot(terms, accepted, new ArrayList<>(issues), defaults, phoneTerms,
-                new ArrayList<>(stylesById.values()));
+        // A style whose winning entry has a blank label or prompt is offered nowhere.
+        List<WordLayer.Style> offered = new ArrayList<>();
+        for (WordLayer.Style style : stylesById.values()) {
+            if (!style.label.isEmpty() && !style.prompt.isEmpty()) {
+                offered.add(style);
+            }
+        }
+        return new Snapshot(terms, accepted, new ArrayList<>(issues), defaults, phoneTerms, offered);
     }
 
     /**
