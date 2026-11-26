@@ -38,12 +38,12 @@ for (let i = 2; i < process.argv.length; i++) {
 }
 
 const phase = args.get('phase') ?? '';
-if (phase !== 'pilot' && phase !== 'real') throw new Error('--phase pilot|real');
+if (!['pilot', 'real', 'fixes'].includes(phase)) throw new Error('--phase pilot|real|fixes');
 const set = args.get('set') ?? '';
 if (!set) throw new Error('--set <name> (e.g. tts-coral, real)');
 const step = args.get('step') ?? 'all';
 const runs = Number(args.get('runs') ?? 3);
-const budget = Number(args.get('budget') ?? (phase === 'pilot' ? 5 : 10));
+const budget = Number(args.get('budget') ?? ({ pilot: 5, real: 10, fixes: 6 } as Record<string, number>)[phase]);
 const concurrency = Number(args.get('concurrency') ?? 4);
 const estimateOnly = args.has('estimate');
 const types = (args.get('types') ?? 'target,protected,control').split(',');

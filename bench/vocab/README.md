@@ -152,6 +152,23 @@ voice is committed. For synthetic voices `results/` keeps every scored answer;
 for a person's own recordings it keeps only counts and the listed words
 involved, never a transcript.
 
+## Tidy-up fixes
+
+`results/tidy-fixes/` tests ways to stop the tidy-up changing a correctly heard
+word into a listed sound-alike, on the same recordings and transcript: a
+reworded instruction (three wordings in `lib/tidyfix.ts`, picked on the
+synthetic pilot), dropping heard-as forms that are common English words (SCOWL
+size 60, npm `wordlist-english`), both, and stronger models (GPT-5.4, Claude
+Sonnet 5.5 and Opus 5.5 at effort low). Each arm also records latency.
+
+```sh
+bun lib/tidyfix.ts                                   # what the hint rule drops
+bun run.ts --phase fixes --set tts-coral --step all --arms fx-mini-base,fx-mini-reword-A,fx-mini-reword-B,fx-mini-reword-C
+bun report-fixes.ts --pick tts-coral                 # picks the wording on the pilot
+bun run.ts --phase fixes --set real --step all --arms fx-mini-base,fx-mini-reword-A,fx-mini-nohint,fx-mini-both-A,fx-gpt54-base,fx-sonnet-base,fx-sonnet-both-A,fx-opus-base
+bun report-fixes.ts --set real --arms <the same> --picked A
+```
+
 ## Limits
 
 - One speaker, ten targets, five sound-alike pairs: enough to show a

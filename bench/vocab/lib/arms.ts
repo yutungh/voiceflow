@@ -24,6 +24,7 @@
  */
 import { audioChat, tidyAnthropic, tidyOpenAI, type CallResult } from './calls';
 import { AUDIO_ADDENDUM, AUDIO_MODEL, DIRECT_AUDIO_USER, OPUS_MODEL, TIDY_MODEL, tidySystem, tidyUser } from './prompts';
+import { variantSystem, WORDINGS, type Variant } from './tidyfix';
 
 export type ArmId =
 	| 'text-mini'
@@ -33,7 +34,8 @@ export type ArmId =
 	| 'audio15-fix'
 	| 'audio15-direct'
 	| 'audio15-fix-spoken'
-	| 'audio15-direct-spoken';
+	| 'audio15-direct-spoken'
+	| `fx-${string}`;
 
 export type Arm = {
 	id: ArmId;
@@ -48,7 +50,7 @@ export type Arm = {
 	call: (transcript: string, wav: () => string) => Promise<CallResult>;
 };
 
-export const ARMS: Record<ArmId, Arm> = {
+export const ARMS: Record<string, Arm> = {
 	'text-mini': {
 		id: 'text-mini',
 		model: TIDY_MODEL,
@@ -122,3 +124,42 @@ export const ARMS: Record<ArmId, Arm> = {
 		call: (_t, wav) => audioChat(AUDIO_MODEL, tidySystem(), DIRECT_AUDIO_USER, wav(), true),
 	},
 };
+
+// ---- tidy-up fixes (results/tidy-fixes) ----------------------------------------
+// fx-<model>-<variant>: model mini | sonnet | gpt54 | opus; variant base (VoiceFlow's
+// prompt), reword-<A|B|C>, nohint (no everyday-word hints) or both-<A|B|C>. The
+// Claude models run at effort low, to keep a tidy-up fast; the OpenAI models get
+// no reasoning setting, as VoiceFlow sends them.
+const FX_MODELS = {
+	mini: { model: TIDY_MODEL, name: 'gpt-5.4-mini', estimate: 0.0006 },
+	gpt54: { model: 'gpt-5.4', name: 'GPT-5.4', estimate: 0.003 },
+	sonnet: { model: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5 (effort low)', estimate: 0.007 },
+	opus: { model: OPUS_MODEL, name: 'Claude Opus 5.5 (effort low)', estimate: 0.014 },
+} as const;
+const FX_VARIANTS: Record<string, { v: Variant; label: string }> = { base: { v: { hints: 'all' }, label: "VoiceFlow's prompt" } };
+for (const w of Object.keys(WORDINGS) as (keyof typeof WORDINGS)[]) {
+	FX_VARIANTS[`reword-${w}`] = { v: { hints: 'all', wording: w }, label: `reworded instruction ${w}` };
+	FX_VARIANTS[`both-${w}`] = { v: { hints: 'no-everyday', wording: w }, label: `reworded instruction ${w} + no everyday-word hints` };
+}
+FX_VARIANTS.nohint = { v: { hints: 'no-everyday' }, label: 'no everyday-word hints' };
+const systems = new Map<string, string>();
+const systemFor = (key: string) => {
+	if (!systems.has(key)) systems.set(key, variantSystem(FX_VARIANTS[key]!.v));
+	return systems.get(key)!;
+};
+for (const [mk, m] of Object.entries(FX_MODELS))
+	for (const [vk, v] of Object.entries(FX_VARIANTS)) {
+		const id = `fx-${mk}-${vk}` as ArmId;
+		ARMS[id] = {
+			id,
+			model: m.model,
+			label: `${m.name}, ${v.label}`,
+			usesTranscript: true,
+			usesAudio: false,
+			estimate: m.estimate,
+			call: (t) =>
+				mk === 'mini' || mk === 'gpt54'
+					? tidyOpenAI(systemFor(vk), tidyUser(t), m.model)
+					: tidyAnthropic(systemFor(vk), tidyUser(t), { model: m.model, effort: 'low' }),
+		};
+	}
