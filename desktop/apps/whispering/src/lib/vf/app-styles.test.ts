@@ -126,12 +126,21 @@ describe('each app’s row', () => {
 		const [row] = rows(snap);
 		expect(row?.level).toBeNull();
 		expect(row?.autoNote).toBe('Lively, from your word lists');
-		expect(row?.summary).toBe('Telegram starts in Friends, Lively');
+		expect(row?.summary).toBe('Telegram starts in Friends, Lively (level from your word lists)');
+		expect(row?.autoLevel).toBe('Lively');
 		// When an edit set the level (the same value, even another device's
 		// cached one), it is the person's choice.
 		const [mine] = rows(snapshot([{ ...(snap.apps[0] as object), expressionEditId: 'a' }]));
 		expect(mine?.level).toBe(3);
 		expect(mine?.autoNote).toBe('');
+		expect(mine?.summary).toBe('Telegram starts in Friends, Lively');
+	});
+
+	test('a style made on another PC is named in words, not by its reference', () => {
+		const local = new Map([['notion.exe', { style: 'vf-pc-.q.w.e9', editId: 'a', editIds: ['a'] }]]);
+		const [row] = rows(null, local);
+		expect(row?.status).toBe('missing');
+		expect(row?.summary).toBe('Notion starts in your default style (Clean): its style was made on another PC');
 	});
 
 	test('a style that isn’t on this PC: says so, and that the default is used', () => {

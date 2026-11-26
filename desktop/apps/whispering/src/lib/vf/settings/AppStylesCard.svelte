@@ -250,7 +250,9 @@
 						onchange={(e) => onLevel(row, e.currentTarget.value)}
 					>
 						{#each levelOptions() as o (o.value)}
-							<option value={o.value}>{o.value === 'auto' && row.autoNote ? `Automatic (${row.autoNote})` : o.label}</option>
+							<option value={o.value} title={o.value === 'auto' && row.autoNote ? `Automatic: ${row.autoNote}` : undefined}
+								>{o.value === 'auto' && row.autoLevel ? `Automatic (${row.autoLevel})` : o.label}</option
+							>
 						{/each}
 					</select>
 					{#if row.removeLabel}

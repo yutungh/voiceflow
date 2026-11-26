@@ -15,6 +15,7 @@ import { validRuleId } from '../profile/ops';
 import {
 	RAW_REF,
 	builtInTitle,
+	decodePcStyleRef,
 	isBuiltInRef,
 	resolveStyleRef,
 	styleRefOf,
@@ -162,6 +163,8 @@ export type AppRow = {
 	level: number | null;
 	/** What Automatic means here, in words ("" when it adds nothing). */
 	autoNote: string;
+	/** The same, as a level name only ("Subtle"), for the closed level box. */
+	autoLevel: string;
 	/** Whose setting it is. */
 	source: 'mine' | 'lists';
 	/** The plain sentence: "Telegram starts in Friends". */
@@ -234,13 +237,29 @@ export function appRows({
 					: typeof own === 'number'
 						? `the style’s own level, ${levelName(own)}`
 						: '';
+		const autoLevel =
+			isRaw || level !== null
+				? ''
+				: rule.levelFromLists && inForce !== null
+					? levelName(inForce)
+					: typeof own === 'number'
+						? levelName(own)
+						: '';
+		// A style made on another PC has no name here.
+		const unnamedPc = rule.style !== undefined && styleLabel === rule.style && decodePcStyleRef(rule.style) !== null;
 		const startsIn =
 			status === 'missing'
-				? `${name} starts in your default style (${defaultLabel}): ${styleLabel} isn’t on this PC`
+				? unnamedPc
+					? `${name} starts in your default style (${defaultLabel}): its style was made on another PC`
+					: `${name} starts in your default style (${defaultLabel}): ${styleLabel} isn’t on this PC`
 				: rule.style === undefined
 					? `${name} starts in your default style (${defaultLabel})`
 					: `${name} starts in ${styleLabel}`;
-		const summary = `${startsIn}${inForce !== null && !isRaw && status !== 'missing' ? `, ${levelName(inForce)}` : ''}`;
+		const levelPart =
+			inForce !== null && !isRaw && status !== 'missing'
+				? `, ${levelName(inForce)}${rule.levelFromLists ? ' (level from your word lists)' : ''}`
+				: '';
+		const summary = `${startsIn}${levelPart}`;
 		const under = rule.listsRule;
 		const afterRemove =
 			source === 'lists'
@@ -256,6 +275,7 @@ export function appRows({
 			status,
 			level,
 			autoNote,
+			autoLevel,
 			source,
 			summary,
 			removeLabel: source === 'lists' ? null : under ? 'Restore word-list rule' : 'Remove',
