@@ -2040,6 +2040,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         for (int row = 0; row < digits.length; row++) {
             LinearLayout line = new LinearLayout(this);
             line.setOrientation(LinearLayout.HORIZONTAL);
+            // Two-line dialer labels would otherwise drop below the row on their baseline.
+            line.setBaselineAligned(false);
             for (String digit : digits[row]) {
                 line.addView(numpadKey(digit, 1f));
             }
@@ -2054,6 +2056,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         }
         LinearLayout last = new LinearLayout(this);
         last.setOrientation(LinearLayout.HORIZONTAL);
+        last.setBaselineAligned(false);
         last.addView(numpadKey(extras[1], 1f));
         last.addView(numpadKey("0", 1f));
         last.addView(numpadKey(extras[2], 1f));
@@ -2084,7 +2087,40 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         if (label.length() == 1) {
             key.setTextSize(22);
         }
+        boolean digit = label.length() == 1 && Character.isDigit(label.charAt(0));
+        if (digit && KeyboardLayerRules.showsDialLetters(activeInputType)) {
+            setDialLabel(key, label, KeyboardLayerRules.dialLetters(label, activeInputType));
+        }
         return key;
+    }
+
+    /** Size of a dialer digit's letters against the digit. */
+    private static final float DIAL_LETTERS_SCALE = 0.45f;
+
+    /**
+     * A phone-dialer label: the digit, with its letters small and muted under
+     * it. 1 and 0 get a blank second line so every digit sits on one baseline.
+     * The pair shrinks together when large text would overflow the key.
+     */
+    private void setDialLabel(TextView key, String digit, String letters) {
+        android.text.SpannableString label = new android.text.SpannableString(
+                digit + "\n" + (letters.isEmpty() ? " " : letters));
+        int start = digit.length() + 1;
+        label.setSpan(new android.text.style.RelativeSizeSpan(DIAL_LETTERS_SCALE), start, label.length(), 0);
+        label.setSpan(new android.text.style.ForegroundColorSpan(ui.subtle), start, label.length(), 0);
+        float size = key.getTextSize();
+        android.text.TextPaint paint = new android.text.TextPaint(key.getPaint());
+        paint.setTextSize(size);
+        android.graphics.Paint.FontMetrics font = paint.getFontMetrics();
+        float block = (font.descent - font.ascent) * (1f + DIAL_LETTERS_SCALE);
+        float room = keyHeightPx() - dp(6);
+        if (block > room) {
+            key.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, size * room / block);
+        }
+        key.setSingleLine(false);
+        key.setMaxLines(2);
+        key.setText(label);
+        key.setContentDescription(KeyboardLayerRules.dialDescription(digit, letters));
     }
 
     /**
