@@ -1,303 +1,178 @@
 # VoiceFlow
 
-Voice dictation with your own AI key. Speak, and VoiceFlow turns it into clean text in whatever app you are using, with your own names and terms spelled right. You choose the provider (OpenAI, Grok / xAI, Deepgram, Claude for cleanup, or fully offline models) and pay it directly; there is no VoiceFlow account and no VoiceFlow server in the way.
+**Open-source dictation for your computer and your Android phone that spells your own words right.**
 
-VoiceFlow has three parts that work alone or together: a **desktop app** (press a hotkey, speak, text appears at the cursor), an **Android keyboard** (a native input method with a microphone button), and an optional **sync server** that shares your word lists between devices.
+You speak in any app and VoiceFlow types it, spelling names and jargon the way your word list says. The list is a few plain files you own. Edit them yourself or let an AI job fill them from your notes, then sync them through a private GitHub repository or a small server you run. You bring your own API keys, and there is no VoiceFlow account.
 
-> **No prebuilt downloads yet.** There are no installers or APKs to download. You build each app from source, which this page and each part's own docs walk through. Prebuilt builds may be published on the [Releases page](https://github.com/yutungh/voiceflow/releases) later.
+![VoiceFlow while dictating: the desktop recording bar with style chips and an expression slider, next to the Android keyboard's style panel](docs/images/hero.png)
 
-> Not affiliated with Typeless, Voiceflow, Apple, Google, Anthropic, or OpenAI. "Typeless-style" is used only to describe the product category: voice-first typing with AI cleanup.
+> **No published downloads yet.** Both apps are built from source for now ([Getting started](#getting-started)). To hear when installers and APKs land, **Star** and **Watch → Custom → Releases** this repository.
 
-## The parts
+<!-- Blog post about the experiment behind VoiceFlow: add the link here once it is published. -->
 
-| Part | What it is | Licence | Status | Docs |
-|---|---|---|---|---|
-| **Android keyboard** (repository root, `app/`) | Native Android keyboard with voice dictation, AI cleanup, offline models and an emoji picker | MIT | Working prototype, built from source | [This page](#android-keyboard), [`PRIVACY.md`](PRIVACY.md) |
-| **Desktop app** (`desktop/`) | Hotkey dictation for Windows and macOS. A fork of [Whispering](https://github.com/EpicenterHQ/epicenter) | AGPL-3.0 | In development, built from source | [`desktop/README.md`](desktop/README.md), [`desktop/CHANGELOG.md`](desktop/CHANGELOG.md) |
-| **Word-list pack** (`pack/`) | The data format both apps read: words, spelling fixes, styles, privacy lists. Data only | MIT | Stable format, versioned | [`pack/README.md`](pack/README.md), [Connect your own AI](docs/desktop/CONNECT-YOUR-OWN-AI.md), [Google Drive](docs/desktop/GOOGLE-DRIVE.md), [GitHub](docs/GITHUB-SYNC.md) |
-| **Sync server** (`sync/`) | Small self-hosted HTTP service that gives each phone its word lists, with a token per device. Without a server, a [private GitHub repository](docs/GITHUB-SYNC.md) can keep the word lists in sync instead | MIT | Optional, self-hosted | [`sync/README.md`](sync/README.md) |
+## The two apps
 
-Each folder's licence covers only that folder. Do not copy code from the AGPL desktop app into the MIT parts.
+| | **Desktop** | **Android keyboard** |
+|---|---|---|
+| **Runs on** | Windows; macOS (built by CI) | Android 8.0 and newer |
+| **How you dictate** | Press a hotkey in any app, speak, press it again. The text is pasted at your cursor | Tap **Dictate** on the keyboard, in any app |
+| **Tidy-up** | Styles and an expression level, chosen on the recording bar | Styles and an expression level, chosen on the keyboard while you speak |
+| **Your word list** | From a folder (local, a network share or a Google Drive folder) or a private GitHub repository | From a private GitHub repository (from 0.9.2) or a self-hosted [sync gateway](sync/README.md) |
+| **On `main`** | 0.9.20 | 0.9.2 |
+| **Licence** | AGPL-3.0 (a fork of [Whispering](https://github.com/EpicenterHQ/epicenter)) | MIT |
+| **Full docs** | [`desktop/README.md`](desktop/README.md) | [`docs/android/README.md`](docs/android/README.md) |
 
-## Get the source
+## How it works
+
+```mermaid
+flowchart LR
+    A["You speak"] --> B["Speech to text<br/>gpt-transcribe, given your top 20 words"]
+    B --> C["Tidy-up<br/>your style, with your word list"]
+    C --> D["Your text, at the cursor"]
+    W[("Your word list")] -.-> B
+    W -.-> C
+```
+
+1. **Speech to text.** OpenAI's `gpt-transcribe` hears the recording, with your 20 most important words sent as hints.
+2. **Tidy-up.** A text model removes filler, fixes punctuation and applies your style. It also gets your word list, so it can fix a word that was misheard.
+3. **Your text** goes into the app you were using.
+
+The 20-word limit is the desktop's. The Android keyboard follows the same steps with OpenAI speech models. Without synced word lists, it sends the phone's own list as hints and leaves the word list out of the tidy-up.
+
+**Why 20 words?** We measured it on one speaker's recordings ([results](bench/vocab/results/real/summary.md)):
+
+- The script had seven invented names, each said twice. With no word list, `gpt-transcribe` got 3 of those 14 mentions right. With 20, 40 or 50 words it got all 14; with 80, it got 12 (the median of three runs).
+- The tidy-up can over-correct. The default model changed 3 of 10 correctly heard everyday words (Docker, Beeper, Miro) into listed names that sound like them. Fixes for this were tested ([tidy-up fixes](bench/vocab/results/tidy-fixes/summary.md)) and are not in the app yet.
+
+The test, its limits and how to rerun it are in [`bench/vocab`](bench/vocab/README.md).
+
+## Desktop
+
+Hotkey dictation for Windows and macOS, with your own OpenAI key. Transcription uses `gpt-transcribe` by default, and you can type another OpenAI model id in Settings.
+
+- **The recording bar** floats above your apps while you speak. Pick a style for this one message and set how expressive it should be, from Reserved to Expressive.
+- **Paste anywhere.** The text is pasted at your cursor. If it can't be pasted, it goes to the clipboard and the bar says so.
+- **The Feedback window** lets you fix the text you just got and save changes for next time, such as a spelling or a style that should be more casual. **Find fixes** asks a model you choose (OpenAI or Anthropic; with an Anthropic key it defaults to Claude Opus 5.5).
+- **Word lists** come from a folder or a private GitHub repository. **Connect GitHub** signs in with a short code, with no token to copy.
+- **Vocabulary** shows every word and spelling, where each came from, and lets you add your own.
+
+![The recording bar: style chips (Friends, Work, Family, Partner, Haiku, More), an expression slider set to Natural, a timer, Feedback, Stop and Cancel](docs/images/desktop-recording-bar.png)
+
+| | |
+|---|---|
+| ![The Feedback window: section 1 fixes this dictation's text; section 2 offers changes for next time, such as always writing Zibbo for Zebbo](docs/images/desktop-feedback.png) | ![Vocabulary: 12 words and 3 spellings, each marked Household, From notes or Mine, with a sync status at the top](docs/images/desktop-vocabulary.png) |
+
+![Settings, with the Word lists card connected to GitHub: the repository picker, branch, upload switch and Test connection](docs/images/desktop-word-lists.png)
+
+## Android keyboard
+
+A full keyboard with dictation built in. It works in any app that takes a normal keyboard.
+
+- **Dictate** records the whole message, then inserts the tidied text.
+- **While you speak**, the keys give way to a panel of style chips and an expression slider. The choice is for that message only.
+- **Providers:** OpenAI, xAI (Grok) or Deepgram for speech, OpenAI, xAI or Anthropic for tidy-up, or offline speech models (Vosk, Parakeet) that keep audio on the phone.
+- **Your words:** a personal word list on the phone, plus your shared word lists from a private GitHub repository or a [sync gateway](sync/README.md). The phone reads the shared lists and sends back no word edits.
+- **Chinese pinyin** on a full keyboard or a nine-key pad, with a **language key** to switch.
+- **Folding phones:** on a wide screen the keyboard splits in two.
+- Also: an emoji picker, a number pad for number fields, a Paste chip and a history of recent dictations.
+
+| | |
+|---|---|
+| ![The keyboard: a Clean · Natural style pill, a Dictate button, history and a QWERTY layout](docs/images/android-keyboard.png) | ![While dictating: a Listening bar with Stop, style chips (Clean, Friends, Work, Family, More) and an expression slider](docs/images/android-style-panel.png) |
+| ![Nine-key pinyin: typing 64426 reads ni'hao and offers 你好 first](docs/images/android-nine-key.png) | ![Holding the language key: a list of keyboards with English, full-keyboard Chinese and nine-key Chinese](docs/images/android-language-key.png) |
+
+![On a folding phone's inner screen, the letter keys split into two halves](docs/images/android-fold-split.png)
+
+**New in Android 0.9.2:**
+
+- Rime (librime) as the Chinese engine.
+- Word lists from a private GitHub repository, read-only, with **Connect GitHub**.
+
+## Your words, kept in sync
+
+The word list is a few JSON files: words everyone in a household shares, words an AI job writes from your notes, and your own. Each device keeps a last good copy, so your words still apply when the folder or repository can't be reached.
+
+| Where the list lives | Desktop | Android | Guide |
+|---|---|---|---|
+| A private GitHub repository | Yes, with **Connect GitHub** | Yes, from 0.9.2, read-only, with **Connect GitHub** | [`docs/GITHUB-SYNC.md`](docs/GITHUB-SYNC.md) |
+| A folder (local, network share or Google Drive) | Yes | No | [`docs/desktop/GOOGLE-DRIVE.md`](docs/desktop/GOOGLE-DRIVE.md) |
+| A sync gateway you run | Reads the gateway's folder directly | Yes, read-only | [`sync/README.md`](sync/README.md) |
+
+- **An AI job can keep it current.** Any assistant that can edit files can add the names from your notes. With GitHub, every change it makes is a commit you can review or undo. Give it the rules in [Connect your own AI](docs/desktop/CONNECT-YOUR-OWN-AI.md).
+- **The format** is in [`pack/README.md`](pack/README.md), with a [template](pack/template/) to start from.
+- The Google Drive guide is tested against a local folder laid out the same way, not yet against a real Drive folder.
+
+## Getting started
+
+There are no published downloads yet, so you build each app from source. Clone with long paths on (needed on Windows):
 
 ```sh
 git clone -c core.longpaths=true https://github.com/yutungh/voiceflow
 ```
 
-On Windows, keep `-c core.longpaths=true`. Some paths in the repository are long, and without it the clone or the desktop build can fail on Windows' 260-character path limit.
+- **Desktop:** you need Bun, Rust and, on Windows, the Visual Studio C++ build tools. Steps: [`desktop/README.md`](desktop/README.md#build-and-run). On first run it asks for your OpenAI key.
+- **Android keyboard:** you need JDK 17 and the Android SDK (platform 35). Run `./gradlew assembleDebug` (`.\gradlew.bat assembleDebug` on Windows), install the APK with `adb`, then enable **VoiceFlow Keyboard** in Android's keyboard settings. Steps: [`docs/android/README.md`](docs/android/README.md#build).
+- **Word lists** are optional. Both apps work without them.
 
-Then follow the build steps for the part you want: the [Android keyboard](#build) below or the [desktop app](desktop/README.md).
+**Stay in the loop:** Star and **Watch → Custom → Releases** to hear when downloads land.
 
-# Android keyboard
+## Privacy
 
-Open-source Android voice keyboard for people who want a Typeless-style mobile dictation workflow, AI dictation cleanup, and bring-your-own-key voice-to-text on any Android phone.
+You use your own API keys, and requests go straight from your device to the provider you chose. Nothing passes through a VoiceFlow server, and neither app sends telemetry.
 
-Record a voice note from the keyboard, transcribe it, optionally clean it with an LLM prompt, and insert the final text into any app. It is a native Android IME, so it works anywhere a normal keyboard works: chat apps, email, notes, search, docs, forms, and coding tools.
-## Screenshots
+| What | Where it goes |
+|---|---|
+| Your recording | The speech provider you chose, after you stop. Offline models keep it on the device |
+| Your top words | The speech provider, with the recording, as spelling hints (OpenAI models that accept them) |
+| The transcript and your word list | The tidy-up provider you chose |
+| Text you ask the Android keyboard to rewrite or spell-check | The tidy-up provider you chose |
+| One dictation, your note and its context (matching words and spellings, the app name, the style) | The model you chose, only when you click **Find fixes** (desktop) |
+| Your word lists | Read from your folder, your GitHub repository (`api.github.com`) or your sync gateway. Desktop uploads its word edits and a status file there unless you turn uploads off. The phone sends its gateway a status report (app version and counts), not word edits |
 
-![VoiceFlow Keyboard letters layout](docs/keyboard-letters.png)
+Where things are kept:
 
-![VoiceFlow Keyboard symbols layout](docs/keyboard-symbols.png)
+- **API keys:** Windows Credential Manager or the macOS Keychain on desktop. On Android they're in the app's private preferences (encrypted storage is on the roadmap).
+- **History and recordings** stay on the device.
+- **Word lists** stay in your folder or repository, with an offline copy on each device.
 
-![VoiceFlow Keyboard settings](docs/settings-v046.png)
+Details: [`PRIVACY.md`](PRIVACY.md) (Android) and [Network calls](desktop/README.md#network-calls) (desktop).
 
-![VoiceFlow Keyboard voice model picker](docs/voice-picker-v046.png)
+## Roadmap
 
-![VoiceFlow Keyboard Offline Parakeet model details](docs/parakeet-v046.png)
+Next:
 
-## Try It
+- **Prebuilt downloads:** installers for Windows and macOS, and APKs, built by CI.
+- **Phone edits flowing back:** today words you fix on the phone stay on the phone.
+- **Per-app built-in styles,** such as a casual style in chat apps and a formal one in email.
+- **A new tidy-up default** that stops over-correcting sound-alike words (the fixes measured in [`bench/vocab`](bench/vocab/results/tidy-fixes/summary.md)).
 
-There is no published APK yet. To try it now, build the debug APK from source (see [Build](#build)) and install it on your Android phone (see [Install On A Phone](#install-on-a-phone)).
-
-Prebuilt APKs may be published on the [GitHub Releases page](https://github.com/yutungh/voiceflow/releases) later. If they are, they will be debug-signed prototype builds for sideloading and testing, built by GitHub Actions from this public repository, with no `.env.local` and no bundled API keys. For production use, build and sign your own release APK.
-
-## Why This Exists
-
-Most mobile voice typing tools either insert raw dictation immediately or live inside one app. This project is a base for an Android keyboard that can:
-
-- capture a full recording instead of live-inserting partial text,
-- transcribe the recording,
-- rewrite or lightly clean the transcript with a configurable prompt,
-- insert the final result into the active text field,
-- let users bring their own API key and model choices.
-
-## Features
-
-- Native Android input method service.
-- Apple-inspired key layout and spacing.
-- Permanent microphone button above the keys.
-- Whole-clip recording: record first, transcribe after stop, then insert.
-- OpenAI audio transcription via `/v1/audio/transcriptions`.
-- Grok/xAI speech-to-text and transform support.
-- Claude/Anthropic transform support.
-- Deepgram speech-to-text support.
-- Optional local offline transcription with compact Vosk or high-accuracy Parakeet via sherpa-onnx.
-- Automatic offline transcription fallback when a cloud voice provider is selected but the phone has no validated internet connection.
-- Settings control to download the compact offline fallback model before you need it.
-- Optional transcript cleanup via configurable cloud transform providers.
-- Editable API keys, providers, transcription models, transform models, and voice styles.
-- Combined provider/model pickers for voice input and text transform setup.
-- Voice styles: Friends, Work, and Family by default, an optional Partner template, editable custom styles, optional emoji icons, and a collapsed Fun group with Haiku, Pirate, Shakespearean, Noir Detective, and Wizard personas.
-- A mutually exclusive style picker replaces the disabled keys while dictation or translation is recording.
-- A five-step expression control (`Reserved` through `Expressive`) adjusts conversational energy, punctuation, and permitted emoji use independently for each voice style.
-- Voice styles apply to both transcript cleanup and natural target-language localization; voice instruction mode remains independent.
-- Friends and Work automatically use bullets or numbering when the transcript is clearly a list, steps, tasks, instructions, options, or grouped items.
-- Translation history remembers the target language and generated style variants for comparison or reuse.
-- Retone can regenerate the last inserted dictation or translation from its original transcript, safely replace it when the field is unchanged, and keep alternate style/expression versions together in history.
-- Low-latency GPT-5 transform settings with safe fallback retry.
-- Non-destructive English spelling and completion suggestions; spelling candidates are never applied unless the user taps one.
-- Personal vocabulary supports multiple likely mishearings, an exact output, and optional context for names, nicknames, jargon, and commands.
-- GPT Transcribe receives personal exact spellings as keyword hints, while a provider-independent local correction guarantees configured output such as `N P M run pre flight` -> `npm run preflight`.
-- Built-in phrase replacement example: `Cloud Code` -> `Claude Code`.
-- Smart spacing for voice inserts.
-- Every new input target and keyboard window opens on the layout its field type calls for (letters for text, the number pad for number and phone fields, symbols for dates and times), even when Android reuses the same keyboard view across app switches. A layer chosen by hand survives the same field restarting, as some code fields do after every digit, but never carries into a different field. A default-on safety setting cancels and discards active recordings when the keyboard closes or the input app changes.
-- Phone-style number pad with the extra keys each field needs (`+ * #` for phone numbers, `.` and `-` where a number field allows them, none for a PIN), an ABC key to leave it, and a `1234` key on the symbols layer to open it by hand for code or card fields an app did not mark as numeric.
-- Paste chip: text copied in the last two minutes is offered as a one-tap Paste, typed as-is, which also works in apps that block their own paste menu. Password fields always offer copied text for password managers; nothing is offered on the lock screen. The history panel always has a Paste clipboard button.
-- Holding delete removes characters, then whole words after 3 seconds, then everything before the cursor after 6 seconds.
-- Backspace straight after a phrase replacement restores what you typed.
-- Active cellular and VoIP calls are detected before recording so Android's microphone restriction is explained instead of silently producing an empty transcript.
-- Compact recording and retone statuses use adaptive sizing and marquee overflow so the full state remains readable.
-- Short voice outputs under 5 words do not get a forced trailing period.
-- Haptics for keyboard taps.
-- Symbols and expanded symbols views.
-- Emoji key immediately left of the space bar, available in letters, Chinese, and symbols layouts.
-- Offline emoji picker with nine categories, recent picks, English keyword search, and long-press skin-tone choices. Search has its own typing keys and never inserts the query into the active app.
-
-## Emoji Keyboard
-
-Tap **☺** beside the space bar to browse emojis. Tap a category to filter the grid, or tap **Search emojis** and type a name or keyword such as `happy`, `birthday`, or `dog`. Matching emojis appear above the search keys; **Done** expands the results. Hold an emoji to choose an available skin tone. **ABC** returns to typing, and Back first closes search, then the picker.
-
-The bundled Unicode 16.0 catalog works offline and uses the phone's emoji font, so the appearance and support for newer emojis depend on Android/the installed font. Recent picks stay on the device; password fields and editors that disable personalized learning do not add to recents. Backspace removes complete catalog emoji sequences, including families, flags, and skin tones, once the picker has loaded.
-
-GIF browsing is not included in this version. A future integration can use [GIPHY's search and trending API](https://developers.giphy.com/docs/api/) with a developer key and the required attribution. Android's [image keyboard API](https://developer.android.com/develop/ui/views/touch-and-input/image-keyboard) can insert GIF content into compatible apps; unsupported editors would need an explicit link fallback. [Tenor discontinued its third-party API on June 30, 2026](https://support.google.com/tenor/answer/10455265?hl=en).
-
-To regenerate the emoji asset from the pinned sources:
-
-```text
-python scripts/build-emoji-catalog.py
-```
-
-## Current Status
-
-This is a working prototype and a base for other developers, not a finished consumer keyboard.
-
-Known tradeoffs:
-
-- API keys are stored locally in app preferences. For production, migrate to encrypted storage.
-- Audio is sent to the configured transcription provider when using OpenAI transcription.
-- Realtime streaming transcription is not implemented yet. Cloud transcription records the full clip and uploads after stop.
-- Offline Vosk transcription downloads a compact local model on first use and runs the transcription on-device after recording stops.
-- Offline Parakeet downloads a much larger local model, about 600 MB, on first use. It is intended as the higher-accuracy offline English option.
-- Offline fallback uses an installed Parakeet model first, then an installed Vosk model. Use Settings > Voice input > Offline fallback to prepare the compact Vosk fallback before you need it.
-- English spelling suggestions are context-free and much simpler than Gboard or Apple Keyboard, so they are never applied automatically.
-- The UI is tuned for a modern Samsung/Android phone but is not exhaustively tested across devices.
-
-## Build
-
-Requirements:
-
-- JDK 17 (CI uses Temurin 17; newer JDKs may work but are untested).
-- Android SDK with **platform 35** (`compileSdk 35`, `targetSdk 35`, `minSdk 26`) and **build-tools 35.0.0**. Android Studio installs both; or use `sdkmanager "platforms;android-35" "build-tools;35.0.0"`.
-- Tell Gradle where the SDK is, either with a `local.properties` file in the repository root:
-
-  ```text
-  sdk.dir=C\:\\Users\\you\\AppData\\Local\\Android\\Sdk
-  ```
-
-  (on macOS/Linux: `sdk.dir=/home/you/Android/Sdk`) or with the `ANDROID_HOME` environment variable. Android Studio writes `local.properties` for you. It is git-ignored.
-- Gradle itself comes from the wrapper (`gradlew`, Gradle 8.10.2); the first build downloads it.
-
-Run the unit tests and build the debug APK:
-
-```powershell
-.\gradlew.bat testDebugUnitTest assembleDebug
-```
-
-On macOS/Linux:
-
-```bash
-./gradlew testDebugUnitTest assembleDebug
-```
-
-Output:
-
-```text
-app/build/outputs/apk/debug/app-debug.apk
-```
-
-**Release builds.** `assembleRelease` signs with `~/.android/debug.keystore` (the standard Android debug key, created by Android Studio or the first debug build) unless you point it at your own keystore with `-PvfKeystore=<path>` or the `VF_KEYSTORE` environment variable. Because that fallback is the public debug key, treat such a build as a test build and use your own keystore for anything you distribute. The release build keeps only the arm64 native libraries.
-## Install On A Phone
-
-Enable Developer Options and USB Debugging on your Android phone. On Samsung devices, you may also need to disable Auto Blocker for sideloading.
-
-Install the debug APK you built from source:
-
-```powershell
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
-
-Then:
-
-1. Open **VoiceFlow Keyboard**.
-2. Grant microphone permission.
-3. Add your provider API keys if using cloud transcription or cleanup.
-4. Choose your voice input model and transform model.
-5. Open Android keyboard settings and enable **VoiceFlow Keyboard**.
-6. Choose it from the keyboard picker.
-
-## Local Install With Your Own Keys
-
-For a build on your own phone, you can keep API keys in an ignored `.env.local` file and seed them into the installed app preferences after install:
-
-```powershell
-.\gradlew.bat assembleDebug
-.\scripts\install-private.ps1 -Serial YOUR_DEVICE_SERIAL
-```
-
-Supported local key names:
-
-```text
-OpenAIAPIKey=...
-AnthropicAPIKey=...
-XAIAPIKey=...
-DeepgramAPIKey=...
-```
-
-This script does not compile keys into the APK. It installs the local debug APK, then writes the keys directly into the connected device's private app preferences with `adb run-as`.
-
-## Recommended Model Setup
-
-The default OpenAI flow is:
-
-- transcription: `gpt-transcribe`
-- transform: a GPT-5 model
-
-The transform request uses low-latency options for GPT-5-style cleanup tasks:
-
-- `reasoning.effort: none`
-- `text.verbosity: low`
-- prompt caching key/retention
-- fallback retry without optional latency fields if a selected model rejects them
-
-Provider support:
-
-- OpenAI: transcription and transform.
-- Grok / xAI: transcription and transform.
-- Claude / Anthropic: transform only.
-- Deepgram: transcription only.
-- Offline Parakeet: transcription only, high-accuracy English transcription through sherpa-onnx, with a large local model downloaded on first use.
-- Offline Vosk: transcription only, compact local fallback model downloaded on first use.
-- Offline fallback: when OpenAI, Grok / xAI, or Deepgram is selected for voice input and the phone has no validated internet connection, VoiceFlow records with installed Offline Parakeet first, then installed Offline Vosk.
-
-## Voice Styles
-
-The default public styles are **Friends**, **Work**, and **Family**.
-
-**Friends** lightly cleans raw speech-to-text while preserving wording, tone, intent, hedging, slang, and order. **Work** rewrites the transcript into concise, send-ready professional text while preserving meaning, certainty, boundaries, and factual content. **Family** uses familiar, supportive everyday language that is warmer than Friends but less intimate than Partner, without inventing affection or softening serious content.
-
-The optional **Partner** template adds recipient-aware intimacy without inventing nicknames, facts, or emotions. Partner can permit a fitting affectionate emoji when the message itself supports it.
-
-The keyboard places five novelty personas in a collapsed **Fun** group at the far right of the horizontally scrollable style row. **Haiku** returns only a three-line poem; **Pirate**, **Shakespearean**, **Noir Detective**, and **Wizard** restate the message in an unmistakable persona while preserving facts and avoiding invented story details.
-
-While normal dictation or translation is recording, the disabled keyboard is covered by a single-select voice-style panel. The selected style can be changed before stopping and is applied in the same transform request, so it does not add another processing step. Voice instruction mode is excluded.
-
-Built-in styles can format content as bullets or numbered steps when that structure naturally fits. For example, grocery lists, task lists, instructions, recipes, options, and step-by-step workflows do not need a separate Bullets mode.
-
-You can add editable custom styles. Each style has:
-
-- editable display name,
-- editable dictation behavior,
-- editable translation tone guidance,
-- the same one-tap recording flow as the built-in profiles.
-
-This makes the project useful as a base for:
-
-- personal dictation cleanup,
-- professional message drafting,
-- task and instruction formatting,
-- domain-specific terminology cleanup.
-
-## Privacy Notes
-
-This keyboard can read what you type and can record microphone audio while active, because that is how Android keyboards and dictation tools work.
-
-Read [PRIVACY.md](PRIVACY.md) before using or modifying this app.
-
-Current privacy model:
-
-- The app does not include a bundled API key.
-- Users bring their own provider API keys.
-- API keys are saved locally on the device in app preferences.
-- When a cloud transcription provider is enabled, recorded audio is sent to that provider after recording stops.
-- With compatible OpenAI transcription models, configured personal vocabulary spellings and context are sent with the recording as transcription hints.
-- A phone enrolled with a vf-sync gateway ([`sync/`](sync/README.md)) also downloads its user's word lists (household, generated and personal layers, plus edits made in the apps), keeps an offline copy in app-private storage, and merges them with the phone's own list by the rules in `pack/`. They are used for dictation only: the vocabulary line and keywords sent with the recording, and the corrections applied once to the dictated text. Typed-text corrections keep using the phone's own list. Nothing is uploaded in this release.
-- A phone whose word lists source is a private GitHub repository (Word lists > Shared lists; [docs/GITHUB-SYNC.md](docs/GITHUB-SYNC.md)) downloads the same files from `api.github.com` with its own sign-in (Connect GitHub, through the same VoiceFlow Word Lists app computers use) or a pasted access token, kept encrypted with an Android Keystore key, and the same offline-copy rules apply. It only reads today: it writes nothing to the repository. A gateway it is enrolled with keeps delivering app updates.
-- When transcript cleanup is enabled, transcript text is sent to the configured transform provider.
-- Offline Vosk and Offline Parakeet transcription keep audio local after the selected local model has been downloaded.
-
-For a production release, you should:
-
-- use encrypted preferences or Android Keystore for API keys,
-- disable voice/network features in password, OTP, payment, and other sensitive fields,
-- publish a clear privacy policy,
-- avoid collecting logs that contain dictated text,
-- consider a provider abstraction so users can choose local or cloud transcription.
-
-## Roadmap Ideas
-
-- Optional voice-style-specific vocabulary scopes.
-- Encrypted API key storage.
-- Undo last voice insert.
-- Per-field safety rules.
-- Better tablet/foldable layouts.
-- More local transcription model options.
-- Prebuilt, signed release builds.
+Not there yet: VoiceFlow has no MCP server.
 
 ## Contributing
 
-Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md), and [AGENTS.md](AGENTS.md) for the privacy rules that apply to every change.
+Issues and pull requests are welcome. Start with [`CONTRIBUTING.md`](CONTRIBUTING.md). This repository is public, so [`AGENTS.md`](AGENTS.md) sets the privacy rules for every change: invented names and sentences only, in code, tests, docs and screenshots.
 
-## License
+## Credits
 
-The Android keyboard, `pack/` and `sync/` are MIT ([LICENSE](LICENSE), [pack/LICENSE](pack/LICENSE)). The desktop app in `desktop/` is AGPL-3.0 ([desktop/LICENSE](desktop/LICENSE)). Each folder's licence covers only that folder.
+- **The desktop app is a fork of [Whispering](https://github.com/EpicenterHQ/epicenter)** 7.11.0 by Braden Wong, part of the Epicenter project (AGPL-3.0, version 3 only). VoiceFlow is not affiliated with or endorsed by the Whispering project. What changed is in [`desktop/NOTICE`](desktop/NOTICE) and [`desktop/CHANGELOG.md`](desktop/CHANGELOG.md).
+- **Chinese pinyin dictionary:** [Wanxiang](https://github.com/amzxyz/rime-wanxiang) (万象拼音) by amzxyz, CC BY 4.0, adapted (changes listed in [`third_party/README.md`](third_party/README.md)).
+- **English word frequencies:** SymSpell (MIT, Wolf Garbe), built from Google Books Ngram (CC BY 3.0) and SCOWL/ESDB (Kevin Atkinson).
+- **Offline speech on Android:** Vosk and sherpa-onnx.
+- **Inter** typeface (SIL Open Font License 1.1), **Phosphor** icons (MIT) and **Unicode** emoji data (Unicode License v3).
+
+Pinned revisions and licence texts for the bundled data and artwork are in [`third_party/`](third_party/README.md), and the Android app shows them under Settings > Open-source credits.
+
+VoiceFlow is not affiliated with Typeless, Voiceflow, Apple, Google, Anthropic or OpenAI.
+
+## Licences
+
+Each folder's licence covers only that folder.
+
+| Part | Licence |
+|---|---|
+| Android keyboard (repository root, `app/`) | MIT ([`LICENSE`](LICENSE)) |
+| Desktop app (`desktop/`) | AGPL-3.0, version 3 only ([`desktop/LICENSE`](desktop/LICENSE)) |
+| Word-list format (`pack/`) | MIT ([`pack/LICENSE`](pack/LICENSE)) |
+| Sync gateway (`sync/`) | MIT |
+
+The apps share data (the word-list format), never code. Don't copy code from the AGPL desktop app into the MIT parts.
