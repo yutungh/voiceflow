@@ -28,7 +28,7 @@ Rendered by the screenshot test (`app/src/test/java/com/voiceflowkeyboard/ime/Sc
 
 ## Word lists from the sync gateway
 
-From 0.8.2 a phone enrolled with a [sync gateway](../../sync/README.md) downloads its user's word lists (household, generated and personal layers, plus edits made in the apps), keeps an offline copy, and uses them for dictation. The phone only reads: nothing is uploaded in this release.
+From 0.8.2 a phone enrolled with a [sync gateway](../../sync/README.md) downloads its user's word lists (household, generated and personal layers, plus edits made in the apps), keeps an offline copy, and uses them for dictation. The phone uploads no word edits in this release. It does send the gateway a small status report: its app version, user and device name, and counts such as dictations and errors.
 
 **Coming in the next Android release** ([PR #21](https://github.com/yutungh/voiceflow/pull/21), not merged yet): word lists from a private GitHub repository, read-only, with **Connect GitHub** ([`docs/GITHUB-SYNC.md`](../GITHUB-SYNC.md)).
 ## Features
@@ -240,7 +240,7 @@ Current privacy model:
 - API keys are saved locally on the device in app preferences.
 - When a cloud transcription provider is enabled, recorded audio is sent to that provider after recording stops.
 - With compatible OpenAI transcription models, configured personal vocabulary spellings and context are sent with the recording as transcription hints.
-- A phone enrolled with a vf-sync gateway ([`sync/`](../../sync/README.md)) also downloads its user's word lists (household, generated and personal layers, plus edits made in the apps), keeps an offline copy in app-private storage, and merges them with the phone's own list by the rules in `pack/`. They are used for dictation only: the vocabulary line and keywords sent with the recording, and the corrections applied once to the dictated text. Typed-text corrections keep using the phone's own list. Nothing is uploaded in this release.
+- A phone enrolled with a vf-sync gateway ([`sync/`](../../sync/README.md)) also downloads its user's word lists (household, generated and personal layers, plus edits made in the apps), keeps an offline copy in app-private storage, and merges them with the phone's own list by the rules in `pack/`. They are used for dictation only: the vocabulary line and keywords sent with the recording, and the corrections applied once to the dictated text. Typed-text corrections keep using the phone's own list. No word edits are uploaded in this release; the phone sends the gateway a status report (app version, user and device name, counts).
 - When transcript cleanup is enabled, transcript text is sent to the configured transform provider.
 - Offline Vosk and Offline Parakeet transcription keep audio local after the selected local model has been downloaded.
 

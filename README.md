@@ -6,7 +6,7 @@ You speak in any app and VoiceFlow types it, spelling names and jargon the way y
 
 ![VoiceFlow while dictating: the desktop recording bar with style chips and an expression slider, next to the Android keyboard's style panel](docs/images/hero.png)
 
-> **No downloads yet.** Both apps are built from source for now ([Getting started](#getting-started)). To hear when installers and APKs land, **Star** and **Watch → Custom → Releases** this repository.
+> **No published downloads yet.** Both apps are built from source for now ([Getting started](#getting-started)). To hear when installers and APKs land, **Star** and **Watch → Custom → Releases** this repository.
 
 <!-- Blog post about the experiment behind VoiceFlow: add the link here once it is published. -->
 
@@ -17,7 +17,7 @@ You speak in any app and VoiceFlow types it, spelling names and jargon the way y
 | **Runs on** | Windows; macOS (built by CI) | Android 8.0 and newer |
 | **How you dictate** | Press a hotkey in any app, speak, press it again. The text is pasted at your cursor | Tap **Dictate** on the keyboard, in any app |
 | **Tidy-up** | Styles and an expression level, chosen on the recording bar | Styles and an expression level, chosen on the keyboard while you speak |
-| **Your word list** | From a folder (a network share or Google Drive works) or a private GitHub repository | From a self-hosted [sync gateway](sync/README.md). GitHub is coming in the next release |
+| **Your word list** | From a folder (local, a network share or a Google Drive folder) or a private GitHub repository | From a self-hosted [sync gateway](sync/README.md). GitHub is coming in the next release |
 | **On `main`** | 0.9.20 | 0.8.9 |
 | **Licence** | AGPL-3.0 (a fork of [Whispering](https://github.com/EpicenterHQ/epicenter)) | MIT |
 | **Full docs** | [`desktop/README.md`](desktop/README.md) | [`docs/android/README.md`](docs/android/README.md) |
@@ -33,20 +33,22 @@ flowchart LR
     W -.-> C
 ```
 
-1. **Speech to text.** OpenAI's `gpt-transcribe` hears the recording, with your 20 most important words sent as hints (a word list can raise this to 40).
+1. **Speech to text.** OpenAI's `gpt-transcribe` hears the recording, with your 20 most important words sent as hints.
 2. **Tidy-up.** A text model removes filler, fixes punctuation and applies your style. It also gets your word list, so it can fix a word that was misheard.
 3. **Your text** goes into the app you were using.
 
+The 20-word limit is the desktop's. The Android keyboard follows the same steps with OpenAI speech models. Without synced word lists, it sends the phone's own list as hints and leaves the word list out of the tidy-up.
+
 **Why 20 words?** We measured it on one speaker's recordings ([results](bench/vocab/results/real/summary.md)):
 
-- With no word list, `gpt-transcribe` got 3 of 14 invented names right. With 20, 40 or 50 words it got all 14; with 80 it got 12.
+- The script had seven invented names, each said twice. With no word list, `gpt-transcribe` got 3 of those 14 mentions right. With 20, 40 or 50 words it got all 14; with 80, it got 12 (the median of three runs).
 - The tidy-up can over-correct. The default model changed 3 of 10 correctly heard everyday words (Docker, Beeper, Miro) into listed names that sound like them. Fixes for this were tested ([tidy-up fixes](bench/vocab/results/tidy-fixes/summary.md)) and are not in the app yet.
 
 The test, its limits and how to rerun it are in [`bench/vocab`](bench/vocab/README.md).
 
 ## Desktop
 
-Hotkey dictation for Windows and macOS. Transcription uses OpenAI's `gpt-transcribe` by default; other providers and local models can be chosen in Settings.
+Hotkey dictation for Windows and macOS, with your own OpenAI key. Transcription uses `gpt-transcribe` by default, and you can type another OpenAI model id in Settings.
 
 - **The recording bar** floats above your apps while you speak. Pick a style for this one message and set how expressive it should be, from Reserved to Expressive.
 - **Paste anywhere.** The text is pasted at your cursor. If it can't be pasted, it goes to the clipboard and the bar says so.
@@ -69,7 +71,7 @@ A full keyboard with dictation built in. It works in any app that takes a normal
 - **Dictate** records the whole message, then inserts the tidied text.
 - **While you speak**, the keys give way to a panel of style chips and an expression slider. The choice is for that message only.
 - **Providers:** OpenAI, xAI (Grok) or Deepgram for speech, OpenAI, xAI or Anthropic for tidy-up, or offline speech models (Vosk, Parakeet) that keep audio on the phone.
-- **Your words:** a personal word list on the phone, plus your shared word lists from a [sync gateway](sync/README.md). The phone only reads them.
+- **Your words:** a personal word list on the phone, plus your shared word lists from a [sync gateway](sync/README.md). The phone reads the shared lists and sends back no word edits.
 - **Chinese pinyin** on a full keyboard or a nine-key pad, with a **language key** to switch.
 - **Folding phones:** on a wide screen the keyboard splits in two.
 - Also: an emoji picker, a number pad for number fields, a Paste chip and a history of recent dictations.
@@ -88,7 +90,7 @@ A full keyboard with dictation built in. It works in any app that takes a normal
 
 ## Your words, kept in sync
 
-The word list is a few JSON files: words everyone in a household shares, words an AI job writes from your notes, and your own. Each device keeps a last good copy, so dictation works offline.
+The word list is a few JSON files: words everyone in a household shares, words an AI job writes from your notes, and your own. Each device keeps a last good copy, so your words still apply when the folder or repository can't be reached.
 
 | Where the list lives | Desktop | Android | Guide |
 |---|---|---|---|
@@ -102,7 +104,7 @@ The word list is a few JSON files: words everyone in a household shares, words a
 
 ## Getting started
 
-There are no prebuilt downloads yet, so you build each app from source. Clone with long paths on (needed on Windows):
+There are no published downloads yet, so you build each app from source. Clone with long paths on (needed on Windows):
 
 ```sh
 git clone -c core.longpaths=true https://github.com/yutungh/voiceflow
@@ -121,10 +123,11 @@ You use your own API keys, and requests go straight from your device to the prov
 | What | Where it goes |
 |---|---|
 | Your recording | The speech provider you chose, after you stop. Offline models keep it on the device |
-| Your top words | The speech provider, with the recording, as spelling hints |
+| Your top words | The speech provider, with the recording, as spelling hints (OpenAI models that accept them) |
 | The transcript and your word list | The tidy-up provider you chose |
-| One dictation and your note | The model you chose, only when you click **Find fixes** (desktop) |
-| Your word lists | Read from your folder, your GitHub repository (`api.github.com`) or your sync gateway |
+| Text you ask the Android keyboard to rewrite or spell-check | The tidy-up provider you chose |
+| One dictation, your note and its context (matching words and spellings, the app name, the style) | The model you chose, only when you click **Find fixes** (desktop) |
+| Your word lists | Read from your folder, your GitHub repository (`api.github.com`) or your sync gateway. Desktop uploads its word edits and a status file there unless you turn uploads off. The phone sends its gateway a status report (app version and counts), not word edits |
 
 Where things are kept:
 
@@ -136,13 +139,13 @@ Details: [`PRIVACY.md`](PRIVACY.md) (Android) and [Network calls](desktop/README
 
 ## Roadmap
 
-Planned, not built yet:
+Next:
 
 - **Prebuilt downloads:** installers for Windows and macOS, and APKs, built by CI.
-- **Phone edits flowing back:** today the phone only reads the shared word lists; words you fix on the phone stay on the phone.
+- **Phone edits flowing back:** today words you fix on the phone stay on the phone.
 - **Per-app built-in styles,** such as a casual style in chat apps and a formal one in email.
 - **A new tidy-up default** that stops over-correcting sound-alike words (the fixes measured in [`bench/vocab`](bench/vocab/results/tidy-fixes/summary.md)).
-- **The next Android release** (Rime and GitHub word lists, [PR #21](https://github.com/yutungh/voiceflow/pull/21)).
+- **The next Android release** (Rime and GitHub word lists), waiting in [PR #21](https://github.com/yutungh/voiceflow/pull/21).
 
 Not there yet: VoiceFlow has no MCP server.
 
@@ -158,7 +161,7 @@ Issues and pull requests are welcome. Start with [`CONTRIBUTING.md`](CONTRIBUTIN
 - **Offline speech on Android:** Vosk and sherpa-onnx.
 - **Inter** typeface (SIL Open Font License 1.1), **Phosphor** icons (MIT) and **Unicode** emoji data (Unicode License v3).
 
-The full list, pinned revisions and licence texts are in [`third_party/`](third_party/README.md); the Android app shows them under Settings > Open-source credits.
+Pinned revisions and licence texts for the bundled data and artwork are in [`third_party/`](third_party/README.md), and the Android app shows them under Settings > Open-source credits.
 
 VoiceFlow is not affiliated with Typeless, Voiceflow, Apple, Google, Anthropic or OpenAI.
 
