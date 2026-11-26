@@ -1110,11 +1110,12 @@ final class Prefs {
     }
 
     /**
-     * 0.9.4: saves a style for one letter keyboard: the Chinese slot on the Chinese keyboard
-     * (with Chinese input on), the saved default otherwise.
+     * 0.9.4: saves a style for one letter keyboard's slot: the Chinese slot when
+     * {@code chineseKeyboard}, the saved default otherwise. The caller decides the slot (a
+     * recording keeps the one it started on, even if Chinese input is switched off meanwhile).
      */
     static void saveKeyboardStyle(Context context, boolean chineseKeyboard, String id) {
-        if (chineseKeyboard && chineseInputEnabled(context)) {
+        if (chineseKeyboard) {
             setChineseKeyboardStyle(context, id);
         } else {
             setActivePreset(context, id);

@@ -2861,7 +2861,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
 
     /** 0.9.4: whether the style slot in use is the Chinese keyboard's. */
     private boolean styleSlotChinese() {
-        return recording || processing ? recordingOnChinese : inputMode.isChinese();
+        return recording || processing ? recordingOnChinese : inputMode.isChinese() && chineseAvailable();
     }
 
     /**
@@ -2915,7 +2915,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             return;
         }
         boolean chinese = styleSlotChinese();
-        boolean inherits = chinese && chineseAvailable()
+        boolean inherits = chinese
                 && Prefs.chineseKeyboardStyle(this).isEmpty()
                 && choice.preset.equals(Prefs.activePreset(this));
         if (!inherits) {

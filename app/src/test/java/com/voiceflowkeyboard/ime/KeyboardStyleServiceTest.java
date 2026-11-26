@@ -344,6 +344,17 @@ public class KeyboardStyleServiceTest {
         assertEquals(Prefs.PRESET_BUSINESS, choice().preset);
     }
 
+    @Test public void aPickInARecordingThatOutlivesChineseInputIsKeptForChinese() {
+        // Codex review: a recording kept while the keyboard was away, Chinese switched off meanwhile.
+        keyboard(InputMode.CHINESE_QWERTY);
+        tap("Dictate");
+        Prefs.setChineseInputEnabled(service, false);
+        tap("Style Work");
+        assertEquals(Prefs.PRESET_BUSINESS, Prefs.chineseKeyboardStyle(service));
+        assertEquals("the English default is untouched", Prefs.PRESET_CLEAN, Prefs.activePreset(service));
+        tap("Cancel recording");
+    }
+
     @Test public void rememberKeepsTheExpressionAsTheStylesOwn() {
         openSheet();
         SeekBar slider = ReflectionHelpers.getField(service, "expressionSlider");
