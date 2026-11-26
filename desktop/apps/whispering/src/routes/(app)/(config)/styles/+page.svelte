@@ -389,8 +389,8 @@
 		{/if}
 
 		<p class="note ctr">
-			<Icon name="info" class="i sm" />Applies to new dictations only. One style is used in every app for
-			now; choosing a style per app comes later.
+			<Icon name="info" class="i sm" />Applies to new dictations only. To start an app in its own style
+			(Telegram in Friends, say), use <a href="/settings#tidy-up">Settings › Tidy-up › Style for each app</a>.
 		</p>
 	{/if}
 

@@ -41,9 +41,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::github::Repo;
-use super::merge::{merge, Issue, Snapshot};
+use super::merge::{live_ops, merge, Issue, Snapshot};
 use super::model::{
-    parse_op, parse_profile, valid_name, Layer, Op, ProfileFile, OP_TYPES_READ, PROFILE_VERSIONS_READ, UPLOADABLE_OP_TYPES,
+    parse_op, parse_profile, valid_name, Layer, Op, OpBody, ProfileFile, OP_TYPES_READ, PROFILE_VERSIONS_READ,
+    READ_FEATURES, UPLOADABLE_OP_TYPES,
 };
 use super::source::{Fetch, FolderSource, Source, Upload};
 
@@ -467,6 +468,76 @@ fn stem(name: &str) -> &str {
     name.strip_suffix(".json").unwrap_or(name)
 }
 
+/// Which of this device's edits may upload, and the notices for those held.
+///
+/// 0.9.13: an edit of a type not in `UPLOADABLE_OP_TYPES` stays here.
+/// VoiceFlow 0.9.21: so does a tombstone of such an edit (and a tombstone of
+/// that tombstone, and so on): Settings > Tidy-up > Style for each app
+/// retires the PC's older app-style edits with tombstones on every change,
+/// and sharing those would show every other device an undo of an edit it
+/// never got (`orphan-tombstone`). A tombstone whose target was shared (an
+/// edit uploaded before 0.9.13, or another device's edit) still uploads, so
+/// removing it reaches every device. Held edits upload together later, once
+/// their type is uploadable. One notice per type, for the held edits still in
+/// force only (a replaced or removed one is no news). `elsewhere`: this
+/// device's held edits that belong to another profile (also never shared).
+fn held_edits(
+    local: &[(String, PathBuf, Op)],
+    uploaded: &BTreeSet<String>,
+    elsewhere: &BTreeSet<String>,
+) -> (Vec<(String, PathBuf)>, Vec<Issue>) {
+    let shared = |name: &str, op: &Op| uploaded.contains(&op.id) || uploaded.contains(stem(name));
+    let mut held: BTreeSet<String> = local
+        .iter()
+        .filter(|(name, _, op)| !UPLOADABLE_OP_TYPES.contains(&op.body.type_name()) && !shared(name, op))
+        .map(|(_, _, op)| op.id.clone())
+        .chain(elsewhere.iter().cloned())
+        .collect();
+    loop {
+        let mut grew = false;
+        for (name, _, op) in local {
+            if let OpBody::Tombstone { target } = &op.body {
+                if held.contains(target) && !shared(name, op) && held.insert(op.id.clone()) {
+                    grew = true;
+                }
+            }
+        }
+        if !grew {
+            break;
+        }
+    }
+    let uploadable = local
+        .iter()
+        .filter(|(_, _, op)| UPLOADABLE_OP_TYPES.contains(&op.body.type_name()) && !held.contains(&op.id))
+        .map(|(name, path, _)| (name.clone(), path.clone()))
+        .collect();
+    let all: Vec<Op> = local.iter().map(|(_, _, op)| op.clone()).collect();
+    let live: BTreeSet<String> = live_ops(&all, &mut Vec::new()).into_iter().map(|op| op.id).collect();
+    let mut by_type: BTreeMap<&'static str, Vec<String>> = BTreeMap::new();
+    for (name, _, op) in local {
+        if held.contains(&op.id) && live.contains(&op.id) && !matches!(op.body, OpBody::Tombstone { .. }) {
+            by_type.entry(op.body.type_name()).or_default().push(stem(name).to_string());
+        }
+    }
+    let notices = by_type
+        .into_iter()
+        .map(|(kind, ids)| Issue {
+            code: "edit-held".into(),
+            message: if ids.len() == 1 {
+                format!("A {kind} edit made on this device works here; it is shared once every device can read it.")
+            } else {
+                format!(
+                    "{} {kind} edits made on this device work here; they are shared once every device can read them.",
+                    ids.len()
+                )
+            },
+            layer: Some(Layer::Edit),
+            ids,
+        })
+        .collect();
+    (uploadable, notices)
+}
+
 fn load_uploaded(paths: &Paths) -> BTreeSet<String> {
     fs::read_to_string(paths.uploaded_file())
         .ok()
@@ -631,6 +702,8 @@ pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &st
     let mut issues: Vec<Issue> = Vec::new();
     let mut ops: BTreeMap<String, Op> = BTreeMap::new();
     let mut local_files = Vec::new();
+    let mut local_all: Vec<(String, PathBuf, Op)> = Vec::new();
+    let mut held_elsewhere: BTreeSet<String> = BTreeSet::new();
     let key = paths.scope_key();
     // One refresh at a time reads and rewrites the owners (the quick local
     // merge after an edit can run beside a refresh from the share).
@@ -642,7 +715,15 @@ pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &st
         match read_op(&path, &name) {
             Ok(op) => {
                 match owners.get(&op.id) {
-                    Some(owner) if *owner != key => continue,
+                    Some(owner) if *owner != key => {
+                        // 0.9.21: another profile's held edit is never on
+                        // this one's share either, so an undo of it made
+                        // here (the app's edits are listed per PC) is held.
+                        if !UPLOADABLE_OP_TYPES.contains(&op.body.type_name()) {
+                            held_elsewhere.insert(op.id.clone());
+                        }
+                        continue;
+                    }
                     Some(_) => {}
                     None => {
                         owners.insert(op.id.clone(), key.clone());
@@ -653,20 +734,9 @@ pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &st
                 // phones can't read yet (app-style, style-set, default-set:
                 // Android 0.8.2 refuses what it doesn't know) is used on this
                 // PC but stays here, unshared, until a version that knows
-                // every device reads it uploads it.
-                if !UPLOADABLE_OP_TYPES.contains(&op.body.type_name()) {
-                    issues.push(Issue {
-                        code: "edit-held".into(),
-                        message: format!(
-                            "A {} edit made on this device ({name}) works here; it is shared once every device can read it.",
-                            op.body.type_name()
-                        ),
-                        layer: Some(Layer::Edit),
-                        ids: vec![stem(&name).to_string()],
-                    });
-                } else {
-                    local_files.push((name, path));
-                }
+                // every device reads it uploads it. Which files are held is
+                // settled below, once the upload receipts are read.
+                local_all.push((name, path, op.clone()));
                 ops.insert(op.id.clone(), op);
             }
             Err(e) => issues.push(rejected_edit(&name, &e)),
@@ -686,6 +756,9 @@ pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &st
 
     // Upload what the share hasn't confirmed, then read every device's edits.
     let mut uploaded = load_uploaded(paths);
+    let (uploadable, held) = held_edits(&local_all, &uploaded, &held_elsewhere);
+    local_files.extend(uploadable);
+    issues.extend(held);
     let mut uploaded_now = 0;
     let mut uploads_off = false;
     if let Some(source) = live!() {
@@ -845,6 +918,8 @@ pub struct StatusFile<'a> {
 pub struct StatusReads {
     pub profile: &'static [u64],
     pub op: &'static [&'static str],
+    /// VoiceFlow 0.9.21: what it reads beyond the edit types (`READ_FEATURES`).
+    pub features: &'static [&'static str],
 }
 
 #[derive(Serialize)]
@@ -904,6 +979,7 @@ pub fn status_text(paths: &Paths, version: &str, snapshot: &Snapshot, report: &S
         reads: StatusReads {
             profile: PROFILE_VERSIONS_READ,
             op: OP_TYPES_READ,
+            features: READ_FEATURES,
         },
         profile: StatusProfile {
             snapshot_id: &snapshot.id,
@@ -1178,6 +1254,58 @@ mod tests {
         );
         let out = refresh(&f.paths, true, "t2");
         assert_eq!(out.snapshot.defaults.values.pinned_styles.as_deref(), Some(&[][..]));
+    }
+
+    #[test]
+    fn tombstones_of_held_edits_are_held_too() {
+        let f = fixture();
+        write(&f.paths.layer_file(Layer::Personal), PERSONAL);
+        let op = |id: &str, at: &str, body: &str| {
+            write(
+                &f.paths.local_ops().join(format!("{id}.json")),
+                &format!(r#"{{"schema":"voiceflow-op","version":1,"id":"{id}","device":"dev1","createdAt":"{at}",{body}}}"#),
+            )
+        };
+        // Settings > Style for each app, changed twice, then the first undo undone.
+        op("dev1-a", "2026-11-19T10:00:00Z", r#""type":"app-style","app":"kite.exe","style":"vf-builtin-friends""#);
+        op("dev1-b", "2026-11-19T10:01:00Z", r#""type":"app-style","app":"kite.exe","style":"vf-builtin-email""#);
+        op("dev1-t", "2026-11-19T10:01:01Z", r#""type":"tombstone","target":"dev1-a""#);
+        op("dev1-u", "2026-11-19T10:02:00Z", r#""type":"tombstone","target":"dev1-t""#);
+        op("dev1-v", "2026-11-19T10:03:00Z", r#""type":"tombstone","target":"dev1-a""#);
+        // Another device's app-style edit on the share, retired here: that one must reach everyone.
+        write(
+            &f.paths.remote_ops().join("dev2-app.json"),
+            r#"{"schema":"voiceflow-op","version":1,"id":"dev2-app","device":"dev2","createdAt":"2026-11-18T10:00:00Z","type":"app-style","app":"slack.exe","expression":2}"#,
+        );
+        op("dev1-w", "2026-11-19T10:04:00Z", r#""type":"tombstone","target":"dev2-app""#);
+        let out = refresh(&f.paths, true, "t1");
+        for held in ["dev1-a", "dev1-b", "dev1-t", "dev1-u", "dev1-v"] {
+            assert!(!f.paths.remote_ops().join(format!("{held}.json")).exists(), "{held} stays here");
+        }
+        assert!(f.paths.remote_ops().join("dev1-w.json").exists(), "the shared edit's tombstone uploads");
+        let held: Vec<_> = out.snapshot.issues.iter().filter(|i| i.code == "edit-held").collect();
+        assert_eq!(held.len(), 1, "{held:?}");
+        assert_eq!(held[0].ids, vec!["dev1-b".to_string()], "only the edit still in force");
+        assert!(!out.snapshot.issues.iter().any(|i| i.code == "orphan-tombstone"), "{:?}", out.snapshot.issues);
+        let kite = out.snapshot.apps.iter().find(|a| a["id"] == "kite.exe").unwrap();
+        assert_eq!(kite["style"], "vf-builtin-email");
+        assert!(!out.snapshot.apps.iter().any(|a| a["id"] == "slack.exe"), "retired everywhere");
+    }
+
+    #[test]
+    fn an_undo_of_another_profiles_held_edit_is_held() {
+        let t = parse_op(
+            r#"{"schema":"voiceflow-op","version":1,"id":"dev1-t","device":"dev1","createdAt":"2026-11-19T10:00:00Z","type":"tombstone","target":"dev1-x"}"#,
+            None,
+        )
+        .unwrap();
+        let local = vec![("dev1-t.json".to_string(), PathBuf::from("dev1-t.json"), t)];
+        let none = BTreeSet::new();
+        let (up, _) = held_edits(&local, &none, &none);
+        assert_eq!(up.len(), 1, "an unknown target alone doesn't hold it");
+        let elsewhere: BTreeSet<String> = ["dev1-x".to_string()].into();
+        let (up, notices) = held_edits(&local, &none, &elsewhere);
+        assert!(up.is_empty() && notices.is_empty());
     }
 
     /// The demo folder in `pack/fixtures/demo` reads, validates and merges

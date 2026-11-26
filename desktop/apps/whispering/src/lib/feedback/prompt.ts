@@ -14,6 +14,7 @@
  * the instructions.
  */
 import { buildPrompt } from '../profile/prompt';
+import { styleRefOf } from '../profile/style-refs';
 import type { ProfileSnapshot } from '$lib/profile/types';
 import { spellingRefs, type DictationEvidence } from './evidence';
 import { observe, type Observation } from './stage-diff';
@@ -121,22 +122,49 @@ export function relevantVocabulary(
 	return out;
 }
 
-/** The styles the person can switch this app to: word-list styles and Raw. */
-export function availableStyles(snapshot: ProfileSnapshot | null): FixRequestData['styles_available'] {
+/** A style made on this PC, as the feedback review sees it (its id and name). */
+export type DeviceStyleRef = { id: string; name: string };
+
+/**
+ * The styles the person can switch this app to: word-list styles, then
+ * (0.9.21) the built-in styles and the others made on this PC, by the
+ * reference an app rule stores (`style-refs.ts`), then Raw. One the word
+ * lists shadow (same id) is listed once, as theirs.
+ */
+export function availableStyles(
+	snapshot: ProfileSnapshot | null,
+	deviceStyles: readonly DeviceStyleRef[] = [],
+): FixRequestData['styles_available'] {
 	const styles = (snapshot?.styles ?? [])
 		.filter((s) => s.hidden !== true)
 		.map((s) => ({ id: s.id, name: s.label || s.id }));
+	// Every word-list id, hidden ones too: a reference finds theirs first.
+	const taken = new Set((snapshot?.styles ?? []).map((s) => s.id));
+	for (const d of deviceStyles) {
+		const ref = styleRefOf(d.id);
+		if (!ref || ref === 'raw' || taken.has(ref)) continue;
+		taken.add(ref);
+		styles.push({ id: ref, name: d.name || 'Untitled style' });
+	}
 	return [...styles, { id: 'raw', name: 'Raw (no tidy-up)' }];
+}
+
+/** The reference a dictation's style has (`profile:<id>`, `raw` or this PC's id), or null. */
+export function evidenceStyleRef(styleId: string | undefined): string | null {
+	return styleRefOf(styleId);
 }
 
 export function buildFixRequest({
 	evidence,
 	feedback,
 	snapshot,
+	deviceStyles = [],
 }: {
 	evidence: DictationEvidence;
 	feedback: string;
 	snapshot: ProfileSnapshot | null;
+	/** 0.9.21: this PC's styles (built-ins included), for `styles_available`. */
+	deviceStyles?: readonly DeviceStyleRef[];
 }): { system: string; data: FixRequestData; user: string } {
 	const raw = evidence.rawText ?? '';
 	const delivered = evidence.deliveredText ?? evidence.tidyOutput ?? raw;
@@ -144,9 +172,8 @@ export function buildFixRequest({
 		!evidence.styleId || evidence.styleId === 'raw'
 			? null
 			: {
-					id: evidence.styleId.startsWith('profile:')
-						? evidence.styleId.slice('profile:'.length)
-						: 'this-device-style',
+					// 0.9.21: a built-in or PC style by the reference a rule stores.
+					id: evidenceStyleRef(evidence.styleId) ?? 'this-device-style',
 					name: evidence.styleName ?? 'Custom style',
 				};
 	const data: FixRequestData = {
@@ -166,7 +193,7 @@ export function buildFixRequest({
 			[raw, evidence.tidyOutput ?? '', delivered, feedback],
 			evidence.appId ?? null,
 		),
-		styles_available: availableStyles(snapshot),
+		styles_available: availableStyles(snapshot, deviceStyles),
 	};
 	return { system: FIX_SYSTEM_PROMPT, data, user: JSON.stringify(data) };
 }
@@ -234,13 +261,15 @@ export function buildFixRequestV2({
 	feedback,
 	wanted,
 	snapshot,
+	deviceStyles = [],
 }: {
 	evidence: DictationEvidence;
 	feedback: string;
 	wanted?: string | null;
 	snapshot: ProfileSnapshot | null;
+	deviceStyles?: readonly DeviceStyleRef[];
 }): { system: string; data: FixRequestDataV2; user: string } {
-	const v1 = buildFixRequest({ evidence, feedback, snapshot }).data;
+	const v1 = buildFixRequest({ evidence, feedback, snapshot, deviceStyles }).data;
 	const raw = evidence.rawText ?? '';
 	const delivered = evidence.deliveredText ?? evidence.tidyOutput ?? raw;
 	const refs = spellingRefs(evidence);

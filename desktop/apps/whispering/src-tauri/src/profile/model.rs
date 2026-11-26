@@ -39,6 +39,15 @@ pub const OP_TYPES_READ: &[&str] = &["correction", "term", "app-style", "style-s
 /// such an edit works on this PC only. No code here writes `style-set` or
 /// `default-set` at all yet.
 pub const UPLOADABLE_OP_TYPES: &[&str] = &["correction", "term", "tombstone"];
+/// VoiceFlow 0.9.21: an app rule's style may name a built-in
+/// (`vf-builtin-<key>`) or a style made on a PC (`vf-pc-…`), looked up after
+/// the word lists, and a device without that style starts in its default
+/// (`pack/README.md`, Style references in app rules).
+pub const APP_STYLE_REFS_FEATURE: &str = "app-style-device-refs-v1";
+/// What this app reads beyond the edit types (reported in the status file's
+/// `reads.features`). A device that reports `app-style` without
+/// `APP_STYLE_REFS_FEATURE` doesn't count as ready for app-style edits.
+pub const READ_FEATURES: &[&str] = &[APP_STYLE_REFS_FEATURE];
 
 /// Tidy-up providers a style may name a model for (`models`).
 pub const STYLE_PROVIDERS: &[&str] = &["openai", "anthropic", "google", "groq", "openrouter", "xai", "custom"];
@@ -1127,7 +1136,9 @@ pub fn time_key(s: &str) -> (i64, u32) {
 /// every edit type in `op_types`. A status without `reads` (an app from
 /// before 0.9.13, or a phone) counts as reading version 1 and only
 /// `correction`, `term` and `tombstone`. No status files at all proves
-/// nothing, so the answer is no.
+/// nothing, so the answer is no. VoiceFlow 0.9.21: `app-style` also needs
+/// `reads.features` to contain `APP_STYLE_REFS_FEATURE` (an app rule may
+/// name a built-in or PC style), so 0.9.13 to 0.9.20 don't count as ready.
 pub fn readers_ready(statuses: &[Value], profile_version: u64, op_types: &[&str]) -> bool {
     const BEFORE_READS: &[&str] = &["correction", "term", "tombstone"];
     !statuses.is_empty()
@@ -1143,7 +1154,14 @@ pub fn readers_ready(statuses: &[Value], profile_version: u64, op_types: &[&str]
                     .and_then(Value::as_array)
                     .map(|a| a.iter().filter_map(Value::as_str).collect())
                     .unwrap_or_default();
-                profiles.contains(&profile_version) && op_types.iter().all(|t| ops.contains(t))
+                let features: Vec<&str> = reads
+                    .get("features")
+                    .and_then(Value::as_array)
+                    .map(|a| a.iter().filter_map(Value::as_str).collect())
+                    .unwrap_or_default();
+                profiles.contains(&profile_version)
+                    && op_types.iter().all(|t| ops.contains(t))
+                    && (!op_types.contains(&"app-style") || features.contains(&APP_STYLE_REFS_FEATURE))
             }
             None => profile_version == 1 && op_types.iter().all(|t| BEFORE_READS.contains(t)),
         })
@@ -1398,6 +1416,18 @@ mod tests {
         assert!(readers_ready(&[new.clone(), old.clone()], 1, &["correction", "tombstone"]));
         assert!(!readers_ready(&[new, old.clone()], 1, &["app-style"]), "a phone or an older app: no app-style");
         assert!(!readers_ready(&[], 1, &[]), "no status files prove nothing");
+    }
+
+    #[test]
+    fn app_style_readers_must_also_read_device_style_refs() {
+        // 0.9.13 to 0.9.20 report app-style but not the 0.9.21 references.
+        let before = serde_json::json!({ "reads": { "profile": [1, 2], "op": OP_TYPES_READ } });
+        let now = serde_json::json!({ "reads": { "profile": [1, 2], "op": OP_TYPES_READ, "features": READ_FEATURES } });
+        assert!(!readers_ready(&[now.clone(), before.clone()], 1, &["app-style"]));
+        assert!(readers_ready(&[now.clone(), now.clone()], 1, &["app-style"]));
+        assert!(readers_ready(&[now, before], 1, &["style-set"]), "other types don't need it");
+        // Reporting it doesn't make anything uploadable.
+        assert!(!UPLOADABLE_OP_TYPES.contains(&"app-style"));
     }
 
     #[test]

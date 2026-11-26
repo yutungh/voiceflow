@@ -111,7 +111,13 @@ export async function runFix({
 }): Promise<FixOutcome> {
 	if (!feedback.trim()) return { ok: false, message: 'Say or type what should have been different.' };
 	if (!provider.apiKey) return { ok: false, message: 'Add an API key in Settings first.' };
-	const request = buildFixRequestV2({ evidence, feedback, wanted, snapshot: review.snapshot });
+	const request = buildFixRequestV2({
+		evidence,
+		feedback,
+		wanted,
+		snapshot: review.snapshot,
+		...(review.deviceStyles ? { deviceStyles: review.deviceStyles } : {}),
+	});
 	onRequest?.(request);
 	const reply = await complete({
 		apiKey: provider.apiKey,

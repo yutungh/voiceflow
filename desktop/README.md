@@ -89,6 +89,8 @@ cd src-tauri && cargo test --locked --lib   # Rust unit tests (after a build)
 
 **Optional: your own word lists.** In **Settings > Word lists**, turn on **Use word lists**, enter the **Folder** (a local folder, a synced folder or a network share, for example `\\server\voiceflow`) and your user name under **Whose words**. The folder layout is in [`../pack/README.md`](../pack/README.md), and [`../docs/desktop/CONNECT-YOUR-OWN-AI.md`](../docs/desktop/CONNECT-YOUR-OWN-AI.md) shows how to let an assistant maintain the lists. The desktop app reads this folder directly; it does not talk to the sync server. To share the same folder with a phone, put it behind the [sync gateway](../sync/README.md). From 0.9.19 the word lists can also live in a **private GitHub repository** (choose it under **Where they are**; from 0.9.20, **Connect GitHub** signs in without a token): see [`../docs/GITHUB-SYNC.md`](../docs/GITHUB-SYNC.md).
 
+**A style for each app (0.9.21).** In **Settings > Tidy-up > Style for each app**, choose the style dictations into an app start in (Telegram in Friends, ChatGPT in AI prompt): a built-in style, one from your word lists, one made on this PC, or Raw, and a level if you want one. A style picked on the recording bar still wins for that dictation. The setting is saved as an edit to your word lists that stays on this PC for now, and it wins over the word lists' own rule for that app; removing it brings their rule back. The format is in [`../pack/README.md`](../pack/README.md#style-references-in-app-rules).
+
 ## What it adds to Whispering
 
 A short list; the full table is in [`CHANGELOG.md`](CHANGELOG.md).

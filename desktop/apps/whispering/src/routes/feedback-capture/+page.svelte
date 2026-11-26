@@ -37,7 +37,7 @@
 		},
 		subjectRawText: 'ask zebbo to add milk to the list',
 		subjectFinalText: 'Ask Zebbo to add milk to the list.',
-		subjectStyleName: 'Casual',
+		subjectStyleName: 'Work chat',
 		subjectAppId: 'telegram.exe',
 	};
 

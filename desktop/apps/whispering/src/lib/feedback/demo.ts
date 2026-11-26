@@ -20,7 +20,7 @@ function demoSetup(): FeedbackSetup {
 			recordingId: DEMO_RECORDING,
 			appName: DEMO_APP,
 			at: NOW,
-			styleName: 'Casual',
+			styleName: 'Work chat',
 			deliveredText: 'Ask Zebbo to add milk to the list.',
 			rawText: 'ask zibbo to add milk to the list',
 			canPaste: true,
@@ -62,10 +62,11 @@ function demoResult(kind: DemoCase): FixResult {
 	return {
 		...base,
 		explanation:
-			'Speech-to-text heard “zibbo” correctly, but the tidy-up changed it to “Zebbo”. The Casual style also made the message more formal than you wanted.',
+			'Speech-to-text heard “zibbo” correctly, but the tidy-up changed it to “Zebbo”. The Work chat style also made the message more formal than a chat needs.',
 		issues: [
 			{ layer: 'spelling', summary: '“Zibbo” was written as “Zebbo”.', noFixReason: null },
-			{ layer: 'expression', summary: 'It came out more formal than you wanted.', noFixReason: null },
+			// 0.9.21: an app's style fix may name a built-in style (Friends).
+			{ layer: 'app-context', summary: 'It came out too formal for a chat.', noFixReason: null },
 		],
 		fixes: [
 			{
@@ -94,10 +95,10 @@ function demoResult(kind: DemoCase): FixResult {
 				reason: 'You asked for something less formal in chats.',
 				app: 'telegram.exe',
 				appName: DEMO_APP,
-				style: null,
-				expression: { from: 2, to: 3 },
-				replaces: null,
-				label: `In ${DEMO_APP}, make tidy-up more expressive (Natural → Lively)`,
+				style: { id: 'vf-builtin-friends', name: 'Friends' },
+				expression: null,
+				replaces: `Replaces the current rule for ${DEMO_APP} (Work chat style).`,
+				label: `In ${DEMO_APP}, use the Friends style`,
 			},
 		],
 	};
