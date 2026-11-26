@@ -127,7 +127,9 @@ The app calls no VoiceLnq, Whispering or Epicenter server: no telemetry, no upda
 | Each dictation, with a cloud service selected | The chosen provider's API (OpenAI by default; Groq, Deepgram, ElevenLabs, Mistral, Anthropic, Google, OpenRouter, or a custom endpoint if picked) | Transcription and tidy-up |
 | Only when the user clicks Find fixes in the Feedback window | The model chosen in Settings > Feedback (OpenAI or Anthropic, with the user's own key) | Suggests fixes to spellings and styles from that one dictation and the feedback |
 | Only when the user downloads a local model | `huggingface.co` (Parakeet: `istupakov/parakeet-tdt-0.6b-v3-onnx` at a pinned revision; Whisper: `ggerganov/whisper.cpp`; Moonshine: `UsefulSensors/moonshine`) | Model files |
-| With word lists in a GitHub repository: at start, hourly, on Refresh now and on Test connection | `api.github.com`, with the user's own token (kept in the OS keychain) | Reads the word-list repository; uploads this computer's word edits and its status file unless uploads are off |
+| With word lists in a GitHub repository: at start, hourly, on Refresh now and on Test connection | `api.github.com`, with the GitHub sign-in or the user's own token (kept in the OS keychain) | Reads the word-list repository; uploads this computer's word edits and its status file unless uploads are off |
+| Only when the user clicks Connect GitHub (0.9.20 and later), and when that sign-in is renewed | `github.com` (`/login/device/code`, `/login/oauth/access_token`) and `api.github.com` (the repositories the app is installed on) | Signs this computer in through the VoiceFlow Word Lists GitHub App |
+| Only with voice-activated recording | `cdn.jsdelivr.net` (`@ricky0123/vad-web` 0.0.24, `onnxruntime-web` 1.14.0) | Voice-detection model and runtime files |
 | Only when the user clicks a link | `github.com/yutungh/voicelnq`, provider sign-up and docs pages | Help |
 
 ## More documentation
