@@ -27,12 +27,19 @@ enum DictationLanguage {
     }
 
     /**
-     * ISO-639-1 codes for OpenAI's {@code languages[]}. English rides along so a
+     * Codes for OpenAI's {@code languages[]}. English rides along so a
      * dropped-in English word or product name still transcribes correctly.
      * Empty means send nothing and let the model detect.
+     *
+     * <p>0.9.3: {@code zh-cn}, not {@code zh}. OpenAI documents regional {@code zh}
+     * codes for gpt-transcribe; {@code zh-cn} is Mandarin written in Simplified
+     * characters, which is what this keyboard writes (its nine-key pinyin and its
+     * dictionary are Simplified). On invented mixed Chinese and English clips it
+     * kept short English words that {@code zh} turned into Chinese ("call 一下"
+     * heard as "靠一下") and Chinese particles that {@code zh} heard as English.
      */
     String[] openAiLanguages() {
-        return this == CHINESE ? new String[]{"zh", "en"} : new String[0];
+        return this == CHINESE ? new String[]{"zh-cn", "en"} : new String[0];
     }
 
     /** Deepgram's single {@code language} value, or empty to leave the default. */

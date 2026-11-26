@@ -14,8 +14,8 @@ android {
         applicationId "com.voiceflowkeyboard.ime"
         minSdk 26
         targetSdk 35
-        versionCode 58
-        versionName "0.9.2"
+        versionCode 59
+        versionName "0.9.3"
     }
 
     // The phones' certificate. Release builds are signed with the same key as every

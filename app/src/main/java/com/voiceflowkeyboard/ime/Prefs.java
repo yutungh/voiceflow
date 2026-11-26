@@ -83,6 +83,8 @@ final class Prefs {
     private static final String KEY_EXPRESSION_OVERRIDE_PREFIX = "expression_override_";
     private static final String KEY_TRANSFORM_MODEL_OVERRIDE_PREFIX = "transform_model_override_";
     private static final String KEY_PRESET_LABEL_PREFIX = "preset_label_";
+    /** 0.9.3: the word lists' default style last applied ({@link ListStyles}). */
+    private static final String KEY_LIST_DEFAULT_SEEN = "list_default_style_seen";
     private static final String KEY_MODEL_CHECK_TIMES_JSON = "model_check_times_json";
     private static final String KEY_MODEL_SWITCH_NOTICE = "model_switch_notice";
     /** The styles "On the bar" in the keyboard's style sheet, in order; absent until the user pins one. */
@@ -401,6 +403,10 @@ final class Prefs {
 
     static String promptForPreset(Context context, String preset) {
         String sanitized = sanitizeEditablePreset(preset);
+        if (ListStyles.isListStyle(sanitized)) {
+            // Always the list's own prompt: a word-list style is not edited on the phone.
+            return defaultPromptForPreset(sanitized);
+        }
         if (PRESET_BUSINESS.equals(sanitized)) {
             String oldProfessional = shared(context).getString(KEY_PROMPT_PREFIX + PRESET_PROFESSIONAL, null);
             if (oldProfessional != null && !oldProfessional.trim().isEmpty()) {
@@ -459,7 +465,13 @@ final class Prefs {
 
     static int expressionForPreset(Context context, String preset) {
         String sanitized = sanitizeSelectablePreset(preset);
-        return sanitizeExpression(shared(context).getInt(KEY_EXPRESSION_PREFIX + sanitized, DEFAULT_EXPRESSION));
+        int fallback = DEFAULT_EXPRESSION;
+        WordLayer.Style listStyle = ListStyles.find(sanitized);
+        if (listStyle != null && listStyle.expression >= 0) {
+            // A word-list style starts at its own level until a level is picked on the phone.
+            fallback = listStyle.expression;
+        }
+        return sanitizeExpression(shared(context).getInt(KEY_EXPRESSION_PREFIX + sanitized, fallback));
     }
 
     static void setExpressionForPreset(Context context, String preset, int expression) {
@@ -609,7 +621,48 @@ final class Prefs {
         if (profiles.isEmpty()) {
             profiles.add(defaultPromptProfile(PRESET_CASUAL));
         }
+        // 0.9.3: the word lists' styles, after the phone's own; never stored.
+        for (WordLayer.Style style : ListStyles.published()) {
+            String id = ListStyles.PREFIX + style.id;
+            if (!containsProfile(profiles, id)) {
+                profiles.add(new PromptProfile(id, style.label, LIST_STYLE_ICON));
+            }
+        }
         return profiles;
+    }
+
+    static final String LIST_STYLE_ICON = "📋";
+
+    /**
+     * 0.9.3: the word lists' default style ({@link ListStyles}), applied once per value.
+     * {@code value}: the merged {@code defaults.cleanupStyle}, null when no list sets it;
+     * {@code target}: the phone style it names, "" when this phone has none. The record
+     * and the switch are written in one commit.
+     */
+    static void applyListDefault(Context context, String value, String target) {
+        synchronized (MODEL_SELECTION_LOCK) {
+            SharedPreferences prefs = shared(context);
+            boolean seen = prefs.contains(KEY_LIST_DEFAULT_SEEN);
+            String last = prefs.getString(KEY_LIST_DEFAULT_SEEN, null);
+            if (value == null) {
+                if (seen) {
+                    prefs.edit().remove(KEY_LIST_DEFAULT_SEEN).commit();
+                }
+                return;
+            }
+            if (value.equals(last)) {
+                return;
+            }
+            SharedPreferences.Editor editor = prefs.edit().putString(KEY_LIST_DEFAULT_SEEN, value);
+            if (target != null && !target.isEmpty() && containsProfile(promptProfiles(context), target)) {
+                editor.putString(KEY_ACTIVE_PRESET, target);
+            }
+            editor.commit();
+        }
+    }
+
+    static boolean isListStyle(String id) {
+        return ListStyles.isListStyle(id);
     }
 
     static PromptProfile promptProfile(Context context, String id) {
@@ -668,6 +721,9 @@ final class Prefs {
             String styleGuidance
     ) {
         String sanitized = sanitizeEditablePreset(id);
+        if (ListStyles.isListStyle(sanitized)) {
+            return; // edited in the word lists, never on the phone
+        }
         List<PromptProfile> profiles = promptProfiles(context);
         for (int i = 0; i < profiles.size(); i++) {
             if (profiles.get(i).id.equals(sanitized)) {
@@ -689,6 +745,9 @@ final class Prefs {
 
     static String styleGuidanceForPreset(Context context, String preset) {
         String sanitized = sanitizeEditablePreset(preset);
+        if (ListStyles.isListStyle(sanitized)) {
+            return "";
+        }
         return shared(context).getString(
                 KEY_STYLE_GUIDANCE_PREFIX + sanitized,
                 defaultStyleGuidance(sanitized)
@@ -729,7 +788,8 @@ final class Prefs {
         return !PRESET_CASUAL.equals(sanitized)
                 && !PRESET_CLEAN.equals(sanitized)
                 && !PRESET_FAMILY.equals(sanitized)
-                && !isFunVoiceStyle(sanitized);
+                && !isFunVoiceStyle(sanitized)
+                && !ListStyles.isListStyle(sanitized);
     }
 
     static void deletePromptProfile(Context context, String id) {
@@ -891,6 +951,26 @@ final class Prefs {
 
     static void setLanguageKeyBehaviour(Context context, LanguageKey.Behaviour behaviour) {
         shared(context).edit().putString(KEY_LANGUAGE_KEY, behaviour.prefsValue).apply();
+    }
+
+    /** 0.9.3: what a new field opens on ({@link KeyboardOpening}): the last keyboard (default) or English. */
+    static String keyboardOpenOn(Context context) {
+        return KeyboardOpening.sanitizeOpenOn(shared(context).getString("keyboard_open_on", ""));
+    }
+
+    static void setKeyboardOpenOn(Context context, String value) {
+        shared(context).edit().putString("keyboard_open_on", KeyboardOpening.sanitizeOpenOn(value)).apply();
+    }
+
+    /** 0.9.3: the letter keyboard last chosen ({@link KeyboardOpening#remember}); null when none yet. */
+    static String rememberedKeyboard(Context context) {
+        return shared(context).getString("keyboard_last_used", null);
+    }
+
+    static void setRememberedKeyboard(Context context, String value) {
+        if (value != null) {
+            shared(context).edit().putString("keyboard_last_used", value).apply();
+        }
     }
 
     /**
@@ -1213,6 +1293,10 @@ final class Prefs {
         if (preset != null && preset.startsWith("custom_")) {
             return "Custom";
         }
+        if (ListStyles.isListStyle(preset)) {
+            WordLayer.Style style = ListStyles.find(preset);
+            return style == null ? "Word list style" : style.label;
+        }
         return "Friends";
     }
 
@@ -1248,6 +1332,9 @@ final class Prefs {
         if (preset != null && preset.startsWith("custom_")) {
             return "✨";
         }
+        if (ListStyles.isListStyle(preset)) {
+            return LIST_STYLE_ICON;
+        }
         return "🙂";
     }
 
@@ -1279,6 +1366,11 @@ final class Prefs {
         }
         if (isFunVoiceStyle(preset)) {
             return funPrompt(preset);
+        }
+        if (ListStyles.isListStyle(preset)) {
+            WordLayer.Style style = ListStyles.find(preset);
+            // A style the lists dropped mid-dictation tidies up as Friends.
+            return style == null ? casualPrompt() : style.prompt;
         }
         return customPrompt();
     }
@@ -1324,6 +1416,9 @@ final class Prefs {
         if (PRESET_FUN_WIZARD.equals(preset)) {
             return "Restate the message as an unmistakably theatrical fantasy wizard using several grand or archaic constructions, while preserving facts and never inventing spells, magic, prophecy, creatures, or supernatural events.";
         }
+        if (ListStyles.isListStyle(preset)) {
+            return "";
+        }
         if (preset != null && preset.startsWith("custom_")) {
             return "Follow this voice style's name and the speaker's wording. Keep the result natural for the intended recipient without adding facts, emotion, nicknames, or emojis that were not requested.";
         }
@@ -1340,7 +1435,7 @@ final class Prefs {
         if (PRESET_PROFESSIONAL.equals(preset)) {
             return PRESET_BUSINESS;
         }
-        if (preset.startsWith("custom_")) {
+        if (preset.startsWith("custom_") || ListStyles.isListStyle(preset)) {
             return preset;
         }
         if (PRESET_BUSINESS.equals(preset)
@@ -1658,6 +1753,9 @@ final class Prefs {
     private static void writePromptProfiles(Context context, List<PromptProfile> profiles) {
         JSONArray array = new JSONArray();
         for (PromptProfile profile : profiles) {
+            if (ListStyles.isListStyle(profile.id)) {
+                continue; // the word lists' styles are never stored on the phone
+            }
             JSONObject item = new JSONObject();
             try {
                 item.put("id", profile.id);

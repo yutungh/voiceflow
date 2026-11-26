@@ -23,10 +23,13 @@ public class DictationLanguageTest {
         assertFalse(DictationLanguage.AUTO.isChinese());
     }
 
-    /** English rides along so a dropped-in English word still transcribes. */
+    /**
+     * English rides along so a dropped-in English word still transcribes. 0.9.3:
+     * Mandarin is asked for as zh-cn (Simplified), the regional code OpenAI documents.
+     */
     @Test
     public void chineseKeepsEnglishForCodeSwitching() {
-        assertArrayEquals(new String[]{"zh", "en"}, DictationLanguage.CHINESE.openAiLanguages());
+        assertArrayEquals(new String[]{"zh-cn", "en"}, DictationLanguage.CHINESE.openAiLanguages());
         assertTrue(DictationLanguage.CHINESE.isChinese());
     }
 
