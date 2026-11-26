@@ -6,6 +6,7 @@
 	import { wordLists } from '$lib/profile/service.svelte';
 	import {
 		localAppRules,
+		onLocalAppRulesChange,
 		refreshLocalAppRules,
 		removeAppStyle,
 		replaceAppStyle,
@@ -44,8 +45,11 @@
 		void localVersion;
 		return new Map(localAppRules());
 	});
+	// Any change to them (here, or a feedback fix or its Undo) re-renders.
 	$effect(() => {
-		void refreshLocalAppRules().then(() => (localVersion += 1));
+		const stop = onLocalAppRulesChange(() => (localVersion += 1));
+		void refreshLocalAppRules();
+		return stop;
 	});
 
 	const device = $derived(
@@ -144,19 +148,23 @@
 	}
 
 	async function undoRemove() {
-		clearInterval(undoTimer);
 		const u = undo;
+		if (!u || busy) return;
+		clearInterval(undoTimer);
 		undo = null;
-		if (!u) return;
-		// Only while the app has no newer setting: an older one must not come
-		// back under a choice made since.
-		const now = rulesIn(wordLists.snapshot, new Map(localAppRules())).find((r) => r.app === u.app);
-		if (now && now.editIds.length > 0) {
-			notice = `${u.name} has a newer setting, so the removed one wasn’t brought back.`;
-			return;
+		busy = u.app;
+		try {
+			// Only while the app has no newer setting: an older one must not
+			// come back under a choice made since (checked again in the store,
+			// right before writing).
+			const now = rulesIn(wordLists.snapshot, new Map(localAppRules())).find((r) => r.app === u.app);
+			const brought =
+				!(now && now.editIds.length > 0) && (await undoRemoveAppStyle(u.app, u.tombstones));
+			if (!brought) notice = `${u.name} has a newer setting, so the removed one wasn’t brought back.`;
+			await changed();
+		} finally {
+			busy = null;
 		}
-		await undoRemoveAppStyle(u.tombstones);
-		await changed();
 	}
 
 	// ---- add an app -----------------------------------------------------------
@@ -317,7 +325,7 @@
 	<div class="vf toast" role="status">
 		<Icon name="trash" weight="duotone" />
 		<span class="tmsg"><b>{undo.name}’s style removed.</b> Undo within 8 seconds.</span>
-		<button class="btn pri" type="button" onclick={undoRemove}><span>Undo</span></button>
+		<button class="btn pri" type="button" disabled={busy !== null} onclick={undoRemove}><span>Undo</span></button>
 		<span class="tcount num">{Math.ceil(undo.left / 1000)} s</span>
 		<span class="tbar"><i style="width:{(undo.left / 8000) * 100}%"></i></span>
 	</div>

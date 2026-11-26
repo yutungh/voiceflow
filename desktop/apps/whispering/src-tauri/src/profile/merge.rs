@@ -1072,7 +1072,7 @@ mod tests {
         );
         let a = op("a", "2026-01-01T00:00:00Z", r#""type":"app-style","app":"kite.exe","style":"vf-builtin-friends""#);
         let b = op("b", "2026-01-02T00:00:00Z", r#""type":"app-style","app":"kite.exe","expression":3"#);
-        let c = op("c", "2026-01-03T00:00:00Z", r#""type":"app-style","app":"telegram.exe","style":"vf-pc-.v1.st.g_x"#);
+        let c = op("c", "2026-01-03T00:00:00Z", r#""type":"app-style","app":"telegram.exe","style":"vf-pc-.v1.st.g_x""#);
         let snap = merge("tester", &[(Layer::Personal, Some(&personal))], &[a, b, c]);
         let rule = |id: &str| snap.apps.iter().find(|r| r["id"] == id).cloned().unwrap();
         let kite = rule("kite.exe");

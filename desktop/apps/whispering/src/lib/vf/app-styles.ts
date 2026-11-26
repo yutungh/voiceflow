@@ -50,7 +50,8 @@ export function styleChoices(snapshot: ProfileSnapshot | null, device: readonly 
 			group: 'lists',
 			...(typeof s.expression === 'number' ? { ownLevel: s.expression } : {}),
 		}));
-	const taken = new Set(lists.map((c) => c.ref));
+	// Every word-list id, hidden ones too: a reference finds theirs first.
+	const taken = new Set((snapshot?.styles ?? []).map((s) => s.id));
 	const own: StyleChoice[] = [];
 	for (const s of device) {
 		const ref = styleRefOf(s.id);

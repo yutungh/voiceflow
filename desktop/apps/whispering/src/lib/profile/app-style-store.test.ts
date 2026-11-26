@@ -87,8 +87,31 @@ describe('the app-style store', () => {
 		expect(liveAppStyleOps(ops, 'slack.exe')).toHaveLength(1);
 		// Undo is a later click (edits made in the same millisecond have no order).
 		await Bun.sleep(5);
-		await undoRemoveAppStyle(removed.tombstones);
+		expect(await undoRemoveAppStyle('telegram.exe', removed.tombstones)).toBe(true);
 		ops = await loadOps();
 		expect(activeAppStyles(ops).get('telegram.exe')).toMatchObject({ style: 'vf-builtin-friends', expression: 3 });
+	});
+
+	test('Undo is refused once a newer setting exists: an old level can’t come back under it', async () => {
+		await saveAppStyle({ app: 'telegram.exe', style: 'work', expression: 1 });
+		const removed = await removeAppStyle('telegram.exe');
+		await Bun.sleep(5);
+		const newer = await replaceAppStyle({ app: 'telegram.exe', style: 'vf-builtin-friends' });
+		expect(newer.ok).toBe(true);
+		await Bun.sleep(5);
+		expect(await undoRemoveAppStyle('telegram.exe', removed.tombstones)).toBe(false);
+		const rule = activeAppStyles(await loadOps()).get('telegram.exe');
+		expect(rule?.style).toBe('vf-builtin-friends');
+		expect(rule?.expression).toBeUndefined();
+	});
+
+	test('a page showing the rules hears every change', async () => {
+		const { onLocalAppRulesChange } = await import('./op-store');
+		let heard = 0;
+		const stop = onLocalAppRulesChange(() => (heard += 1));
+		await saveAppStyle({ app: 'kite.exe', expression: 2 });
+		stop();
+		await saveAppStyle({ app: 'kite.exe', expression: 3 });
+		expect(heard).toBe(1);
 	});
 });

@@ -138,7 +138,8 @@ export function availableStyles(
 	const styles = (snapshot?.styles ?? [])
 		.filter((s) => s.hidden !== true)
 		.map((s) => ({ id: s.id, name: s.label || s.id }));
-	const taken = new Set(styles.map((s) => s.id));
+	// Every word-list id, hidden ones too: a reference finds theirs first.
+	const taken = new Set((snapshot?.styles ?? []).map((s) => s.id));
 	for (const d of deviceStyles) {
 		const ref = styleRefOf(d.id);
 		if (!ref || ref === 'raw' || taken.has(ref)) continue;

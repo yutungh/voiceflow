@@ -122,6 +122,18 @@ export function localAppRules(): ReadonlyMap<string, LocalAppRule> {
 	return appRuleCache;
 }
 
+const appRuleListeners = new Set<() => void>();
+
+/**
+ * VoiceFlow 0.9.21: called after every re-read of this device's app rules
+ * (a Settings change, a feedback fix or its Undo), so a page showing them
+ * stays current. Returns the unsubscribe.
+ */
+export function onLocalAppRulesChange(listener: () => void): () => void {
+	appRuleListeners.add(listener);
+	return () => appRuleListeners.delete(listener);
+}
+
 /** Re-reads this device's edits into the app-rule cache. */
 export async function refreshLocalAppRules(): Promise<void> {
 	try {
@@ -129,6 +141,7 @@ export async function refreshLocalAppRules(): Promise<void> {
 	} catch (error) {
 		console.warn('[profile-ops] could not read app rules', error);
 	}
+	for (const listener of appRuleListeners) listener();
 }
 
 async function writeOp(op: ProfileOp): Promise<void> {
@@ -447,11 +460,24 @@ export async function removeAppStyle(
 	return message ? { ok: false, message, tombstones } : { ok: true, tombstones };
 }
 
-/** VoiceFlow 0.9.21: Undo for `removeAppStyle`: the tombstones' own tombstones. */
-export async function undoRemoveAppStyle(tombstones: readonly TombstoneOp[]): Promise<void> {
+/**
+ * VoiceFlow 0.9.21: Undo for `removeAppStyle`: the tombstones' own
+ * tombstones. Refused (false, nothing written) once the app has a newer
+ * edit on this device: bringing the removed ones back would put an older
+ * level under the newer choice (any live edit for the app that the
+ * removal didn't retire is newer).
+ */
+export async function undoRemoveAppStyle(
+	app: string,
+	tombstones: readonly TombstoneOp[],
+): Promise<boolean> {
+	const removed = new Set(tombstones.map((t) => t.target));
+	const live = liveAppStyleOps(await loadOps(), app.trim().toLowerCase());
+	if (live.some((op) => !removed.has(op.id))) return false;
 	for (const t of tombstones) await writeOpFile({ ...newBase(), type: 'tombstone', target: t.id });
 	await refreshLocalAppRules();
 	await wordLists.editsChanged();
+	return true;
 }
 
 /** Whether an edit is still in force on this device (not undone). */
