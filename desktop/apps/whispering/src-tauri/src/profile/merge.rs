@@ -558,6 +558,8 @@ pub fn merge(user: &str, layers: &[(Layer, Option<&ProfileFile>)], ops: &[Op]) -
                 }
                 if let Some(expression) = expression {
                     map.insert("expression".into(), Value::from(*expression));
+                    // 0.9.21: the edit the level comes from (absent: the word lists').
+                    map.insert("expressionEditId".into(), Value::String(op.id.clone()));
                 }
                 map.insert("editId".into(), Value::String(op.id.clone()));
                 let ids = map.entry("editIds").or_insert_with(|| Value::Array(Vec::new()));
@@ -728,7 +730,6 @@ fn apply_style_patch(s: &mut MergedStyle, p: &StylePatch) {
     }
 }
 
-/// FNV-1a 64 over the merged content (issues excluded): same content, same id.
 /// VoiceFlow 0.9.21: the built-in styles an app rule may name by their fixed
 /// ids (`vf-builtin-<key>`; the same list as `BUILT_IN_STYLE_REFS` in
 /// `src/lib/profile/style-refs.ts`, and a test there checks this one).
@@ -777,6 +778,7 @@ pub fn device_style_ref(style: &str) -> bool {
     (1..=40).contains(&decoded)
 }
 
+/// FNV-1a 64 over the merged content (issues excluded): same content, same id.
 pub fn snapshot_id(s: &Snapshot) -> String {
     let content = serde_json::json!({
         "user": s.user,
@@ -1081,7 +1083,9 @@ mod tests {
         assert_eq!(kite["editId"], "dev1-b");
         assert_eq!(kite["editIds"], serde_json::json!(["dev1-a", "dev1-b"]));
         assert_eq!(kite["listsRule"], serde_json::json!({ "style": "work", "expression": 1 }));
+        assert_eq!(kite["expressionEditId"], "dev1-b", "the level is the edit's, not the lists'");
         assert_eq!(rule("telegram.exe")["listsRule"], Value::Null, "no word-list rule under it");
+        assert!(rule("telegram.exe").get("expressionEditId").is_none());
         // Built-in and this-PC references are styles the app has: no issue.
         assert!(!snap.issues.iter().any(|i| i.code == "missing-style"), "{:?}", snap.issues);
         // A rule with no edits has neither field.

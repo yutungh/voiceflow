@@ -105,6 +105,16 @@ describe('feedback can switch an app to a built-in style', () => {
 		expect(req.data.styles_available.map((s) => s.id)).toContain('vf-builtin-ai-prompt');
 	});
 
+	test('a hidden word-list style with a built-in’s id hides that built-in from the model', () => {
+		const hidden: ProfileSnapshot = {
+			...SNAPSHOT,
+			styles: [...SNAPSHOT.styles, { id: 'vf-builtin-friends', label: 'Old friends', prompt: 'p', layer: 'personal', hidden: true }],
+		};
+		const ids = availableStyles(hidden, DEVICE).map((s) => s.id);
+		expect(ids).not.toContain('vf-builtin-friends');
+		expect(ids).toContain('vf-builtin-ai-prompt');
+	});
+
 	test('reviewed with word lists on, and with them off (it used to need word lists)', () => {
 		for (const snapshot of [SNAPSHOT, null]) {
 			const { fixes, dropped } = reviewProposals([toFriends], ctx({ snapshot }));

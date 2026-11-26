@@ -131,13 +131,11 @@ export function rulesIn(
 						}
 					: null;
 		const app = r.id.toLowerCase();
-		// The level comes from the word lists' rule when this PC's edits set
-		// none and the lists' rule has this one ("Automatic" over a list level).
+		// The level comes from the word lists' rule when no edit in force set
+		// it ("Automatic" over a list level): the merge names the edit that
+		// did (`expressionEditId`), another device's cached edit included.
 		const levelFromLists =
-			editIds.length > 0 &&
-			expression !== undefined &&
-			listsRule?.expression === expression &&
-			local.get(app)?.expression === undefined;
+			editIds.length > 0 && expression !== undefined && typeof r.expressionEditId !== 'string';
 		out.push({
 			app,
 			...(style !== undefined ? { style } : {}),

@@ -71,6 +71,13 @@ describe('the styles to choose from', () => {
 		const c = styleChoices(snapshot([], [style('vf-builtin-friends', 'Our friends')]), DEVICE);
 		expect(c.filter((x) => x.ref === 'vf-builtin-friends').map((x) => x.label)).toEqual(['Our friends']);
 	});
+
+	test('a hidden word-list style still takes its id: the built-in with that id isn’t offered', () => {
+		// The reference would find the hidden word-list style, not the built-in.
+		const c = styleChoices(snapshot([], [style('vf-builtin-friends', 'Old friends', { hidden: true })]), DEVICE);
+		expect(c.some((x) => x.ref === 'vf-builtin-friends')).toBe(false);
+		expect(c.some((x) => x.ref === 'vf-builtin-clean')).toBe(true);
+	});
 });
 
 describe('each app’s row', () => {
@@ -119,9 +126,12 @@ describe('each app’s row', () => {
 		const [row] = rows(snap);
 		expect(row?.level).toBeNull();
 		expect(row?.autoNote).toBe('Lively, from your word lists');
-		// When this PC's own edit set the level, it is the person's choice.
-		const [mine] = rows(snap, new Map([['telegram.exe', { style: 'vf-builtin-friends', expression: 3, editIds: ['a'] }]]));
+		expect(row?.summary).toBe('Telegram starts in Friends, Lively');
+		// When an edit set the level (the same value, even another device's
+		// cached one), it is the person's choice.
+		const [mine] = rows(snapshot([{ ...(snap.apps[0] as object), expressionEditId: 'a' }]));
 		expect(mine?.level).toBe(3);
+		expect(mine?.autoNote).toBe('');
 	});
 
 	test('a style that isn’t on this PC: says so, and that the default is used', () => {

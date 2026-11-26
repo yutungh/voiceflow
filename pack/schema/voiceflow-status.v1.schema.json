@@ -19,7 +19,8 @@
 			"description": "What this app version reads, for the readers-before-writers rule (pack/README.md, Versions): a writer of a newer profile version or a new edit type starts only once every device of the user lists it here. Absent: an app from before this field, or a phone: it counts as reading profile version 1 and the edit types correction, term and tombstone only.",
 			"properties": {
 				"profile": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "description": "The voiceflow-profile schemaVersions it reads." },
-				"op": { "type": "array", "items": { "type": "string" }, "description": "The voiceflow-op types it reads." }
+				"op": { "type": "array", "items": { "type": "string" }, "description": "The voiceflow-op types it reads." },
+				"features": { "type": "array", "items": { "type": "string" }, "description": "What it reads beyond the edit types. \"app-style-device-refs-v1\" (VoiceFlow Desktop 0.9.21): an app rule's style may name a built-in or a style made on a PC (pack/README.md, Style references in app rules); app-style edits are shared only once every device lists it." }
 			}
 		},
 		"profile": {
