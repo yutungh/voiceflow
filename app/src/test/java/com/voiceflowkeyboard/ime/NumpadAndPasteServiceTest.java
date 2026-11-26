@@ -123,9 +123,9 @@ public class NumpadAndPasteServiceTest {
         startField(NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
         assertNull(key("q"));
         tap("1");
-        tap("2");
+        tap("2, A B C");
         tap(".");
-        tap("5");
+        tap("5, J K L");
         assertEquals("12.5", text());
         assertNotNull(key("Switch to letters"));
     }
@@ -144,6 +144,30 @@ public class NumpadAndPasteServiceTest {
         assertNull(key("."));
         assertNull(key("-"));
         assertNull(key("space"));
+    }
+
+    @Test public void numberOnlyPadsShowDialerLettersAndTypeOnlyTheDigit() {
+        for (int type : new int[]{NUMBER, NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD,
+                InputType.TYPE_CLASS_PHONE}) {
+            startField(type);
+            TextView two = (TextView) key("2, A B C");
+            assertNotNull("type " + type, two);
+            assertEquals("2\nABC", two.getText().toString());
+            assertNotNull("type " + type, key("7, P Q R S"));
+            assertNotNull("type " + type, key("9, W X Y Z"));
+            tap("2, A B C");
+            tap("7, P Q R S");
+            tap("1");
+            tap("0");
+            assertEquals("2710", text());
+        }
+    }
+
+    @Test public void aNumberPadOpenedInATextFieldHasPlainDigits() {
+        tap("123");
+        tap("Open number pad");
+        assertNull(key("2, A B C"));
+        assertEquals("2", ((TextView) key("2")).getText().toString());
     }
 
     @Test public void abcStaysWhenTheSameFieldRestarts() {
@@ -221,9 +245,9 @@ public class NumpadAndPasteServiceTest {
         ReflectionHelpers.callInstanceMethod(service, "setInputMode",
                 ClassParameter.from(InputMode.class, InputMode.CHINESE_KEYPAD));
         startField(NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        tap("2");
+        tap("2, A B C");
         tap(".");
-        tap("5");
+        tap("5, J K L");
         assertEquals("2.5", text());
     }
 
