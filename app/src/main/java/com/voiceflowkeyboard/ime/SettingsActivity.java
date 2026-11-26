@@ -654,6 +654,10 @@ public class SettingsActivity extends Activity {
             chinese.addView(Ui.divider(this, 16));
             chinese.addView(Ui.row(this, 0, Ui.Tile.NEUTRAL, "Language key",
                     languageKeySummary(), v -> showLanguageKeyDialog()));
+            // 0.9.3: which keyboard a new field opens on.
+            chinese.addView(Ui.divider(this, 16));
+            chinese.addView(Ui.row(this, 0, Ui.Tile.NEUTRAL, "Open on",
+                    openOnLabel(Prefs.keyboardOpenOn(this)), v -> showOpenOnDialog()));
             // 0.9.0: which engine turns pinyin into Chinese, and forgetting what it learned.
             chinese.addView(Ui.divider(this, 16));
             chinese.addView(Ui.row(this, 0, Ui.Tile.NEUTRAL, "Chinese engine",
@@ -889,6 +893,24 @@ public class SettingsActivity extends Activity {
     private String languageKeySummary() {
         return LanguageKey.describe(Prefs.languageKeyBehaviour(this),
                 InputMode.chineseFor(Prefs.chineseLayout(this)));
+    }
+
+    private static String openOnLabel(String value) {
+        return KeyboardOpening.OPEN_ENGLISH.equals(value) ? "Always English" : "Last used keyboard";
+    }
+
+    private void showOpenOnDialog() {
+        String[] values = {KeyboardOpening.OPEN_LAST_USED, KeyboardOpening.OPEN_ENGLISH};
+        String[] labels = {"Last used keyboard (default)", "Always English"};
+        int checked = KeyboardOpening.OPEN_ENGLISH.equals(Prefs.keyboardOpenOn(this)) ? 1 : 0;
+        new AlertDialog.Builder(this)
+                .setTitle("Open on")
+                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+                    Prefs.setKeyboardOpenOn(this, values[which]);
+                    dialog.dismiss();
+                    setContentView(buildContent());
+                })
+                .show();
     }
 
     private void showLanguageKeyDialog() {

@@ -57,6 +57,9 @@ public class LanguageKeyServiceTest {
         service = controller.get();
         Prefs.setChineseInputEnabled(service, true);
         Prefs.setChineseLayout(service, Prefs.CHINESE_LAYOUT_KEYPAD);
+        // These cases are the 0.8.8 opening (always English), now the "Always English" setting.
+        // The 0.9.3 default, the last keyboard used, is tested at the end.
+        Prefs.setKeyboardOpenOn(service, KeyboardOpening.OPEN_ENGLISH);
         service.connection = new BaseInputConnection(new View(service), true);
         service.editor = editor();
         root = service.onCreateInputView();
@@ -462,5 +465,53 @@ public class LanguageKeyServiceTest {
             assertEquals("space bar on " + where, "", space.getText().toString());
             assertEquals("Space", space.getContentDescription().toString());
         }
+    }
+
+    // ------------------------------------- 0.9.3: open on the last keyboard used
+
+    private void newField(int inputType) {
+        service.editor = editor();
+        service.editor.inputType = inputType;
+        service.connection = new BaseInputConnection(new View(service), true);
+        startField(false);
+    }
+
+    @Test public void byDefaultANewFieldOpensOnTheLastKeyboardUsed() {
+        Prefs.setKeyboardOpenOn(service, KeyboardOpening.OPEN_LAST_USED);
+        tap();
+        assertEquals(InputMode.CHINESE_KEYPAD, mode());
+        newField(InputType.TYPE_CLASS_TEXT);
+        assertEquals(InputMode.CHINESE_KEYPAD, mode());
+        // Closing and reopening the keyboard keeps it too.
+        service.onWindowHidden();
+        service.onWindowShown();
+        assertEquals(InputMode.CHINESE_KEYPAD, mode());
+        // Back to English: the next field opens in English.
+        tap();
+        newField(InputType.TYPE_CLASS_TEXT);
+        assertEquals(InputMode.ENGLISH, mode());
+    }
+
+    @Test public void aPasswordFieldOpensInEnglishAndIsNotRemembered() {
+        Prefs.setKeyboardOpenOn(service, KeyboardOpening.OPEN_LAST_USED);
+        tap();
+        newField(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        assertEquals(InputMode.ENGLISH, mode());
+        assertEquals(Prefs.CHINESE_LAYOUT_KEYPAD, Prefs.rememberedKeyboard(service));
+        newField(InputType.TYPE_CLASS_TEXT);
+        assertEquals(InputMode.CHINESE_KEYPAD, mode());
+    }
+
+    @Test public void theRememberedKeyboardSurvivesTheServiceRestarting() {
+        Prefs.setKeyboardOpenOn(service, KeyboardOpening.OPEN_LAST_USED);
+        tap();
+        controller.destroy();
+        controller = Robolectric.buildService(TestService.class).create();
+        service = controller.get();
+        service.connection = new BaseInputConnection(new View(service), true);
+        service.editor = editor();
+        root = service.onCreateInputView();
+        startField(false);
+        assertEquals(InputMode.CHINESE_KEYPAD, mode());
     }
 }

@@ -95,6 +95,12 @@ public class PromptEditorActivity extends Activity {
         promptInput.setText(Prefs.promptForPreset(this, profile.id));
         promptInput.setGravity(Gravity.TOP | Gravity.START);
         prompt.addView(promptInput);
+        if (Prefs.isListStyle(promptId)) {
+            // Shown, not editable: it is edited in the word lists.
+            nameInput.setEnabled(false);
+            styleGuidanceInput.setEnabled(false);
+            promptInput.setEnabled(false);
+        }
 
         return screen;
     }
@@ -293,6 +299,12 @@ public class PromptEditorActivity extends Activity {
     }
 
     private void savePrompt() {
+        if (Prefs.isListStyle(promptId)) {
+            // 0.9.3: a word-list style is changed in the word lists, not on the phone.
+            Toast.makeText(this, "This style comes from your word lists", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
         Prefs.savePromptProfile(
                 this,
                 promptId,
