@@ -20,6 +20,11 @@ import android.os.Build;
  *       runs only if they match this phone's enrolment ({@link StyleReset}).</li>
  *   <li>{@value #ACTION_SYNC_NOW}: asks for a sync run as soon as there is a network.</li>
  *   <li>{@value #ACTION_STYLE_DIGEST}: SHA-256 of each stored style value, never the text.</li>
+ *   <li>{@value #ACTION_SET_STYLE_SPEECH} (0.9.3): extras {@code style} (a style id, a word-list
+ *       style's included: {@code list_<id>}), {@code provider} ({@code soniox}, {@code openai}, ...,
+ *       {@code app} for the app default, or {@code same} to go back to "Same as app") and optionally
+ *       {@code model}. Replies with the stored choice, what a dictation would use now, and whether
+ *       that provider's key is saved (never the key).</li>
  * </ul>
  *
  * The reply is the broadcast's result data. It never contains the token.
@@ -31,6 +36,8 @@ public final class SyncCommandReceiver extends BroadcastReceiver {
     static final String ACTION_SYNC_NOW = "com.voiceflowkeyboard.ime.action.SYNC_NOW";
     /** Hashes of every stored style setting, to compare with an archive without reading any text. */
     static final String ACTION_STYLE_DIGEST = "com.voiceflowkeyboard.ime.action.STYLE_DIGEST";
+    /** 0.9.3: a style's own speech model, set over USB ({@link SpeechModels}). */
+    static final String ACTION_SET_STYLE_SPEECH = "com.voiceflowkeyboard.ime.action.SET_STYLE_SPEECH";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -61,6 +68,9 @@ public final class SyncCommandReceiver extends BroadcastReceiver {
                 if (!StyleReset.APPLY.equals(decision)) {
                     code = 2;
                 }
+            } else if (ACTION_SET_STYLE_SPEECH.equals(action)) {
+                reply = setStyleSpeech(context, intent.getStringExtra("style"), intent.getStringExtra("provider"),
+                        intent.getStringExtra("model"));
             } else if (ACTION_STYLE_DIGEST.equals(action)) {
                 reply = Prefs.styleDigest(context);
             } else if (ACTION_SYNC_NOW.equals(action)) {
@@ -83,6 +93,50 @@ public final class SyncCommandReceiver extends BroadcastReceiver {
         }
         setResultCode(code);
         setResultData(reply);
+    }
+
+    /** Validates, stores and reads back one style's speech model. */
+    static String setStyleSpeech(Context context, String style, String provider, String model) {
+        String id = style == null ? "" : style.trim();
+        if (!id.matches("[a-z0-9][a-z0-9_.-]{0,119}")) {
+            throw new IllegalArgumentException("style must be a style id");
+        }
+        String p = provider == null ? "" : provider.trim();
+        String m = model == null ? "" : model.trim();
+        if (m.length() > 100 || !m.matches("[A-Za-z0-9._:/-]*")) {
+            throw new IllegalArgumentException("model must be a model id");
+        }
+        if ("same".equals(p)) {
+            Prefs.setSpeechModelForStyle(context, id, null);
+        } else if (SpeechModels.APP.equals(p)) {
+            Prefs.setSpeechModelForStyle(context, id, SpeechModels.APP);
+        } else if (Prefs.supportsTranscription(p)) {
+            Prefs.setSpeechModelForStyle(context, id, SpeechModels.encode(new SpeechModels.Choice(p, m)));
+        } else {
+            throw new IllegalArgumentException("provider must be same, app, or a speech provider");
+        }
+        SpeechModels.Stored stored = SpeechModels.parse(Prefs.speechModelForStyle(context, id));
+        SpeechModels.Resolved resolved = SpeechModels.atRecordStart(context, id);
+        String choice = stored.kind == SpeechModels.Kind.OWN ? stored.own.provider + "/" + stored.own.effectiveModel()
+                : stored.kind == SpeechModels.Kind.APP_DEFAULT ? "app" : "same";
+        String keyProvider = stored.kind == SpeechModels.Kind.OWN ? stored.own.provider : resolved.used.provider;
+        boolean key = Prefs.hasApiKeyForProvider(context, keyProvider);
+        return "style=" + id
+                + " choice=" + choice
+                + " resolved=" + resolved.used.provider + "/" + resolved.used.effectiveModel()
+                + (resolved.unavailable != null ? " (" + resolved.unavailable.provider + " unavailable)" : "")
+                + " key=" + (key ? "yes" : "no")
+                + " styleKnown=" + (Prefs.isListStyle(id) ? (ListStyles.find(id) != null ? "yes" : "not-yet")
+                : (containsStyle(context, id) ? "yes" : "no"));
+    }
+
+    private static boolean containsStyle(Context context, String id) {
+        for (PromptProfile profile : Prefs.promptProfiles(context)) {
+            if (profile.id.equals(id)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static String info(Context context) {

@@ -297,6 +297,11 @@ final class OpenAiClient {
                 || lower.startsWith("gpt-transcribe-");
     }
 
+    /** 0.9.3: whether a transcription with this model carries the word list (prompt or keywords). */
+    static boolean sendsVocabulary(String model) {
+        return supportsVocabularyPrompt(model);
+    }
+
     private static boolean supportsVocabularyPrompt(String model) {
         String lower = model == null ? "" : model.trim().toLowerCase(Locale.US);
         if (lower.contains("diarize")) {
