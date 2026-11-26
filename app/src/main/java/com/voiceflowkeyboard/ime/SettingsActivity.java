@@ -490,7 +490,9 @@ public class SettingsActivity extends Activity {
 
     private void buildStylesPage(LinearLayout column) {
         column.addView(Ui.header(this, "Styles", true));
-        TextView intro = Ui.text(this, "How tidy-up writes. The keyboard's style chip picks one for a single message; "
+        TextView intro = Ui.text(this, Prefs.styleChoiceRemembers(this)
+                ? "How tidy-up writes. The style you pick on the keyboard's style chip stays until you pick another."
+                : "How tidy-up writes. The keyboard's style chip picks one for a single message; "
                 + "Make default there, or Default style here, keeps it.", 13f, false, Ui.SUBTLE);
         intro.setPadding(dp(4), 0, dp(4), dp(4));
         column.addView(intro);
@@ -500,6 +502,10 @@ public class SettingsActivity extends Activity {
         defaults.addView(Ui.row(this, R.drawable.ph_sparkle, Ui.Tile.ACCENT, "Default style",
                 VoiceBar.styleLabel(Prefs.labelForPreset(this, preset), Prefs.expressionForPreset(this, preset)),
                 v -> showProfileDialog()));
+        // 0.9.4: whether a pick on the keyboard is kept (the default) or for one message.
+        defaults.addView(Ui.divider(this, 60));
+        defaults.addView(Ui.row(this, 0, Ui.Tile.NEUTRAL, "Style choice",
+                styleChoiceLabel(Prefs.styleChoiceMode(this)), v -> showStyleChoiceDialog()));
         column.addView(defaults, Ui.cardParams(this, 12));
 
         column.addView(Ui.sectionLabel(this, "Your styles"));
@@ -658,6 +664,10 @@ public class SettingsActivity extends Activity {
             chinese.addView(Ui.divider(this, 16));
             chinese.addView(Ui.row(this, 0, Ui.Tile.NEUTRAL, "Open on",
                     openOnLabel(Prefs.keyboardOpenOn(this)), v -> showOpenOnDialog()));
+            // 0.9.4: the style a dictation starts on while the Chinese keyboard is up.
+            chinese.addView(Ui.divider(this, 16));
+            chinese.addView(Ui.row(this, 0, Ui.Tile.NEUTRAL, "Style on the Chinese keyboard",
+                    chineseKeyboardStyleLabel(), v -> showChineseKeyboardStyleDialog()));
             // 0.9.0: which engine turns pinyin into Chinese, and forgetting what it learned.
             chinese.addView(Ui.divider(this, 16));
             chinese.addView(Ui.row(this, 0, Ui.Tile.NEUTRAL, "Chinese engine",
@@ -893,6 +903,62 @@ public class SettingsActivity extends Activity {
     private String languageKeySummary() {
         return LanguageKey.describe(Prefs.languageKeyBehaviour(this),
                 InputMode.chineseFor(Prefs.chineseLayout(this)));
+    }
+
+    /** "Same as English", the style's name, or its id marked missing (a word list dropped it). */
+    private String chineseKeyboardStyleLabel() {
+        String id = Prefs.chineseKeyboardStyle(this);
+        switch (KeyboardStyles.status(id, Prefs.styleIds(this))) {
+            case SET:
+                return Prefs.labelForPreset(this, id);
+            case MISSING:
+                return id + " (missing): English style used";
+            default:
+                return "Same as English";
+        }
+    }
+
+    private void showChineseKeyboardStyleDialog() {
+        List<PromptProfile> styles = Prefs.promptProfiles(this);
+        String current = Prefs.chineseKeyboardStyle(this);
+        String[] values = new String[styles.size() + 1];
+        String[] labels = new String[styles.size() + 1];
+        values[0] = "";
+        labels[0] = "Same as English (default)";
+        int checked = 0;
+        for (int i = 0; i < styles.size(); i++) {
+            values[i + 1] = styles.get(i).id;
+            labels[i + 1] = styles.get(i).displayName();
+            if (styles.get(i).id.equals(current)) {
+                checked = i + 1;
+            }
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Style on the Chinese keyboard")
+                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+                    Prefs.chooseChineseKeyboardStyle(this, values[which]);
+                    dialog.dismiss();
+                    setContentView(buildContent());
+                })
+                .show();
+    }
+
+    private static String styleChoiceLabel(String mode) {
+        return KeyboardStyles.CHOICE_ONE_MESSAGE.equals(mode) ? "Just for one message" : "Remember the last one I pick";
+    }
+
+    private void showStyleChoiceDialog() {
+        String[] values = {KeyboardStyles.CHOICE_REMEMBER, KeyboardStyles.CHOICE_ONE_MESSAGE};
+        String[] labels = {"Remember the last one I pick (default)", "Just for one message"};
+        int checked = KeyboardStyles.CHOICE_ONE_MESSAGE.equals(Prefs.styleChoiceMode(this)) ? 1 : 0;
+        new AlertDialog.Builder(this)
+                .setTitle("Style choice")
+                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+                    Prefs.setStyleChoiceMode(this, values[which]);
+                    dialog.dismiss();
+                    setContentView(buildContent());
+                })
+                .show();
     }
 
     private static String openOnLabel(String value) {

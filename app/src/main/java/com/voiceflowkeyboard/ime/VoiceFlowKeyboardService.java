@@ -183,6 +183,17 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     private long lastShiftTapMs;
     /** The style and expression for the next or current message; the only copy. */
     private final StyleChoice choice = new StyleChoice(Prefs.PRESET_CASUAL, Prefs.DEFAULT_EXPRESSION);
+    /**
+     * 0.9.4: the style the next dictation starts on, fixed once where its speech model is
+     * resolved, so the recorder never resolves it a second time. Null: resolve at the recorder.
+     */
+    private String pendingStartPreset;
+    /** 0.9.4: the letter keyboard a recording started on; a pick during it is kept for that keyboard. */
+    private boolean recordingOnChinese;
+    /** 0.9.4: the bar's head (English, Chinese) fixed for a recording, so its chips never reshuffle. */
+    private String[] recordingBarHead;
+    /** 0.9.4: when the word lists' styles arrive (a Chinese keyboard style may be one), the chip catches up. */
+    private final Runnable listStylesPublished = () -> mainHandler.post(this::reconcileIdleChoice);
     private String lastVoiceRawTranscript = "";
     private String lastVoiceInsertedText = "";
     private String lastVoicePreset = "";
@@ -351,15 +362,17 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         // The framework calls this again after a configuration change, so this
         // is the one place geometry needs to be derived.
         metrics = KeyboardMetrics.from(getResources().getConfiguration(), Prefs.splitLargeScreens(this));
-        if (!recording && !processing && !retoneMode) {
-            // A rotation mid-recording keeps that message's style.
-            String preset = Prefs.activePreset(this);
-            choice.reset(preset, Prefs.expressionForPreset(this, preset));
-        }
+        ListStyles.setListener(listStylesPublished);
         if (!chineseAvailable() && inputMode.isChinese()) {
             // Chinese was switched off in Settings while the keyboard was away.
             inputMode = InputMode.ENGLISH;
             pinyinSession = null;
+        }
+        if (!recording && !processing && !retoneMode) {
+            // A rotation mid-recording keeps that message's style. 0.9.4: the style of the
+            // letter keyboard in use, decided after the Chinese check above.
+            String preset = defaultPreset();
+            choice.reset(preset, Prefs.expressionForPreset(this, preset));
         }
         LinearLayout root = new SwipeRootLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -444,6 +457,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
 
     @Override
     public void onDestroy() {
+        ListStyles.clearListener(listStylesPublished);
         watchClipboard(false);
         mainHandler.removeCallbacks(pasteExpiryRunnable);
         stopRecorderSilently();
@@ -550,6 +564,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         });
         applyKeyboardSettingsChangedElsewhere();
         restoreKeyboardForActiveInput();
+        // 0.9.4: a style changed in Settings, over USB or by the word lists while the keyboard was away.
+        reconcileIdleChoice();
     }
 
     /**
@@ -1371,7 +1387,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         }
         CharSequence text = styleChipText(choice.preset, choice.expression);
         String description = "Style: " + VoiceBar.styleLabel(labelForPreset(choice.preset), choice.expression)
-                + ". Change for this message";
+                + (Prefs.styleChoiceRemembers(this) ? ". Change style" : ". Change for this message");
         if (styleChip != null) {
             styleChip.setText(text);
             styleChip.setContentDescription(description);
@@ -2835,8 +2851,124 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         return true;
     }
 
+    /**
+     * 0.9.4: the saved style of the letter keyboard in use (the Chinese keyboard's own when
+     * it names one, {@link KeyboardStyles}). During a recording, the keyboard it started on.
+     */
     private String defaultPreset() {
-        return Prefs.activePreset(this);
+        return Prefs.keyboardStyle(this, styleSlotChinese());
+    }
+
+    /** 0.9.4: whether the style slot in use is the Chinese keyboard's. */
+    private boolean styleSlotChinese() {
+        return recording || processing ? recordingOnChinese : inputMode.isChinese();
+    }
+
+    /**
+     * 0.9.4: an idle chip that isn't a one-off follows the saved style of the keyboard in use
+     * (a keyboard switch, a change in Settings or over USB, the word lists arriving).
+     */
+    private void reconcileIdleChoice() {
+        if (recording || processing || retoneMode || choice.oneOff) {
+            return;
+        }
+        String preset = defaultPreset();
+        int expression = Prefs.expressionForPreset(this, preset);
+        if (!choice.differsFrom(preset, expression)) {
+            return;
+        }
+        choice.reset(preset, expression);
+        refreshStyleChips();
+        if (styleSheetOpen()) {
+            showVoiceStyleOverlay();
+        }
+    }
+
+    /**
+     * 0.9.4: the choice a recording starts with: the style fixed where its speech model was
+     * resolved (or, for text creation and the like, the saved style now), and the keyboard
+     * and bar order it started on.
+     */
+    private void startChoiceForRecording() {
+        String preset = pendingStartPreset;
+        pendingStartPreset = null;
+        if (preset == null) {
+            preset = choice.presetAtStart(defaultPreset());
+        }
+        recordingOnChinese = inputMode.isChinese();
+        recordingBarHead = barHead(panelStyleIds());
+        choice.startRecording(preset, Prefs.expressionForPreset(this, preset));
+    }
+
+    /** 0.9.4: Style choice is Remember, and this is a pick that may be kept. */
+    private boolean remembersPicks() {
+        return !retoneMode && !instructionCapture && Prefs.styleChoiceRemembers(this);
+    }
+
+    /**
+     * 0.9.4: with Style choice on Remember, the style just picked is kept for the letter
+     * keyboard in use. On the Chinese keyboard with "Same as English", picking the English
+     * style leaves it the same as English.
+     */
+    private void rememberPick() {
+        if (!remembersPicks()) {
+            return;
+        }
+        boolean chinese = styleSlotChinese();
+        boolean inherits = chinese && chineseAvailable()
+                && Prefs.chineseKeyboardStyle(this).isEmpty()
+                && choice.preset.equals(Prefs.activePreset(this));
+        if (!inherits) {
+            Prefs.saveKeyboardStyle(this, chinese, choice.preset);
+        }
+        choice.makeDefault();
+    }
+
+    /** 0.9.4: with Style choice on Remember, a new expression is the style's own from now on. */
+    private void rememberExpression() {
+        if (!remembersPicks()) {
+            return;
+        }
+        Prefs.setExpressionForPreset(this, choice.preset, choice.expression);
+        choice.makeDefault();
+    }
+
+    /** Which keyboard a saved style is for, in the sheet's words; "" without Chinese input. */
+    private String styleSlotName() {
+        if (!chineseAvailable()) {
+            return "";
+        }
+        return styleSlotChinese() ? "Chinese" : "English";
+    }
+
+    /** The head of the bar: the English style, and the Chinese keyboard's (null when it has none). */
+    private String[] barHead(List<String> ids) {
+        if ((recording || processing) && recordingBarHead != null) {
+            return recordingBarHead;
+        }
+        return new String[]{Prefs.activePreset(this),
+                KeyboardStyles.barChinese(chineseAvailable(), Prefs.chineseKeyboardStyle(this), ids)};
+    }
+
+    /** The styles on the bar, in order: {@link StylePins#onBar}, led by the keyboards' styles. */
+    private List<String> barPins(List<String> ids, List<String> funIds, String selected) {
+        String[] head = barHead(ids);
+        return KeyboardStyles.barOrder(StylePins.onBar(ids, funIds, Prefs.pinnedStyles(this), selected),
+                head[0], head[1], ids);
+    }
+
+    /** "Style" in Remember mode; the 0.9.3 one-message titles otherwise. */
+    private String styleTitle() {
+        if (Prefs.styleChoiceRemembers(this)) {
+            return "Style";
+        }
+        return translationCapture ? "Style for this translation"
+                : creationCapture ? "Style for this text" : "Style for this message";
+    }
+
+    private String pickAnnouncement() {
+        String label = VoiceBar.styleLabel(labelForPreset(choice.preset), choice.expression);
+        return "Style " + label + (Prefs.styleChoiceRemembers(this) ? "" : " for this message");
     }
 
     private int defaultExpression() {
@@ -2913,8 +3045,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         header.setGravity(Gravity.CENTER_VERTICAL);
         String title = compactBar ? "Style"
                 : retoneMode ? "Retone in another style"
-                : translationCapture ? "Style for this translation"
-                        : creationCapture ? "Style for this text" : "Style for this message";
+                : styleTitle();
         TextView titleView = barText(title, 16, true, ui.fg);
         heading(titleView);
         titleView.setSingleLine(true);
@@ -2978,7 +3109,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         }
         FlowRow pinned = new FlowRow(this, dp(8), dp(0));
         pinned.setContentDescription("On the bar");
-        for (String id : StylePins.onBar(ids, funIds, Prefs.pinnedStyles(this), choice.preset)) {
+        for (String id : barPins(ids, funIds, choice.preset)) {
             pinned.addView(sheetStyleChip(Prefs.promptProfile(this, id)), new ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     dp(48)
@@ -2986,7 +3117,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         }
         body.addView(pinned);
         if (allStylesOpen) {
-            List<String> pins = StylePins.onBar(ids, funIds, Prefs.pinnedStyles(this), null);
+            List<String> pins = barPins(ids, funIds, null);
             for (PromptProfile style : styles) {
                 body.addView(allStylesRow(style, pins, ids, funIds));
             }
@@ -3012,20 +3143,36 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         footer.setOrientation(LinearLayout.HORIZONTAL);
         footer.setGravity(Gravity.CENTER_VERTICAL);
         footer.setPadding(0, 0, dp(8), 0);
-        // Make default when the choice differs; otherwise say what the default is.
-        boolean canMakeDefault = !retoneMode && choice.differsFrom(defaultPreset(), defaultExpression());
+        // Make default when the choice differs; otherwise say what the default is. 0.9.4: on
+        // Remember a pick is already kept, so the line says for which keyboard; with Chinese
+        // input on, Make default names the keyboard it saves for.
+        boolean remember = Prefs.styleChoiceRemembers(this);
+        String slot = styleSlotName();
+        boolean canMakeDefault = !retoneMode && !remember && choice.differsFrom(defaultPreset(), defaultExpression());
         String defaultLabel = VoiceBar.styleLabel(labelForPreset(defaultPreset()), defaultExpression());
-        TextView makeDefault = barText(canMakeDefault ? "Make default"
-                        : retoneMode ? "Your default stays " + labelForPreset(defaultPreset())
-                        : "Default: " + defaultLabel,
+        String footerText;
+        String footerDescription;
+        if (canMakeDefault) {
+            footerText = slot.isEmpty() ? "Make default" : "Make default for " + slot;
+            footerDescription = "Make " + VoiceBar.styleLabel(labelForPreset(choice.preset), choice.expression)
+                    + " your default" + (slot.isEmpty() ? "" : " for " + slot);
+        } else if (retoneMode) {
+            footerText = "Your default stays " + labelForPreset(defaultPreset());
+            footerDescription = "Your default is " + defaultLabel;
+        } else if (remember) {
+            footerText = slot.isEmpty() ? "Kept for your next messages" : "Kept for the " + slot + " keyboard";
+            footerDescription = VoiceBar.styleLabel(labelForPreset(choice.preset), choice.expression) + ", " + footerText;
+        } else {
+            footerText = (slot.isEmpty() ? "Default: " : "Default for " + slot + ": ") + defaultLabel;
+            footerDescription = "Your default" + (slot.isEmpty() ? "" : " for " + slot) + " is " + defaultLabel;
+        }
+        TextView makeDefault = barText(footerText,
                 canMakeDefault ? 14 : 12.5f, canMakeDefault, canMakeDefault ? ui.muted : ui.subtle);
         makeDefault.setMinHeight(dp(48));
         makeDefault.setMaxLines(2);
         makeDefault.setPadding(dp(2), 0, dp(12), 0);
         makeDefault.setClickable(canMakeDefault);
-        makeDefault.setContentDescription(canMakeDefault
-                ? "Make " + VoiceBar.styleLabel(labelForPreset(choice.preset), choice.expression) + " your default"
-                : "Your default is " + defaultLabel);
+        makeDefault.setContentDescription(footerDescription);
         makeDefault.setOnClickListener(v -> {
             haptic(v);
             makeChoiceDefault();
@@ -3133,13 +3280,24 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         name.setContentDescription("Style " + style.name + (selected ? ", chosen" : ""));
         name.setOnClickListener(v -> pickStyle(style.id, v));
         row.addView(name, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        // 0.9.4: the English and Chinese keyboards' styles lead the bar by themselves.
+        String[] head = barHead(ids);
+        boolean fixed = KeyboardStyles.fixedOnBar(style.id, head[0], head[1]);
         ImageButton pin = iconButton(isPinned ? R.drawable.ph_push_pin_fill : R.drawable.ph_push_pin,
-                (isPinned ? "Take " : "Put ") + style.name + (isPinned ? " off the bar" : " on the bar"), v -> {
+                fixed ? style.name + " stays on the bar: a keyboard's style"
+                        : (isPinned ? "Take " : "Put ") + style.name + (isPinned ? " off the bar" : " on the bar"), v -> {
+                    if (fixed) {
+                        return;
+                    }
                     haptic(v);
+                    // Only her own pins are stored; the keyboards' styles are added when drawn.
                     Prefs.setPinnedStyles(this, StylePins.toggle(StylePins.onBar(ids, funIds, Prefs.pinnedStyles(this), null), style.id));
                     showVoiceStyleOverlay();
                 });
         pin.setColorFilter(isPinned ? ui.accent : ui.subtle);
+        if (fixed) {
+            pin.setAlpha(0.5f);
+        }
         row.addView(pin);
         return row;
     }
@@ -3151,6 +3309,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         }
         haptic(view);
         choice.pick(preset, Prefs.expressionForPreset(this, preset));
+        rememberPick();
         refreshStyleChips();
         if (recording && capturePanel) {
             // From a chip or from More: back to the panel, a style from More keeping
@@ -3164,20 +3323,25 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         } else {
             showVoiceStyleOverlay();
         }
-        announce("Style " + VoiceBar.styleLabel(labelForPreset(choice.preset), choice.expression) + " for this message");
+        announce(pickAnnouncement());
     }
 
-    /** Make default: the only thing that saves a choice from the sheet. */
+    /**
+     * Make default (Style choice: Just for one message): the only thing that saves a choice
+     * from the sheet. 0.9.4: for the letter keyboard in use (the Chinese keyboard's own slot there).
+     */
     private void makeChoiceDefault() {
         if (retoneMode) {
             return;
         }
-        Prefs.setActivePreset(this, choice.preset);
+        String slot = styleSlotName();
+        Prefs.saveKeyboardStyle(this, styleSlotChinese(), choice.preset);
         Prefs.setExpressionForPreset(this, choice.preset, choice.expression);
         choice.makeDefault();
         refreshStyleChips();
         showVoiceStyleOverlay();
-        announce("Default is now " + VoiceBar.styleLabel(labelForPreset(choice.preset), choice.expression));
+        announce("Default" + (slot.isEmpty() ? "" : " for " + slot) + " is now "
+                + VoiceBar.styleLabel(labelForPreset(choice.preset), choice.expression));
     }
 
     /**
@@ -3244,6 +3408,9 @@ public class VoiceFlowKeyboardService extends InputMethodService {
                 }
                 if (fromUser) {
                     choice.setExpression(progress);
+                    // 0.9.4: on Remember, kept as the style's own expression (every change,
+                    // so a key or TalkBack step counts as much as a drag).
+                    rememberExpression();
                     refreshStyleChips();
                 }
                 int level = Prefs.sanitizeExpression(progress);
@@ -3264,7 +3431,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
-                // One message only: nothing is saved here. Make default saves it.
+                // One message only (Style choice: Just for one message): nothing is saved
+                // here; Make default saves it. On Remember it was kept as it changed.
                 refreshStyleChips();
                 if (!inPanel && styleSheetOpen()) {
                     showVoiceStyleOverlay();
@@ -5351,6 +5519,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             updateAutoCapitalization();
         }
         showIdleChips();
+        // 0.9.4: the style chip follows the letter keyboard (a one-off pick stays).
+        reconcileIdleChoice();
     }
 
     // ------------------------------------------------ the language key (0.8.8)
@@ -5885,7 +6055,9 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         settlePinyin(PinyinSession.SettleReason.RECORDING_STARTED);
         // 0.9.3: the style's own speech model, decided now, before cloud or offline routing.
         // A style switched on the recording panel keeps the model chosen here.
-        SpeechModels.Resolved speech = SpeechModels.atRecordStart(this, choice.presetAtStart(defaultPreset()));
+        // 0.9.4: the style of the letter keyboard in use, fixed here once for the recorder too.
+        String startPreset = choice.presetAtStart(defaultPreset());
+        SpeechModels.Resolved speech = SpeechModels.atRecordStart(this, startPreset);
         String provider = speech.used.provider;
         boolean chinese = dictationLanguage().isChinese();
 
@@ -5907,12 +6079,18 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         }
 
         recordingSpeech = speech;
-        if (isOfflineTranscriptionProvider(provider)) {
-            toggleOfflineRecording(provider);
-        } else if (!hasNetworkConnectivity()) {
-            toggleOfflineFallbackRecording(provider);
-        } else {
-            toggleCloudRecording();
+        pendingStartPreset = startPreset;
+        try {
+            if (isOfflineTranscriptionProvider(provider)) {
+                toggleOfflineRecording(provider);
+            } else if (!hasNetworkConnectivity()) {
+                toggleOfflineFallbackRecording(provider);
+            } else {
+                toggleCloudRecording();
+            }
+        } finally {
+            // Used by the recorder that started, or dropped when none did.
+            pendingStartPreset = null;
         }
     }
 
@@ -6333,7 +6511,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             return;
         }
         try {
-            choice.startRecording(defaultPreset(), defaultExpression());
+            startChoiceForRecording();
             currentAudioFile = File.createTempFile("voiceflow-keyboard-", ".m4a", getCacheDir());
             recorder = createRecorder();
             recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
@@ -6364,7 +6542,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         // phone's own (or, before the first sync, the phone's own list as before),
         // with the words for the app it goes into.
         // Never reads or merges here (main thread): it takes the snapshot built ahead.
-        recordingWords = WordLists.forRecordStart(this, recordingTarget.packageName);
+        // 0.9.4: none of the words for a style whose word list is off (the style it starts on).
+        recordingWords = WordLists.forRecordStart(this, recordingTarget.packageName).forStyle(this, choice.preset);
         recordingCorrections = new ArrayList<>(recordingWords.corrections);
         recordingStartedAt = System.currentTimeMillis();
         panelKeptStyle = null;
@@ -6408,7 +6587,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         DictationLanguage languageForThisRecording = dictationLanguage();
         DeliveryGuard.Target targetForThisRecording = recordingTarget;
         List<PhraseReplacement> correctionsForThisRecording = recordingCorrections;
-        WordLists.DictationWords wordsForThisRecording = recordingWords;
+        // 0.9.4: and none for the style it ends on, when that one's word list is off.
+        WordLists.DictationWords wordsForThisRecording = recordingWords.forStyle(this, presetForThisRecording);
         SpeechModels.Resolved speechForThisRecording = recordingSpeech;
         recordingSpeech = null;
         runCloudCapture(new CloudCapture(
@@ -6689,7 +6869,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             return;
         }
         int bufferSize = Math.max(minBuffer, offlineSampleRate(provider) * 2);
-        choice.startRecording(defaultPreset(), defaultExpression());
+        startChoiceForRecording();
         try {
             currentPcmFile = File.createTempFile("voiceflow-keyboard-", ".pcm", getCacheDir());
             offlineRecorder = new AudioRecord(
@@ -6769,7 +6949,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         boolean rememberForThisRecording = recordingMayRemember && canRememberFromThisField();
         DeliveryGuard.Target targetForThisRecording = recordingTarget;
         List<PhraseReplacement> correctionsForThisRecording = recordingCorrections;
-        TidyWords.Block tidyWordsForThisRecording = recordingWords.tidyWords;
+        TidyWords.Block tidyWordsForThisRecording = recordingWords.forStyle(this, presetForThisRecording).tidyWords;
         executor.execute(() -> {
             try {
                 String transcript = transcribeOfflinePcm(providerForThisRecording, pcm);
@@ -7109,6 +7289,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         int index = Prefs.presetIndex(presets, choice.preset);
         int next = (index + direction + presets.length) % presets.length;
         choice.pick(presets[next], Prefs.expressionForPreset(this, presets[next]));
+        rememberPick();
         refreshStyleChips();
         if (styleSheetOpen()) {
             showVoiceStyleOverlay();
@@ -7117,7 +7298,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             panelKeptStyle = RecordingChips.nextKept(ids, panelPins(ids), choice.preset, panelKeptStyle);
             renderRecordingPanel();
         }
-        announce("Style " + VoiceBar.styleLabel(labelForPreset(choice.preset), choice.expression) + " for this message");
+        announce(pickAnnouncement());
     }
 
     private int presetIndex(String preset) {
@@ -7193,6 +7374,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         // Inserted, cancelled or failed: the keys come back (renderBar hides the panel).
         capturePanel = false;
         panelKeptStyle = null;
+        recordingBarHead = null;
         retoneMode = false;
         translationCapture = false;
         translationTargetLanguage = "";
@@ -7731,7 +7913,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
                 funIds.add(id);
             }
         }
-        return StylePins.onBar(ids, funIds, Prefs.pinnedStyles(this), null);
+        return barPins(ids, funIds, null);
     }
 
     /**
@@ -7782,8 +7964,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             return;
         }
 
-        String title = translationCapture ? "Style for this translation"
-                : creationCapture ? "Style for this text" : "Style for this message";
+        String title = styleTitle();
         recordingHintText = sheetLabel(frozen ? title + " · set" : title);
         recordingHintText.setSingleLine(true);
         recordingHintText.setEllipsize(TextUtils.TruncateAt.END);

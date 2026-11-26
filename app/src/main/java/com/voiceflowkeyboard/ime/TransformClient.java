@@ -90,19 +90,27 @@ final class TransformClient {
 
     /**
      * 0.8.4: {@code words} is the tidy-up's word list for this dictation, fixed when it
-     * started; it goes after the style's instructions (never for a fun style) and gives
-     * the language guard its credits.
+     * started; it goes after the style's instructions (never for a fun style, nor for a style
+     * whose word list is off, 0.9.4) and gives the language guard its credits.
      */
     static Outcome transformChecked(Context context, String transcript, String preset, int expression,
                                     TidyWords.Block words) throws Exception {
         boolean fun = Prefs.isFunVoiceStyle(preset);
-        TidyWords.Block block = fun || words == null ? TidyWords.Block.EMPTY : words;
+        TidyWords.Block block = cleanupWords(context, preset, words);
         return checkedTransform(
                 transcript,
                 fun,
                 block.words,
                 strict -> transformOnce(context, transcript, preset, expression, strict, block.text)
         );
+    }
+
+    /** The word notes a tidy-up in {@code preset} gets: none for a fun style or one whose word list is off. */
+    static TidyWords.Block cleanupWords(Context context, String preset, TidyWords.Block words) {
+        if (words == null || Prefs.isFunVoiceStyle(preset) || !Prefs.styleWordsOn(context, preset)) {
+            return TidyWords.Block.EMPTY;
+        }
+        return words;
     }
 
     static Outcome checkedTransform(String transcript, boolean funStyle, Attempt attempt) throws Exception {

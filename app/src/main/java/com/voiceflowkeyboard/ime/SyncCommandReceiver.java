@@ -25,6 +25,13 @@ import android.os.Build;
  *       {@code app} for the app default, or {@code same} to go back to "Same as app") and optionally
  *       {@code model}. Replies with the stored choice, what a dictation would use now, and whether
  *       that provider's key is saved (never the key).</li>
+ *   <li>{@value #ACTION_SET_KEYBOARD_STYLE} (0.9.4): extras {@code keyboard} ({@code chinese}) and
+ *       {@code style} (a style id, a word-list style's included, or {@code same} for "Same as
+ *       English"). Replies with what is stored, what a dictation on that keyboard starts on now,
+ *       and whether the style is known here.</li>
+ *   <li>{@value #ACTION_SET_STYLE_WORDS} (0.9.4): extras {@code style} and {@code words}
+ *       ({@code on} or {@code off}): whether that style's dictations use the word lists' words.
+ *       Replies with the stored value.</li>
  * </ul>
  *
  * The reply is the broadcast's result data. It never contains the token.
@@ -38,6 +45,10 @@ public final class SyncCommandReceiver extends BroadcastReceiver {
     static final String ACTION_STYLE_DIGEST = "com.voiceflowkeyboard.ime.action.STYLE_DIGEST";
     /** 0.9.3: a style's own speech model, set over USB ({@link SpeechModels}). */
     static final String ACTION_SET_STYLE_SPEECH = "com.voiceflowkeyboard.ime.action.SET_STYLE_SPEECH";
+    /** 0.9.4: the Chinese keyboard's style, set over USB ({@link KeyboardStyles}). */
+    static final String ACTION_SET_KEYBOARD_STYLE = "com.voiceflowkeyboard.ime.action.SET_KEYBOARD_STYLE";
+    /** 0.9.4: a style's word list on or off, set over USB ({@link Prefs#styleWordsOn}). */
+    static final String ACTION_SET_STYLE_WORDS = "com.voiceflowkeyboard.ime.action.SET_STYLE_WORDS";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -71,6 +82,10 @@ public final class SyncCommandReceiver extends BroadcastReceiver {
             } else if (ACTION_SET_STYLE_SPEECH.equals(action)) {
                 reply = setStyleSpeech(context, intent.getStringExtra("style"), intent.getStringExtra("provider"),
                         intent.getStringExtra("model"));
+            } else if (ACTION_SET_KEYBOARD_STYLE.equals(action)) {
+                reply = setKeyboardStyle(context, intent.getStringExtra("keyboard"), intent.getStringExtra("style"));
+            } else if (ACTION_SET_STYLE_WORDS.equals(action)) {
+                reply = setStyleWords(context, intent.getStringExtra("style"), intent.getStringExtra("words"));
             } else if (ACTION_STYLE_DIGEST.equals(action)) {
                 reply = Prefs.styleDigest(context);
             } else if (ACTION_SYNC_NOW.equals(action)) {
@@ -128,6 +143,53 @@ public final class SyncCommandReceiver extends BroadcastReceiver {
                 + " key=" + (key ? "yes" : "no")
                 + " styleKnown=" + (Prefs.isListStyle(id) ? (ListStyles.find(id) != null ? "yes" : "not-yet")
                 : (containsStyle(context, id) ? "yes" : "no"));
+    }
+
+    private static String styleId(String style) {
+        String id = style == null ? "" : style.trim();
+        if (!id.matches("[a-z0-9][a-z0-9_.-]{0,119}")) {
+            throw new IllegalArgumentException("style must be a style id");
+        }
+        return id;
+    }
+
+    /** yes, no, or (a word-list style before the lists were read since the app started) not-yet. */
+    static String styleKnown(Context context, String id) {
+        if (containsStyle(context, id)) {
+            return "yes";
+        }
+        return Prefs.isListStyle(id) && !ListStyles.loaded() ? "not-yet" : "no";
+    }
+
+    /** 0.9.4: validates, stores and reads back the Chinese keyboard's style. */
+    static String setKeyboardStyle(Context context, String keyboard, String style) {
+        String k = keyboard == null ? "" : keyboard.trim();
+        if (!"chinese".equals(k)) {
+            throw new IllegalArgumentException("keyboard must be chinese");
+        }
+        String s = style == null ? "" : style.trim();
+        String id = "same".equals(s) ? "" : styleId(s);
+        // Kept even when the style isn't here (yet): a word-list style may arrive with the next sync.
+        Prefs.chooseChineseKeyboardStyle(context, id);
+        String stored = Prefs.chineseKeyboardStyle(context);
+        return "keyboard=chinese style=" + (stored.isEmpty() ? "same" : stored)
+                + (stored.isEmpty() ? "" : " styleKnown=" + styleKnown(context, stored))
+                + " startsOn=" + Prefs.keyboardStyle(context, true)
+                + " english=" + Prefs.activePreset(context)
+                + " chineseInput=" + (Prefs.chineseInputEnabled(context) ? "on" : "off")
+                + " styleChoice=" + Prefs.styleChoiceMode(context);
+    }
+
+    /** 0.9.4: validates, stores and reads back whether a style uses the word lists' words. */
+    static String setStyleWords(Context context, String style, String words) {
+        String id = styleId(style);
+        String w = words == null ? "" : words.trim();
+        if (!"on".equals(w) && !"off".equals(w)) {
+            throw new IllegalArgumentException("words must be on or off");
+        }
+        Prefs.setStyleWordsOn(context, id, "on".equals(w));
+        return "style=" + id + " words=" + (Prefs.styleWordsOn(context, id) ? "on" : "off")
+                + " styleKnown=" + styleKnown(context, id);
     }
 
     private static boolean containsStyle(Context context, String id) {

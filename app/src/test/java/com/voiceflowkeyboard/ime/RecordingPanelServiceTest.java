@@ -298,6 +298,7 @@ public class RecordingPanelServiceTest {
     }
 
     @Test public void aChipIsOneTapAndForThisMessageOnly() {
+        Prefs.setStyleChoiceMode(service, KeyboardStyles.CHOICE_ONE_MESSAGE); // 0.9.4: the one-message behaviour
         tap("Dictate");
         tap("Style Friends");
         assertEquals(Prefs.PRESET_CASUAL, choice().preset);
@@ -329,6 +330,7 @@ public class RecordingPanelServiceTest {
     }
 
     @Test public void thePanelSliderSetsThisMessagesExpressionWithoutSaving() {
+        Prefs.setStyleChoiceMode(service, KeyboardStyles.CHOICE_ONE_MESSAGE); // 0.9.4: the one-message behaviour
         tap("Dictate");
         SeekBar slider = ReflectionHelpers.getField(service, "panelSlider");
         assertTrue(slider.isEnabled());

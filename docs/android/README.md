@@ -25,6 +25,7 @@ Rendered by the screenshot test (`app/src/test/java/com/voiceflowkeyboard/ime/Sc
 - **The language key**: English is always the main keyboard. A tap switches between English and one second keyboard; a hold opens the list of keyboards. Settings > Keyboard > Language key changes this (toggle, cycle, or always show the list).
 - **Split keyboard on large screens**: on a wide screen, such as a folding phone's inner screen, the letter keys split into two halves. Settings > Keyboard > Split keyboard on large screens (on by default).
 - **Rime** (librime) as the Chinese engine, from 0.9.2.
+- **Style on the Chinese keyboard** (0.9.4): Settings > Keyboard > Chinese input. When it names a style, a dictation on the Chinese keyboard (full keys or nine-key) starts on that style, and its speech model, instead of the default; English keeps the default. The two styles lead the style bar. A word-list style that is gone shows as missing, and the default is used.
 
 ## Word lists from the sync gateway
 
@@ -211,6 +212,10 @@ The optional **Partner** template adds recipient-aware intimacy without inventin
 The keyboard places five novelty personas in a collapsed **Fun** group at the far right of the horizontally scrollable style row. **Haiku** returns only a three-line poem; **Pirate**, **Shakespearean**, **Noir Detective**, and **Wizard** restate the message in an unmistakable persona while preserving facts and avoiding invented story details.
 
 While normal dictation or translation is recording, the disabled keyboard is covered by a single-select voice-style panel. The selected style can be changed before stopping and is applied in the same transform request, so it does not add another processing step. Voice instruction mode is excluded.
+
+**Style choice** (0.9.4, Settings > Styles): by default a style picked on the keyboard stays until you pick another, and each letter keyboard keeps its own (English, and Chinese). **Just for one message** is the earlier behaviour: a pick lasts one message, and **Make default** in the style sheet keeps it (for Chinese or for English when Chinese input is on).
+
+**Word list** (0.9.4, a style's editor, under Speech model for this style): on by default. Off, that style's dictations send no word-list words to the speech model and give the tidy-up no word notes; corrections that rewrite the text still apply.
 
 Built-in styles can format content as bullets or numbered steps when that structure naturally fits. For example, grocery lists, task lists, instructions, recipes, options, and step-by-step workflows do not need a separate Bullets mode.
 

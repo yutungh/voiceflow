@@ -60,6 +60,12 @@ final class Prefs {
     private static final String KEY_SONIOX_API_KEY = "soniox_api_key";
     /** 0.9.3: a style's own speech model ({@link SpeechModels}), by style id. */
     private static final String KEY_SPEECH_MODEL_STYLE_PREFIX = "speech_model_style_";
+    /** 0.9.4: "off" when a style's dictations use no word-list words, by style id (absent: on). */
+    private static final String KEY_STYLE_WORDS_PREFIX = "style_words_";
+    /** 0.9.4: "Style on the Chinese keyboard" ({@link KeyboardStyles}); absent: Same as English. */
+    private static final String KEY_CHINESE_KEYBOARD_STYLE = "keyboard_style_chinese";
+    /** 0.9.4: "Style choice" ({@link KeyboardStyles}); absent: Remember. */
+    private static final String KEY_STYLE_CHOICE_MODE = "style_choice_mode";
     /** 0.9.3: when a style's own speech model fails, try the app default once. On unless turned off. */
     private static final String KEY_SPEECH_FALLBACK = "speech_fallback_to_app_default";
     private static final String KEY_TRANSCRIPTION_PROVIDER = "transcription_provider";
@@ -178,6 +184,30 @@ final class Prefs {
             } else {
                 shared(context).edit().putString(key, value.trim()).apply();
             }
+        }
+    }
+
+    /**
+     * 0.9.4: whether a style's dictations use the word lists' words (on unless turned off):
+     * off, the speech model gets no words (no OpenAI keywords or vocabulary line, no Soniox
+     * terms) and the tidy-up no word notes. Corrections that rewrite the text still apply.
+     */
+    static boolean styleWordsOn(Context context, String styleId) {
+        if (styleId == null || styleId.trim().isEmpty()) {
+            return true;
+        }
+        return !"off".equals(shared(context).getString(KEY_STYLE_WORDS_PREFIX + styleId.trim(), null));
+    }
+
+    static void setStyleWordsOn(Context context, String styleId, boolean on) {
+        if (styleId == null || styleId.trim().isEmpty()) {
+            return;
+        }
+        String key = KEY_STYLE_WORDS_PREFIX + styleId.trim();
+        if (on) {
+            shared(context).edit().remove(key).apply();
+        } else {
+            shared(context).edit().putString(key, "off").apply();
         }
     }
 
@@ -876,7 +906,8 @@ final class Prefs {
                         .remove(KEY_TRANSFORM_MODEL_OVERRIDE_PREFIX + PROVIDER_OPENAI + "_" + sanitized)
                         .remove(KEY_TRANSFORM_MODEL_OVERRIDE_PREFIX + PROVIDER_ANTHROPIC + "_" + sanitized)
                         .remove(KEY_TRANSFORM_MODEL_OVERRIDE_PREFIX + PROVIDER_XAI + "_" + sanitized)
-                        .remove(KEY_SPEECH_MODEL_STYLE_PREFIX + sanitized);
+                        .remove(KEY_SPEECH_MODEL_STYLE_PREFIX + sanitized)
+                        .remove(KEY_STYLE_WORDS_PREFIX + sanitized);
             }
             if (sanitized.equals(activePreset(context))) {
                 editor.putString(KEY_ACTIVE_PRESET, PRESET_CASUAL);
@@ -903,6 +934,7 @@ final class Prefs {
                         || key.startsWith(KEY_EXPRESSION_PREFIX)
                         || key.startsWith(KEY_TRANSFORM_MODEL_OVERRIDE_PREFIX)
                         || key.startsWith(KEY_SPEECH_MODEL_STYLE_PREFIX)
+                        || key.startsWith(KEY_STYLE_WORDS_PREFIX)
                         || key.startsWith(KEY_PRESET_LABEL_PREFIX)) {
                     editor.remove(key);
                 }
@@ -1022,6 +1054,102 @@ final class Prefs {
 
     static void setKeyboardOpenOn(Context context, String value) {
         shared(context).edit().putString("keyboard_open_on", KeyboardOpening.sanitizeOpenOn(value)).apply();
+    }
+
+    /**
+     * 0.9.4: "Style on the Chinese keyboard" ({@link KeyboardStyles}): a style id, or "" for
+     * "Same as English". Returned as stored, even when this phone doesn't have that style (now).
+     */
+    static String chineseKeyboardStyle(Context context) {
+        return KeyboardStyles.sanitizeSlot(shared(context).getString(KEY_CHINESE_KEYBOARD_STYLE, ""));
+    }
+
+    /** {@code id} null or empty: "Same as English" (nothing stored). */
+    static void setChineseKeyboardStyle(Context context, String id) {
+        String value = KeyboardStyles.sanitizeSlot(id);
+        if (value.isEmpty()) {
+            shared(context).edit().remove(KEY_CHINESE_KEYBOARD_STYLE).apply();
+        } else {
+            shared(context).edit().putString(KEY_CHINESE_KEYBOARD_STYLE, value).apply();
+        }
+    }
+
+    /** 0.9.4: "Style choice": {@link KeyboardStyles#CHOICE_REMEMBER} (the default) or one message. */
+    static String styleChoiceMode(Context context) {
+        return KeyboardStyles.sanitizeChoiceMode(shared(context).getString(KEY_STYLE_CHOICE_MODE, ""));
+    }
+
+    static void setStyleChoiceMode(Context context, String mode) {
+        shared(context).edit().putString(KEY_STYLE_CHOICE_MODE, KeyboardStyles.sanitizeChoiceMode(mode)).apply();
+    }
+
+    static boolean styleChoiceRemembers(Context context) {
+        return KeyboardStyles.CHOICE_REMEMBER.equals(styleChoiceMode(context));
+    }
+
+    /** Every style id this phone has now, word-list styles included. */
+    static List<String> styleIds(Context context) {
+        List<String> ids = new ArrayList<>();
+        for (PromptProfile profile : promptProfiles(context)) {
+            ids.add(profile.id);
+        }
+        return ids;
+    }
+
+    /**
+     * 0.9.4: the style a dictation starts on, for the letter keyboard in use: on the Chinese
+     * keyboard (with Chinese input on) the Chinese slot when it names a style this phone has,
+     * otherwise the saved default.
+     */
+    static String keyboardStyle(Context context, boolean chineseKeyboard) {
+        String english = activePreset(context);
+        if (!chineseKeyboard || !chineseInputEnabled(context)) {
+            return english;
+        }
+        return KeyboardStyles.effective(true, english, chineseKeyboardStyle(context), styleIds(context));
+    }
+
+    /**
+     * 0.9.4: saves a style for one letter keyboard: the Chinese slot on the Chinese keyboard
+     * (with Chinese input on), the saved default otherwise.
+     */
+    static void saveKeyboardStyle(Context context, boolean chineseKeyboard, String id) {
+        if (chineseKeyboard && chineseInputEnabled(context)) {
+            setChineseKeyboardStyle(context, id);
+        } else {
+            setActivePreset(context, id);
+        }
+    }
+
+    /**
+     * 0.9.4: names the Chinese keyboard's style from Settings or over USB, and pins it on the
+     * bar, so it stays one tap away even after a pick on the Chinese keyboard replaces it.
+     */
+    static void chooseChineseKeyboardStyle(Context context, String id) {
+        setChineseKeyboardStyle(context, id);
+        String value = KeyboardStyles.sanitizeSlot(id);
+        if (value.isEmpty()) {
+            return;
+        }
+        List<String> ids = styleIds(context);
+        if (!ids.contains(value)) {
+            return; // not here (yet): nothing to pin
+        }
+        List<String> funIds = new ArrayList<>();
+        for (String styleId : ids) {
+            if (isFunVoiceStyle(styleId)) {
+                funIds.add(styleId);
+            }
+        }
+        List<String> stored = pinnedStyles(context);
+        List<String> pins = StylePins.onBar(ids, funIds, stored, null);
+        if (stored == null || !pins.contains(value)) {
+            // Stored even when the default pins hold it now: more styles later can't push it off.
+            if (!pins.contains(value)) {
+                pins.add(value);
+            }
+            setPinnedStyles(context, pins);
+        }
     }
 
     /** 0.9.3: the letter keyboard last chosen ({@link KeyboardOpening#remember}); null when none yet. */
