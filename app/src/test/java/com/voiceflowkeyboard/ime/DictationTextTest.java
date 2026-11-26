@@ -113,7 +113,7 @@ public class DictationTextTest {
 
     @Test
     public void chinesePunctuationAfterChineseIsUntouched() {
-        String text = "明天早上九点提醒我给妈妈打电话，然后下午去超市买鸡蛋、牛奶和面包，晚上七点前回家。";
+        String text = "明天早上九点提醒我给花店打电话，然后下午去超市买鸡蛋、牛奶和面包，晚上七点前回家。";
         assertEquals(text, DictationText.normalizeMixedScript(text));
         assertEquals("我今天下午要去开会。Also, can you ask Sam?",
                 DictationText.normalizeMixedScript("我今天下午要去开会。Also, can you ask Sam?"));

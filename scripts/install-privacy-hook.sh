@@ -36,7 +36,10 @@ HOOK
 chmod +x "$hook"
 
 terms="$root/private-docs/privacy-terms.txt"
+common="$(git rev-parse --git-common-dir)"
+case "$common" in /*|[A-Za-z]:*) ;; *) common="$(pwd)/$common" ;; esac
+main_terms="$(dirname "$common")/private-docs/privacy-terms.txt"
 echo "Installed $hook"
-if [ ! -f "$terms" ]; then
-	echo "Note: no term list at $terms yet; every push is blocked until it exists."
+if [ ! -f "$terms" ] && [ ! -f "$main_terms" ]; then
+	echo "Note: no term list at $terms or $main_terms yet; every push is blocked until one exists."
 fi
