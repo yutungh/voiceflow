@@ -156,6 +156,16 @@ public class SpeechModelsTest {
     }
 
     @Test
+    public void aChineseDictationNeverFallsBackToAModelWithoutChinese() {
+        keys.add(Prefs.PROVIDER_XAI);
+        SpeechModels.Resolved style = new SpeechModels.Resolved(SONIOX, true, null);
+        SpeechModels.Choice xai = new SpeechModels.Choice(Prefs.PROVIDER_XAI, "");
+        assertNull(SpeechModels.fallback(style, xai, true, withKeys, DictationLanguage.CHINESE));
+        assertSame(xai, SpeechModels.fallback(style, xai, true, withKeys, DictationLanguage.AUTO));
+        assertSame(OPENAI, SpeechModels.fallback(style, OPENAI, true, withKeys, DictationLanguage.CHINESE));
+    }
+
+    @Test
     public void fallbackSettingIsOnByDefault() {
         assertTrue(Prefs.speechFallbackToAppDefault(context));
         Prefs.setSpeechFallbackToAppDefault(context, false);

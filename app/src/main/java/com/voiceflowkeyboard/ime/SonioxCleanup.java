@@ -8,6 +8,8 @@ import org.json.JSONException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 /**
  * 0.9.3: deletes what a Soniox dictation left on Soniox's side, the transcription first and
@@ -29,12 +31,36 @@ final class SonioxCleanup {
         void write(String value);
     }
 
+    /** The app's cleanups run here, one at a time, so a dictation never waits for a delete. */
+    private static final Executor BACKGROUND = Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "VoiceFlowSonioxCleanup");
+        thread.setDaemon(true);
+        return thread;
+    });
+    /** At most this many pending ids are tried before each dictation. */
+    static final int RETRY_BATCH = 10;
+
     private final Store store;
     private final SonioxClient.Clock clock;
+    /** Null: run in the caller's thread (tests). */
+    private final Executor executor;
 
     SonioxCleanup(Store store, SonioxClient.Clock clock) {
+        this(store, clock, null);
+    }
+
+    SonioxCleanup(Store store, SonioxClient.Clock clock, Executor executor) {
         this.store = store;
         this.clock = clock;
+        this.executor = executor;
+    }
+
+    private void run(Runnable work) {
+        if (executor == null) {
+            work.run();
+        } else {
+            executor.execute(work);
+        }
     }
 
     static SonioxCleanup of(Context context) {
@@ -49,12 +75,57 @@ final class SonioxCleanup {
             public void write(String value) {
                 prefs.edit().putString(KEY_PENDING, value).commit();
             }
-        }, System::currentTimeMillis);
+        }, System::currentTimeMillis, BACKGROUND);
     }
 
     /** After a dictation: delete its transcription and file, keeping what fails for later. */
     void delete(SonioxClient.Transport http, String apiKey, String transcriptionId, String fileId,
                 SonioxClient.Sleeper sleeper) {
+        if (transcriptionId == null && fileId == null) {
+            return;
+        }
+        if (executor != null) {
+            // Recorded first, so an app killed mid-delete still retries them next time.
+            remember(transcriptionId, fileId);
+            run(() -> {
+                forget(transcriptionId, fileId);
+                deleteNow(http, apiKey, transcriptionId, fileId, sleeper);
+            });
+            return;
+        }
+        deleteNow(http, apiKey, transcriptionId, fileId, sleeper);
+    }
+
+    private void remember(String transcriptionId, String fileId) {
+        synchronized (SonioxCleanup.class) {
+            List<String> pending = pending();
+            long now = clock.now();
+            if (transcriptionId != null) {
+                pending.add("t:" + transcriptionId + "@" + now);
+            }
+            if (fileId != null) {
+                pending.add("f:" + fileId + "@" + now);
+            }
+            save(pending);
+        }
+    }
+
+    private void forget(String transcriptionId, String fileId) {
+        synchronized (SonioxCleanup.class) {
+            List<String> kept = new ArrayList<>();
+            for (String entry : pending()) {
+                boolean mine = (transcriptionId != null && entry.startsWith("t:" + transcriptionId + "@"))
+                        || (fileId != null && entry.startsWith("f:" + fileId + "@"));
+                if (!mine) {
+                    kept.add(entry);
+                }
+            }
+            save(kept);
+        }
+    }
+
+    private void deleteNow(SonioxClient.Transport http, String apiKey, String transcriptionId, String fileId,
+                           SonioxClient.Sleeper sleeper) {
         boolean transcriptionGone = transcriptionId == null || remove(http, apiKey, "transcriptions", transcriptionId);
         boolean fileGone = fileId == null;
         if (!transcriptionGone && fileId != null) {
@@ -93,8 +164,12 @@ final class SonioxCleanup {
         }
     }
 
-    /** Before a dictation: try every pending id once more. */
+    /** Before a dictation: try the pending ids once more (at most {@link #RETRY_BATCH}). */
     void retry(SonioxClient.Transport http, String apiKey) {
+        run(() -> retryNow(http, apiKey));
+    }
+
+    private void retryNow(SonioxClient.Transport http, String apiKey) {
         synchronized (SonioxCleanup.class) {
             List<String> pending = pending();
             if (pending.isEmpty()) {
@@ -102,7 +177,12 @@ final class SonioxCleanup {
             }
             List<String> kept = new ArrayList<>();
             long now = clock.now();
+            int tried = 0;
             for (String entry : pending) {
+                if (tried >= RETRY_BATCH) {
+                    kept.add(entry);
+                    continue;
+                }
                 int at = entry.lastIndexOf('@');
                 long added = parseLong(at < 0 ? "" : entry.substring(at + 1));
                 String item = at < 0 ? entry : entry.substring(0, at);
@@ -110,6 +190,7 @@ final class SonioxCleanup {
                     continue;
                 }
                 String kind = item.startsWith("t:") ? "transcriptions" : item.startsWith("f:") ? "files" : "";
+                tried++;
                 if (kind.isEmpty() || remove(http, apiKey, kind, item.substring(2))) {
                     continue;
                 }

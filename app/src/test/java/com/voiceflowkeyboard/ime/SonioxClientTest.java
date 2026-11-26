@@ -127,7 +127,7 @@ public class SonioxClientTest {
     }
 
     private String run(Fake fake, DictationLanguage language, List<String> terms, SpeechCancel cancel) throws Exception {
-        return SonioxClient.transcribe(fake, KEY, audio, "a.m4a", "audio/mp4", language, terms, cancel, cleanup,
+        return SonioxClient.transcribe(fake, KEY, "", audio, "a.m4a", "audio/mp4", language, terms, cancel, cleanup,
                 millis -> now += millis, () -> now, SonioxClient.TIMEOUT_MS);
     }
 
@@ -169,7 +169,10 @@ public class SonioxClientTest {
 
     @Test
     public void englishKeyboardHintsEnglishOnlyAndNoTermsSendsNoContext() throws Exception {
-        JSONObject body = SonioxClient.transcriptionRequest("f", DictationLanguage.AUTO, Collections.<String>emptyList());
+        JSONObject body = SonioxClient.transcriptionRequest("f", "", DictationLanguage.AUTO, Collections.<String>emptyList());
+        assertEquals("stt-async-v6", body.getString("model"));
+        assertEquals("the picked model is the one sent", "stt-async-v7",
+                SonioxClient.transcriptionRequest("f", "stt-async-v7", DictationLanguage.AUTO, null).getString("model"));
         assertEquals("[\"en\"]", body.getJSONArray("language_hints").toString());
         assertFalse(body.has("context"));
         assertArrayEquals(new String[]{"zh", "en"}, SonioxClient.languageHints(DictationLanguage.CHINESE));
@@ -299,6 +302,22 @@ public class SonioxClientTest {
         cleanup.retry(later, KEY);
         assertEquals(Collections.singletonList("/files/new"), later.deletes());
         assertEquals("[]", stored.toString());
+    }
+
+    @Test
+    public void anAnswerArrivingAfterTheDeadlineIsTooLate() throws Exception {
+        Fake fake = new Fake()
+                .then("POST /files", 201, "{\"id\":\"file-5\"}")
+                .then("POST /transcriptions", 201, "{\"id\":\"tr-5\"}")
+                .then("GET /transcriptions/tr-5", 200, "{\"status\":\"completed\"}");
+        fake.onStatus = () -> now += SonioxClient.TIMEOUT_MS + 1; // a status call that hung past the deadline
+        try {
+            run(fake, DictationLanguage.AUTO, Collections.<String>emptyList(), null);
+            fail();
+        } catch (IOException e) {
+            assertTrue(e.getMessage().contains("too long"));
+        }
+        assertEquals(Arrays.asList("/transcriptions/tr-5", "/files/file-5"), fake.deletes());
     }
 
     @Test

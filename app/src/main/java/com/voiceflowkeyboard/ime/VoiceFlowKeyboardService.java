@@ -5870,7 +5870,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         // transcribe Mandarin into confident nonsense rather than failing, which
         // is worse than refusing: the speaker gets no signal anything went wrong.
         if (chinese && isOfflineTranscriptionProvider(provider)) {
-            setStatus("Chinese needs OpenAI or Deepgram");
+            setStatus("Chinese needs OpenAI, Soniox or Deepgram");
             return;
         }
         if (chinese && !Prefs.supportsChineseDictation(provider)) {
@@ -6470,7 +6470,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
                 SpeechModels.Choice app = SpeechModels.appDefault(this);
                 SpeechModels.Resolved speech = c.speech != null ? c.speech : new SpeechModels.Resolved(app, false, null);
                 SpeechModels.Choice fallback = SpeechModels.fallback(speech, app,
-                        Prefs.speechFallbackToAppDefault(this), SpeechModels.availability(this));
+                        Prefs.speechFallbackToAppDefault(this), SpeechModels.availability(this), c.language);
                 SpeechModels.Outcome outcome = SpeechModels.run(speech, fallback,
                         (choice, appDefault) -> TranscriptionClient.transcribeWith(
                                 this, choice, appDefault, c.audio, c.language, c.words, cancel),
@@ -6486,20 +6486,25 @@ public class VoiceFlowKeyboardService extends InputMethodService {
                 if (!notice.isEmpty()) {
                     Prefs.addModelSwitchNotice(this, notice);
                 }
-                processTranscribedCapture(
-                        outcome.text,
-                        c.preset,
-                        c.expression,
-                        c.creation,
-                        c.instruction,
-                        c.instructionSource,
-                        c.translation,
-                        c.targetLanguage,
-                        c.remember,
-                        c.target,
-                        c.corrections,
-                        c.words.tidyWords
-                );
+                try {
+                    processTranscribedCapture(
+                            outcome.text,
+                            c.preset,
+                            c.expression,
+                            c.creation,
+                            c.instruction,
+                            c.instructionSource,
+                            c.translation,
+                            c.targetLanguage,
+                            c.remember,
+                            c.target,
+                            c.corrections,
+                            c.words.tidyWords
+                    );
+                } catch (Exception after) {
+                    // Past the speech step (tidy-up, translation): reported as before 0.9.3.
+                    mainHandler.post(() -> finishProcessingState(concise(after)));
+                }
             } catch (Exception e) {
                 if (!claimSpeech(cancel)) {
                     return;

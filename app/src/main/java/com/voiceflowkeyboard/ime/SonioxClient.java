@@ -94,22 +94,23 @@ final class SonioxClient {
     private SonioxClient() {
     }
 
-    static String transcribe(Context context, File audioFile, DictationLanguage language,
+    static String transcribe(Context context, String model, File audioFile, DictationLanguage language,
                              WordLists.DictationWords words, SpeechCancel cancel) throws Exception {
         String apiKey = Prefs.sonioxApiKey(context).trim();
         if (apiKey.isEmpty()) {
             throw new IllegalStateException("Add a Soniox API key in Settings.");
         }
         SonioxCleanup store = SonioxCleanup.of(context);
-        // Leftovers from an earlier dictation (cancelled mid-run, or offline at the time).
+        // Leftovers from an earlier dictation (cancelled mid-run, or offline at the time),
+        // on the cleanup's own thread: the dictation never waits for them.
         store.retry(HTTP, apiKey);
-        return transcribe(HTTP, apiKey, audioFile, "voiceflow-keyboard.m4a", "audio/mp4", language,
+        return transcribe(HTTP, apiKey, model, audioFile, "voiceflow-keyboard.m4a", "audio/mp4", language,
                 words == null ? Collections.<String>emptyList() : termsFor(words), cancel, store,
                 Thread::sleep, System::currentTimeMillis, TIMEOUT_MS);
     }
 
     /** The whole flow, with every dependency passed in (tests). */
-    static String transcribe(Transport http, String apiKey, File audio, String fileName, String mime,
+    static String transcribe(Transport http, String apiKey, String model, File audio, String fileName, String mime,
                              DictationLanguage language, List<String> terms, SpeechCancel cancel,
                              SonioxCleanup cleanup, Sleeper sleeper, Clock clock, long timeoutMs) throws Exception {
         SpeechCancel token = cancel == null ? new SpeechCancel() : cancel;
@@ -121,20 +122,22 @@ final class SonioxClient {
             Reply uploaded = http.send("POST", API + "/files", apiKey, multipart(audio, fileName, mime), token);
             check(uploaded, "Soniox upload");
             fileId = requiredId(uploaded.body, "upload");
+            within(deadline, clock, timeoutMs);
             token.throwIfCancelled();
             Reply created = http.send("POST", API + "/transcriptions", apiKey,
-                    json(transcriptionRequest(fileId, language, terms)), token);
+                    json(transcriptionRequest(fileId, model, language, terms)), token);
             check(created, "Soniox transcription");
             transcriptionId = requiredId(created.body, "transcription");
             int poll = 0;
             while (true) {
                 long wait = pollDelay(poll++);
                 if (clock.now() + wait > deadline) {
-                    throw new IOException("Soniox took too long (over " + (timeoutMs / 1000) + " s).");
+                    throw tooLong(timeoutMs);
                 }
                 sleepCancellable(sleeper, wait, token);
                 Reply status = http.send("GET", API + "/transcriptions/" + transcriptionId, apiKey, null, token);
                 check(status, "Soniox status");
+                within(deadline, clock, timeoutMs);
                 JSONObject json = new JSONObject(status.body);
                 String state = json.optString("status", "");
                 if ("completed".equals(state)) {
@@ -151,6 +154,8 @@ final class SonioxClient {
             Reply transcript = http.send("GET", API + "/transcriptions/" + transcriptionId + "/transcript",
                     apiKey, null, token);
             check(transcript, "Soniox transcript");
+            within(deadline, clock, timeoutMs);
+            token.throwIfCancelled();
             return parseTranscript(transcript.body);
         } finally {
             if (cleanup != null) {
@@ -159,11 +164,22 @@ final class SonioxClient {
         }
     }
 
-    /** The create-transcription body. Pure, for the tests. */
-    static JSONObject transcriptionRequest(String fileId, DictationLanguage language, List<String> terms)
+    /** One overall deadline, from upload to text: a late answer counts as too late. */
+    private static void within(long deadline, Clock clock, long timeoutMs) throws IOException {
+        if (clock.now() > deadline) {
+            throw tooLong(timeoutMs);
+        }
+    }
+
+    private static IOException tooLong(long timeoutMs) {
+        return new IOException("Soniox took too long (over " + (timeoutMs / 1000) + " s).");
+    }
+
+    /** The create-transcription body. Pure, for the tests. {@code model} "" means {@value #MODEL}. */
+    static JSONObject transcriptionRequest(String fileId, String model, DictationLanguage language, List<String> terms)
             throws JSONException {
         JSONObject body = new JSONObject()
-                .put("model", MODEL)
+                .put("model", model == null || model.trim().isEmpty() ? MODEL : model.trim())
                 .put("file_id", fileId);
         String[] hints = languageHints(language);
         if (hints.length > 0) {
@@ -319,8 +335,8 @@ final class SonioxClient {
         }
         try {
             connection.setRequestMethod(method);
-            connection.setConnectTimeout(20000);
-            connection.setReadTimeout(60000);
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(30000);
             connection.setRequestProperty("Authorization", "Bearer " + apiKey);
             if (body != null) {
                 connection.setDoOutput(true);

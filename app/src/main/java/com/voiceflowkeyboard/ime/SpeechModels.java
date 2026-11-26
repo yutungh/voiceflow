@@ -157,7 +157,16 @@ final class SpeechModels {
 
     /** The one model to try when the style's own fails, or null when there is none. */
     static Choice fallback(Resolved resolved, Choice appDefault, boolean enabled, Availability availability) {
+        return fallback(resolved, appDefault, enabled, availability, DictationLanguage.AUTO);
+    }
+
+    /** {@code language}: the recording's; a Chinese one never falls back to a model without Chinese. */
+    static Choice fallback(Resolved resolved, Choice appDefault, boolean enabled, Availability availability,
+                           DictationLanguage language) {
         if (!enabled || resolved == null || !resolved.fromStyle || appDefault == null) {
+            return null;
+        }
+        if (language != null && language.isChinese() && !Prefs.supportsChineseDictation(appDefault.provider)) {
             return null;
         }
         if (resolved.used.sameAs(appDefault)

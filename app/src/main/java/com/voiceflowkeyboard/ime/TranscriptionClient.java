@@ -33,7 +33,7 @@ final class TranscriptionClient {
                              WordLists.DictationWords words, SpeechCancel cancel) throws Exception {
         ModelAvailabilityPolicy.Slot slot = Prefs.transcriptionModelSlot(context);
         if (Prefs.PROVIDER_SONIOX.equals(slot.provider)) {
-            return SonioxClient.transcribe(context, audioFile, language, words, cancel);
+            return SonioxClient.transcribe(context, slot.model, audioFile, language, words, cancel);
         }
         if (Prefs.PROVIDER_XAI.equals(slot.provider)) {
             return XAiClient.transcribe(context, audioFile);
@@ -65,7 +65,7 @@ final class TranscriptionClient {
         }
         String model = choice.effectiveModel();
         if (Prefs.PROVIDER_SONIOX.equals(choice.provider)) {
-            return SonioxClient.transcribe(context, audioFile, language, words, cancel);
+            return SonioxClient.transcribe(context, model, audioFile, language, words, cancel);
         }
         if (Prefs.PROVIDER_XAI.equals(choice.provider)) {
             return XAiClient.transcribe(context, audioFile);
