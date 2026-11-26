@@ -479,13 +479,19 @@ fn stem(name: &str) -> &str {
 /// edit uploaded before 0.9.13, or another device's edit) still uploads, so
 /// removing it reaches every device. Held edits upload together later, once
 /// their type is uploadable. One notice per type, for the held edits still in
-/// force only (a replaced or removed one is no news).
-fn held_edits(local: &[(String, PathBuf, Op)], uploaded: &BTreeSet<String>) -> (Vec<(String, PathBuf)>, Vec<Issue>) {
+/// force only (a replaced or removed one is no news). `elsewhere`: this
+/// device's held edits that belong to another profile (also never shared).
+fn held_edits(
+    local: &[(String, PathBuf, Op)],
+    uploaded: &BTreeSet<String>,
+    elsewhere: &BTreeSet<String>,
+) -> (Vec<(String, PathBuf)>, Vec<Issue>) {
     let shared = |name: &str, op: &Op| uploaded.contains(&op.id) || uploaded.contains(stem(name));
     let mut held: BTreeSet<String> = local
         .iter()
         .filter(|(name, _, op)| !UPLOADABLE_OP_TYPES.contains(&op.body.type_name()) && !shared(name, op))
         .map(|(_, _, op)| op.id.clone())
+        .chain(elsewhere.iter().cloned())
         .collect();
     loop {
         let mut grew = false;
@@ -697,6 +703,7 @@ pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &st
     let mut ops: BTreeMap<String, Op> = BTreeMap::new();
     let mut local_files = Vec::new();
     let mut local_all: Vec<(String, PathBuf, Op)> = Vec::new();
+    let mut held_elsewhere: BTreeSet<String> = BTreeSet::new();
     let key = paths.scope_key();
     // One refresh at a time reads and rewrites the owners (the quick local
     // merge after an edit can run beside a refresh from the share).
@@ -708,7 +715,15 @@ pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &st
         match read_op(&path, &name) {
             Ok(op) => {
                 match owners.get(&op.id) {
-                    Some(owner) if *owner != key => continue,
+                    Some(owner) if *owner != key => {
+                        // 0.9.21: another profile's held edit is never on
+                        // this one's share either, so an undo of it made
+                        // here (the app's edits are listed per PC) is held.
+                        if !UPLOADABLE_OP_TYPES.contains(&op.body.type_name()) {
+                            held_elsewhere.insert(op.id.clone());
+                        }
+                        continue;
+                    }
                     Some(_) => {}
                     None => {
                         owners.insert(op.id.clone(), key.clone());
@@ -741,7 +756,7 @@ pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &st
 
     // Upload what the share hasn't confirmed, then read every device's edits.
     let mut uploaded = load_uploaded(paths);
-    let (uploadable, held) = held_edits(&local_all, &uploaded);
+    let (uploadable, held) = held_edits(&local_all, &uploaded, &held_elsewhere);
     local_files.extend(uploadable);
     issues.extend(held);
     let mut uploaded_now = 0;
@@ -1275,6 +1290,22 @@ mod tests {
         let kite = out.snapshot.apps.iter().find(|a| a["id"] == "kite.exe").unwrap();
         assert_eq!(kite["style"], "vf-builtin-email");
         assert!(!out.snapshot.apps.iter().any(|a| a["id"] == "slack.exe"), "retired everywhere");
+    }
+
+    #[test]
+    fn an_undo_of_another_profiles_held_edit_is_held() {
+        let t = parse_op(
+            r#"{"schema":"voiceflow-op","version":1,"id":"dev1-t","device":"dev1","createdAt":"2026-11-19T10:00:00Z","type":"tombstone","target":"dev1-x"}"#,
+            None,
+        )
+        .unwrap();
+        let local = vec![("dev1-t.json".to_string(), PathBuf::from("dev1-t.json"), t)];
+        let none = BTreeSet::new();
+        let (up, _) = held_edits(&local, &none, &none);
+        assert_eq!(up.len(), 1, "an unknown target alone doesn't hold it");
+        let elsewhere: BTreeSet<String> = ["dev1-x".to_string()].into();
+        let (up, notices) = held_edits(&local, &none, &elsewhere);
+        assert!(up.is_empty() && notices.is_empty());
     }
 
     /// The demo folder in `pack/fixtures/demo` reads, validates and merges
