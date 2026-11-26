@@ -8,7 +8,7 @@ package com.voiceflowkeyboard.ime;
  */
 final class GitHubApp {
     /** The read-only App's client ID. */
-    static final String CLIENT_ID = "Iv23liVoiceFlowROxxxx";
+    static final String CLIENT_ID = "Iv23lizOjuqOKKNWorlm";
     /** The App's name in its github.com/apps/&lt;slug&gt; address. */
     static final String SLUG = "voiceflow-word-lists-read-only";
     static final String DEVICE_URL = "https://github.com/login/device";
