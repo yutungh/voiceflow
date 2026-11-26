@@ -1,6 +1,6 @@
 # VoiceFlow word lists (the pack)
 
-The data contract VoiceFlow reads: the words it listens for, the spellings it always fixes, tidy-up styles, model defaults and privacy lists. VoiceFlow Desktop (`../desktop/`) reads it, and so does the Android keyboard (repository root) from 0.8.2, through the sync gateway (`../sync/`). VoiceFlow Desktop can also read it from a private GitHub repository ([`../docs/GITHUB-SYNC.md`](../docs/GITHUB-SYNC.md)); the phone's GitHub support is not released yet. It is data only, so sharing it never mixes the apps' licences.
+The data contract VoiceFlow reads: the words it listens for, the spellings it always fixes, tidy-up styles, model defaults and privacy lists. VoiceFlow Desktop (`../desktop/`) reads it, and so does the Android keyboard (repository root) from 0.8.2, through the sync gateway (`../sync/`). VoiceFlow Desktop, and the Android keyboard from 0.9.2, can also read it from a private GitHub repository ([`../docs/GITHUB-SYNC.md`](../docs/GITHUB-SYNC.md)). It is data only, so sharing it never mixes the apps' licences.
 
 Everything here is MIT (see [`LICENSE`](LICENSE)). Every word in the fixtures is invented.
 

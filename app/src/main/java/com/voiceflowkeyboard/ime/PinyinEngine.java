@@ -35,6 +35,11 @@ final class PinyinEngine {
     private final Executor background;
     private final Handler mainHandler;
     private final ReadyListener listener;
+    /** Rime (0.9.0), or null when this keyboard has none; {@link #rimeWanted} says whether to use it. */
+    private final RimeEngine rime;
+    private final java.util.function.BooleanSupplier rimeWanted;
+    private RimeConverter rimeLetters;
+    private RimeConverter rimeKeypad;
 
     private PinyinDictionary dictionary;
     private PinyinComposer letterComposer;
@@ -44,10 +49,17 @@ final class PinyinEngine {
     private boolean failed;
 
     PinyinEngine(AssetManager assets, Executor background, Handler mainHandler, ReadyListener listener) {
+        this(assets, background, mainHandler, listener, null, () -> false);
+    }
+
+    PinyinEngine(AssetManager assets, Executor background, Handler mainHandler, ReadyListener listener,
+                 RimeEngine rime, java.util.function.BooleanSupplier rimeWanted) {
         this.assets = assets;
         this.background = background;
         this.mainHandler = mainHandler;
         this.listener = listener;
+        this.rime = rime;
+        this.rimeWanted = rimeWanted;
     }
 
     /** True when the composer for {@code mode} can be used right now. */
@@ -59,12 +71,35 @@ final class PinyinEngine {
         return failed;
     }
 
-    /** Composer for {@code mode}, or null while it is still being prepared. */
-    PinyinComposer composerFor(InputMode mode) {
+    /**
+     * The engine for {@code mode}, or null while Classic is still being
+     * prepared. With Rime chosen (0.9.0) it is Rime with Classic behind it:
+     * Classic reads the buffer and answers whenever Rime cannot, so it must be
+     * ready first.
+     */
+    PinyinConverter composerFor(InputMode mode) {
         if (!mode.isChinese()) {
             return null;
         }
-        return mode.isKeypad() ? keypadComposer : letterComposer;
+        PinyinComposer classic = mode.isKeypad() ? keypadComposer : letterComposer;
+        if (classic == null || rime == null || !rimeWanted.getAsBoolean()) {
+            return classic;
+        }
+        if (mode.isKeypad()) {
+            if (rimeKeypad == null || rimeKeypad.classic() != classic) {
+                rimeKeypad = new RimeConverter(classic, rime, true, true);
+            }
+            return rimeKeypad;
+        }
+        if (rimeLetters == null || rimeLetters.classic() != classic) {
+            rimeLetters = new RimeConverter(classic, rime, false, true);
+        }
+        return rimeLetters;
+    }
+
+    /** Rime, or null when this keyboard has none. */
+    RimeEngine rime() {
+        return rime;
     }
 
     /**
@@ -74,6 +109,10 @@ final class PinyinEngine {
     void prepare(InputMode mode) {
         if (!mode.isChinese() || failed) {
             return;
+        }
+        if (rime != null && rimeWanted.getAsBoolean()) {
+            // Off the UI thread; Classic serves until it is ready.
+            rime.start();
         }
         if (dictionary == null) {
             loadDictionary(mode);

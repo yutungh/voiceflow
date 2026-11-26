@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Builds Rime (librime + octagram + predict, every commit pinned), the
-# benchmark driver, and the two variants the phase 3 comparison scores:
-#   dict  Wanxiang dictionary only
+# benchmark driver, and the variants the comparisons score:
+#   dict  Wanxiang dictionary only (phase 3)
 #   gram  the same plus Wanxiang's grammar model (wanxiang-lts-zh-hans.gram)
+#   app   dict plus VoiceFlow's chat table, the data the Android keyboard ships (0.9.0)
 #
-# Linux or WSL (Ubuntu 24.04 tested). Needs: build-essential cmake ninja-build
+# Linux or WSL (Ubuntu 24.04 tested). Needs: node (for the chat table), build-essential cmake ninja-build
 # git curl libboost-dev libboost-regex-dev libboost-locale-dev libleveldb-dev
 # libmarisa-dev libopencc-dev libyaml-cpp-dev libgoogle-glog-dev.
 #
@@ -77,14 +78,20 @@ fi
 
 # 4. Variants: schemas, dictionaries, then rime_deployer compiles them into
 #    <variant>/shared/build, which the driver reads as prebuilt data.
-variants="dict"
-[ "$GRAM" = 1 ] && variants="dict gram"
+# The chat table (app variant) is generated from the same pinned Wanxiang data.
+ROOT="$(cd "$HERE/../../.." && pwd)"
+(cd "$ROOT" && node scripts/build-rime-chat.mjs --out "$V/downloads/vf_chat.dict.yaml") > "$V/chat.log"
+variants="dict app"
+[ "$GRAM" = 1 ] && variants="dict app gram"
 for variant in $variants; do
   D="$V/data/$variant/shared"
   mkdir -p "$D"
   cp "$HERE"/schemas/default.yaml "$HERE"/schemas/vf_pinyin.dict.yaml \
      "$HERE"/schemas/vf_t9.schema.yaml "$HERE"/schemas/vf_qwerty.schema.yaml "$D/"
   for t in zi jichu duoyin; do cp "$V/downloads/$t.dict.yaml" "$D/"; done
+  if [ "$variant" = app ]; then
+    cp "$HERE/schemas/app/vf_pinyin.dict.yaml" "$V/downloads/vf_chat.dict.yaml" "$D/"
+  fi
   if [ "$variant" = gram ]; then
     cp "$HERE/schemas/gram.custom.yaml" "$D/vf_t9.custom.yaml"
     cp "$HERE/schemas/gram.custom.yaml" "$D/vf_qwerty.custom.yaml"

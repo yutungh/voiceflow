@@ -1,0 +1,10 @@
+/* libvfrime.so exports JNI_OnLoad only. Everything else, librime, its
+   dependencies and the static C++ runtime included, stays local, so nothing
+   can clash with the other native libraries in the APK (vosk, sherpa-onnx,
+   onnxruntime), which carry their own runtimes. MIT. */
+{
+  global:
+    JNI_OnLoad;
+  local:
+    *;
+};

@@ -190,3 +190,41 @@ Limits, from a read-only Codex review: this compares two systems (Rime gets
 all of Wanxiang, Java a 300k cut with a chat boost), not two algorithms; the
 corrections are the cheapest possible path, not real typing, deletes or
 learning; desktop timings leave out Android, JNI and the UI.
+
+## 0.9.0: Rime in the keyboard, with the two Java wins ported
+
+The Android keyboard ships Rime dictionary-only (no gram) plus the two things
+that helped the Java engine, measured on the same ruler (`external --rerank`,
+driver variant `app`, `rime/build.sh`):
+
+- **Chat words:** the same 90 words as the Java asset, at 20 times their
+  Wanxiang weight, as a small first-party Rime table (`vf_chat`,
+  `scripts/build-rime-chat.mjs`, readings and base weights from the pinned
+  Wanxiang data). Rime lists the heavier entry first; nothing else moves.
+- **Final particle:** a step after Rime's ranking (`RimeRanking.java`, shared
+  by the keyboard and this harness): when the first candidate reads the whole
+  buffer and does not end on a particle, and one of the next four reads the
+  whole buffer, matches it up to its last character and ends on 吗吧呢呀啦嘛呗咯,
+  that one goes first.
+
+Chosen on dev; held out only scored.
+
+| Nine-key | rime-dict | + rerank | + chat | **+ chat + rerank (0.9.0)** |
+|---|---:|---:|---:|---:|
+| Dev top1 | 74.9% | 76.0% | 78.1% | **78.7%** |
+| Dev corrections / phrase | 0.464 | 0.448 | 0.415 | **0.404** |
+| Held-out top1 | 74.7% | 75.3% | 74.2% | **74.7%** |
+| Held-out corrections / phrase | 0.542 | 0.537 | 0.547 | **0.542** |
+| Held-out failed | 0 | 0 | 0 | 0 |
+
+Paired against rime-dict: dev top1 **+3.8 points [+1.6, +6.6]**, corrections
+**-0.060 [-0.11, -0.02]**; held out +0.0 [-1.6, +1.6] and +0.000 [-0.02,
++0.03], so 0.9.0 stays at Rime's held-out numbers (74.7%, 0.542) and well
+above 0.8.9's (66.3%, 0.974). Full-keyboard pinyin: dev 92.9% to 93.4%, held
+out unchanged at 91.6%. Held out, the particle step wins 喜欢吗 and 那可以吗
+loses a correction; the chat table loses 游泳去吗 (去哪 now beats 去吗). 可以吗 is
+now first on nine-key; 谢谢 is still second behind 这些.
+
+`rime-dict` was rebuilt for this with the 0.9.0 schemas (they add each
+candidate's spelling as its comment, for the keyboard's spelling strip) and
+reproduces `results/rime-dict.tsv` byte for byte.

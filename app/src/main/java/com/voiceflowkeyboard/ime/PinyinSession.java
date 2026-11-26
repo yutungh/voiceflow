@@ -73,14 +73,14 @@ final class PinyinSession {
     /** How many candidates to surface; the strip scrolls, so this is generous. */
     private static final int CANDIDATE_LIMIT = 30;
 
-    private PinyinComposer composer;
+    private PinyinConverter composer;
     private final StringBuilder buffer = new StringBuilder();
     private List<PinyinCandidate> candidates = Collections.emptyList();
     /** 9-key only: the buffer read as letters, and the spellings she can pin. */
     private String display = "";
     private List<PinyinKeypadLookup.SpellingOption> spellingOptions = Collections.emptyList();
 
-    PinyinSession(PinyinComposer composer) {
+    PinyinSession(PinyinConverter composer) {
         this.composer = composer;
     }
 
@@ -89,7 +89,7 @@ final class PinyinSession {
      * QWERTY and 9-key layouts. The caller is expected to have settled first —
      * a half-typed buffer means nothing in the other mode.
      */
-    void setComposer(PinyinComposer composer) {
+    void setComposer(PinyinConverter composer) {
         this.composer = composer;
         refresh();
     }
@@ -274,6 +274,8 @@ final class PinyinSession {
         }
         PinyinCandidate chosen = candidates.get(index);
         int consumed = Math.min(Math.max(chosen.consumed, 0), buffer.length());
+        // Tell the engine first (Rime learns from it), while its list is still the one shown.
+        composer.chosen(composer.lookup().normalize(buffer.substring(0, consumed), PinyinComposer.MAX_INPUT_LENGTH), chosen);
         buffer.delete(0, consumed);
         // What is left starts a new word; a 9-key apostrophe in front of it
         // separated it from the part just committed.
@@ -302,6 +304,7 @@ final class PinyinSession {
         }
         String raw = buffer.toString();
         String top = topText();
+        PinyinCandidate best = candidates.isEmpty() ? null : candidates.get(0);
         boolean acceptRaw = shouldAcceptRaw();
         clear();
 
@@ -318,9 +321,23 @@ final class PinyinSession {
             default:
                 // Falling back to the raw letters rather than dropping them keeps
                 // a mistyped run recoverable instead of silently vanishing.
-                return acceptRaw || top == null
-                        ? new Settlement(Action.KEEP_RAW, raw)
-                        : new Settlement(Action.COMMIT, top);
+                if (acceptRaw || top == null) {
+                    return new Settlement(Action.KEEP_RAW, raw);
+                }
+                // 0.9.0 (Codex review): the best reading may cover only the start
+                // of the buffer; what it does not read is committed as typed
+                // after it, never dropped.
+                int consumed = Math.min(Math.max(best.consumed, 0), raw.length());
+                String rest = raw.substring(consumed);
+                while (rest.startsWith(String.valueOf(PinyinKeypadLookup.SEPARATOR))) {
+                    rest = rest.substring(1);
+                }
+                if (reason == SettleReason.ACCEPT_TOP && composer != null) {
+                    // She accepted it (space, punctuation, return): Rime learns from it too.
+                    composer.chosen(composer.lookup().normalize(raw.substring(0, consumed),
+                            PinyinComposer.MAX_INPUT_LENGTH), best);
+                }
+                return new Settlement(Action.COMMIT, top + rest);
         }
     }
 

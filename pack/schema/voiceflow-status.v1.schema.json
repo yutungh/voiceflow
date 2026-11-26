@@ -22,6 +22,29 @@
 				"op": { "type": "array", "items": { "type": "string" }, "description": "The voiceflow-op types it reads." }
 			}
 		},
+		"pinyin": {
+			"type": "object",
+			"description": "Android 0.9.0 and later: the Chinese engine. Codes and counts only.",
+			"properties": {
+				"engine": { "enum": ["rime", "classic"], "description": "The engine chosen in Settings." },
+				"active": { "enum": ["rime", "classic", "off"], "description": "The engine answering keystrokes when the status was written." },
+				"rimeState": { "type": "string" },
+				"rimeDetail": { "type": ["string", "null"] },
+				"lastStart": { "type": ["string", "null"], "description": "The last Rime start: ok <ms> <data version>, or why it failed." },
+				"lastStartAt": { "type": ["string", "null"] },
+				"hangs": { "type": "integer" },
+				"breaker": {
+					"type": "object",
+					"description": "Rime's crash-loop breaker: tripped after 3 crashes, hangs or failed starts within 24 hours; Classic then serves until Rime is chosen again.",
+					"properties": {
+						"tripped": { "type": "boolean" },
+						"reason": { "type": ["string", "null"] },
+						"at": { "type": ["string", "null"] },
+						"failures24h": { "type": "array", "items": { "type": "object", "properties": { "at": { "type": "string" }, "kind": { "type": "string" } } } }
+					}
+				}
+			}
+		},
 		"profile": {
 			"type": "object",
 			"properties": {

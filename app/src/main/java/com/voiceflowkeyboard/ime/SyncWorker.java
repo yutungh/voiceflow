@@ -53,16 +53,23 @@ final class SyncWorker {
     static void run(Context context) {
         synchronized (RUN_LOCK) {
             SyncStore.Credentials credentials = SyncStore.credentials(context);
+            int installed = SelfUpdater.installedVersionCode(context);
+            // A GitHub word source needs no gateway: its words are read either way.
             if (credentials == null) {
+                if (SyncStore.SOURCE_GITHUB.equals(SyncStore.wordSource(context))) {
+                    refreshWordLists(context, null, null, installed);
+                }
                 return;
             }
             Enrolment enrolment = credentials.enrolment;
-            int installed = SelfUpdater.installedVersionCode(context);
             String token;
             try {
                 token = credentials.token();
             } catch (Exception e) {
                 SyncStore.updateEvidence(context, installed, evidence -> evidence.lastError = "token-unreadable");
+                if (SyncStore.SOURCE_GITHUB.equals(SyncStore.wordSource(context))) {
+                    refreshWordLists(context, null, null, installed);
+                }
                 return;
             }
             removeInstalledDownloads(context, installed);
@@ -200,15 +207,79 @@ final class SyncWorker {
     }
 
     /**
-     * The word lists from the sync server, into the offline copy. Content problems (a
-     * rejected file, a missing layer) go to the status file's profile block only;
-     * a refused token counts like any refused request. Never stops the run.
+     * The word lists from the active word source (the sync server, or a GitHub
+     * repository), into the offline copy. Content problems (a rejected file, a
+     * missing layer) go to the status file's profile block only; a refused token
+     * counts like any refused request. Never stops the run. {@code gateway} (with the
+     * enrolment its token belongs to) is null when this phone has no gateway.
+     *
+     * <p>Each client is paired with the identity read together with its credentials, so
+     * settings that change during the run never put one source's files in another's
+     * offline copy; {@link WordLists#refresh} checks the identity again at the end.
      */
-    private static void refreshWordLists(Context context, GatewayClient client, Enrolment enrolment, int installed) {
+    static void refreshWordLists(Context context, GatewayClient gateway, Enrolment gatewayEnrolment, int installed) {
         try {
-            WordLists.refresh(context, client, enrolment);
+            WordSource source;
+            Enrolment words;
+            if (SyncStore.SOURCE_GITHUB.equals(SyncStore.wordSource(context))) {
+                SyncStore.GitHubConfig config = SyncStore.gitHub(context);
+                words = SyncStore.gitHubEnrolment(context, config);
+                if (words == null) {
+                    return;
+                }
+                // The connected App's token (refreshed when it runs out soon) or a pasted one.
+                GitHubCredentials.Access access;
+                try {
+                    access = GitHubCredentials.access(context, System.currentTimeMillis());
+                } catch (GitHubCredentials.Problem p) {
+                    String code = "store".equals(p.code) ? "github-token-unreadable" : "github-" + p.code;
+                    SyncStore.updateEvidence(context, installed, ev -> ev.lastError = code);
+                    return;
+                }
+                for (int round = 0; ; round++) {
+                    GitHubClient client = new GitHubClient(config.owner, config.repo, config.branch, config.user, words.device,
+                            access.token, SyncStore.gitHubWait(context));
+                    try {
+                        WordLists.refresh(context, client, words);
+                        return;
+                    } catch (WordLists.AuthRefused e) {
+                        // A refused App token: refreshed once (unless someone already did) and
+                        // read again; refused again while still current: Connect GitHub again.
+                        if (!access.app || !"github-401".equals(e.cause.code)) {
+                            throw e;
+                        }
+                        if (round > 0) {
+                            GitHubCredentials.refusedAgain(context, access);
+                            throw e;
+                        }
+                        try {
+                            access = GitHubCredentials.afterUnauthorized(context, access, System.currentTimeMillis());
+                        } catch (GitHubCredentials.Problem p) {
+                            throw e;
+                        }
+                    }
+                }
+            } else if (gateway != null && gatewayEnrolment != null) {
+                // The gateway's words only while they are still the active source, for
+                // the enrolment this client's token came with.
+                Enrolment active = SyncStore.wordEnrolment(context);
+                if (active == null || !WordLists.folderKey(active).equals(WordLists.folderKey(gatewayEnrolment))) {
+                    return;
+                }
+                source = gateway;
+                words = gatewayEnrolment;
+            } else {
+                return;
+            }
+            WordLists.refresh(context, source, words);
         } catch (WordLists.AuthRefused e) {
-            recordFailure(context, installed, e.cause);
+            if (e.cause.code.startsWith("github-")) {
+                // A GitHub token is not the gateway's: noted, never counted in the update
+                // evidence the gateway's rollout rule reads. The status block names it.
+                SyncStore.updateEvidence(context, installed, ev -> ev.lastError = e.cause.code);
+            } else {
+                recordFailure(context, installed, e.cause);
+            }
         } catch (RuntimeException | LinkageError e) {
             // LinkageError too: a word-list class that cannot load (0.8.2's regex threw
             // ExceptionInInitializerError) must not stop the release check or the status upload.
@@ -235,6 +306,12 @@ final class SyncWorker {
                     evidence,
                     wordListsBlock(context)
             );
+            // 0.9.0: which Chinese engine is in use, and the Rime breaker's state.
+            try {
+                status.put("pinyin", RimeAndroid.statusBlock(context));
+            } catch (org.json.JSONException | RuntimeException e) {
+                status.put("pinyin", new JSONObject().put("error", "unbuildable"));
+            }
             client.putStatus(status);
         } catch (IOException e) {
             recordFailure(context, installed, e);

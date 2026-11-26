@@ -2,7 +2,7 @@
 
 The full reference for the Android keyboard in this repository: what it does, how to build and install it, providers, styles and privacy. The [main README](../../README.md) has the overview. The keyboard is MIT-licensed ([`LICENSE`](../../LICENSE)) and lives at the repository root (`app/`).
 
-This page describes the keyboard on `main` (0.8.9). There are no published APKs yet: you [build it from source](#build).
+This page describes the keyboard on `main` (0.9.2). There are no published APKs yet: you [build it from source](#build).
 
 ## Screenshots
 
@@ -24,13 +24,14 @@ Rendered by the screenshot test (`app/src/test/java/com/voiceflowkeyboard/ime/Sc
 - **Chinese pinyin**, on the full keyboard or the **nine-key pad** (九宫格): the digits read as pinyin, the side column lists the spellings the first digits could be, and a tap pins one. The dictionary is built from Wanxiang (CC BY 4.0; see [`third_party/README.md`](../../third_party/README.md)).
 - **The language key**: English is always the main keyboard. A tap switches between English and one second keyboard; a hold opens the list of keyboards. Settings > Keyboard > Language key changes this (toggle, cycle, or always show the list).
 - **Split keyboard on large screens**: on a wide screen, such as a folding phone's inner screen, the letter keys split into two halves. Settings > Keyboard > Split keyboard on large screens (on by default).
-- **Coming in the next Android release** ([PR #21](https://github.com/yutungh/voiceflow/pull/21), not merged yet): Rime (librime) as the Chinese engine.
+- **Rime** (librime) as the Chinese engine, from 0.9.2.
 
 ## Word lists from the sync gateway
 
 From 0.8.2 a phone enrolled with a [sync gateway](../../sync/README.md) downloads its user's word lists (household, generated and personal layers, plus edits made in the apps), keeps an offline copy, and uses them for dictation. The phone uploads no word edits in this release. It does send the gateway a small status report: its app version, user and device name, and counts such as dictations and errors.
 
-**Coming in the next Android release** ([PR #21](https://github.com/yutungh/voiceflow/pull/21), not merged yet): word lists from a private GitHub repository, read-only, with **Connect GitHub** ([`docs/GITHUB-SYNC.md`](../GITHUB-SYNC.md)).
+**From 0.9.2:** word lists from a private GitHub repository, read-only, with **Connect GitHub** ([`docs/GITHUB-SYNC.md`](../GITHUB-SYNC.md)).
+
 ## Features
 
 - Native Android input method service.
@@ -241,6 +242,7 @@ Current privacy model:
 - When a cloud transcription provider is enabled, recorded audio is sent to that provider after recording stops.
 - With compatible OpenAI transcription models, configured personal vocabulary spellings and context are sent with the recording as transcription hints.
 - A phone enrolled with a vf-sync gateway ([`sync/`](../../sync/README.md)) also downloads its user's word lists (household, generated and personal layers, plus edits made in the apps), keeps an offline copy in app-private storage, and merges them with the phone's own list by the rules in `pack/`. They are used for dictation only: the vocabulary line and keywords sent with the recording, and the corrections applied once to the dictated text. Typed-text corrections keep using the phone's own list. No word edits are uploaded in this release; the phone sends the gateway a status report (app version, user and device name, counts).
+- A phone whose word lists source is a private GitHub repository (Word lists > Shared lists; [`docs/GITHUB-SYNC.md`](../GITHUB-SYNC.md)) downloads the same files from `api.github.com` with its own sign-in (Connect GitHub, through the same VoiceFlow Word Lists app computers use) or a pasted access token, kept encrypted with an Android Keystore key, and the same offline-copy rules apply. It only reads today: it writes nothing to the repository. A gateway it is enrolled with keeps delivering app updates.
 - When transcript cleanup is enabled, transcript text is sent to the configured transform provider.
 - Offline Vosk and Offline Parakeet transcription keep audio local after the selected local model has been downloaded.
 

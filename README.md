@@ -17,8 +17,8 @@ You speak in any app and VoiceFlow types it, spelling names and jargon the way y
 | **Runs on** | Windows; macOS (built by CI) | Android 8.0 and newer |
 | **How you dictate** | Press a hotkey in any app, speak, press it again. The text is pasted at your cursor | Tap **Dictate** on the keyboard, in any app |
 | **Tidy-up** | Styles and an expression level, chosen on the recording bar | Styles and an expression level, chosen on the keyboard while you speak |
-| **Your word list** | From a folder (local, a network share or a Google Drive folder) or a private GitHub repository | From a self-hosted [sync gateway](sync/README.md). GitHub is coming in the next release |
-| **On `main`** | 0.9.20 | 0.8.9 |
+| **Your word list** | From a folder (local, a network share or a Google Drive folder) or a private GitHub repository | From a private GitHub repository (from 0.9.2) or a self-hosted [sync gateway](sync/README.md) |
+| **On `main`** | 0.9.20 | 0.9.2 |
 | **Licence** | AGPL-3.0 (a fork of [Whispering](https://github.com/EpicenterHQ/epicenter)) | MIT |
 | **Full docs** | [`desktop/README.md`](desktop/README.md) | [`docs/android/README.md`](docs/android/README.md) |
 
@@ -71,7 +71,7 @@ A full keyboard with dictation built in. It works in any app that takes a normal
 - **Dictate** records the whole message, then inserts the tidied text.
 - **While you speak**, the keys give way to a panel of style chips and an expression slider. The choice is for that message only.
 - **Providers:** OpenAI, xAI (Grok) or Deepgram for speech, OpenAI, xAI or Anthropic for tidy-up, or offline speech models (Vosk, Parakeet) that keep audio on the phone.
-- **Your words:** a personal word list on the phone, plus your shared word lists from a [sync gateway](sync/README.md). The phone reads the shared lists and sends back no word edits.
+- **Your words:** a personal word list on the phone, plus your shared word lists from a private GitHub repository or a [sync gateway](sync/README.md). The phone reads the shared lists and sends back no word edits.
 - **Chinese pinyin** on a full keyboard or a nine-key pad, with a **language key** to switch.
 - **Folding phones:** on a wide screen the keyboard splits in two.
 - Also: an emoji picker, a number pad for number fields, a Paste chip and a history of recent dictations.
@@ -83,7 +83,7 @@ A full keyboard with dictation built in. It works in any app that takes a normal
 
 ![On a folding phone's inner screen, the letter keys split into two halves](docs/images/android-fold-split.png)
 
-**Coming in the next Android release** ([PR #21](https://github.com/yutungh/voiceflow/pull/21), not merged yet):
+**New in Android 0.9.2:**
 
 - Rime (librime) as the Chinese engine.
 - Word lists from a private GitHub repository, read-only, with **Connect GitHub**.
@@ -94,7 +94,7 @@ The word list is a few JSON files: words everyone in a household shares, words a
 
 | Where the list lives | Desktop | Android | Guide |
 |---|---|---|---|
-| A private GitHub repository | Yes, with **Connect GitHub** | Next release | [`docs/GITHUB-SYNC.md`](docs/GITHUB-SYNC.md) |
+| A private GitHub repository | Yes, with **Connect GitHub** | Yes, from 0.9.2, read-only, with **Connect GitHub** | [`docs/GITHUB-SYNC.md`](docs/GITHUB-SYNC.md) |
 | A folder (local, network share or Google Drive) | Yes | No | [`docs/desktop/GOOGLE-DRIVE.md`](docs/desktop/GOOGLE-DRIVE.md) |
 | A sync gateway you run | Reads the gateway's folder directly | Yes, read-only | [`sync/README.md`](sync/README.md) |
 
@@ -145,7 +145,6 @@ Next:
 - **Phone edits flowing back:** today words you fix on the phone stay on the phone.
 - **Per-app built-in styles,** such as a casual style in chat apps and a formal one in email.
 - **A new tidy-up default** that stops over-correcting sound-alike words (the fixes measured in [`bench/vocab`](bench/vocab/results/tidy-fixes/summary.md)).
-- **The next Android release** (Rime and GitHub word lists), waiting in [PR #21](https://github.com/yutungh/voiceflow/pull/21).
 
 Not there yet: VoiceFlow has no MCP server.
 

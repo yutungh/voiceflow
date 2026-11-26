@@ -24,3 +24,6 @@ Thumbs.db
 # The pinned Wanxiang dictionaries (51 MB): fetched and hash-checked by
 # scripts/wanxiang-source.mjs; the generated asset is what is committed.
 third_party/rime-wanxiang/dicts/
+
+# Rime for Android (0.9.0): built by scripts/rime-android/build.sh, never committed.
+/.rime-dist*/

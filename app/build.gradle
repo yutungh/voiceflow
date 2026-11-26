@@ -2,6 +2,10 @@ plugins {
     id "com.android.application"
 }
 
+def rimeDist = file(project.findProperty("vfRimeDist") ?: "${rootDir}/.rime-dist")
+def hasRime = new File(rimeDist, "jniLibs/arm64-v8a/libvfrime.so").isFile() &&
+        new File(rimeDist, "assets/rime/manifest.txt").isFile()
+
 android {
     namespace "com.voiceflowkeyboard.ime"
     compileSdk 35
@@ -10,8 +14,8 @@ android {
         applicationId "com.voiceflowkeyboard.ime"
         minSdk 26
         targetSdk 35
-        versionCode 55
-        versionName "0.8.9"
+        versionCode 58
+        versionName "0.9.2"
     }
 
     // The phones' certificate. Release builds are signed with the same key as every
@@ -41,6 +45,14 @@ android {
 
     lint {
         checkReleaseBuilds false
+    }
+
+    // Rime (0.9.0): libvfrime.so and the compiled Rime data, built from pinned sources by
+    // scripts/rime-android/build.sh into .rime-dist/ (not committed; -PvfRimeDist=<dir> to
+    // point elsewhere). Without them the app builds with the Classic engine only, as CI does.
+    if (hasRime) {
+        sourceSets.main.jniLibs.srcDirs += ["${rimeDist}/jniLibs"]
+        sourceSets.main.assets.srcDirs += ["${rimeDist}/assets"]
     }
 
     // The built-in styles both apps ship (pack/builtin/styles.json, MIT), read as a
@@ -77,4 +89,16 @@ dependencies {
     implementation "org.apache.commons:commons-compress:1.27.1"
     testImplementation "junit:junit:4.13.2"
     testImplementation "org.robolectric:robolectric:4.16"
+}
+
+// A release ships Rime: refuse to build one without it, unless asked (-PvfAllowNoRime).
+tasks.configureEach { task ->
+    if (task.name == "preReleaseBuild") {
+        task.doFirst {
+            if (!hasRime && !project.hasProperty("vfAllowNoRime")) {
+                throw new GradleException("No Rime build in ${rimeDist}: run scripts/rime-android/build.sh first " +
+                        "(or pass -PvfAllowNoRime for a Classic-only release).")
+            }
+        }
+    }
 }

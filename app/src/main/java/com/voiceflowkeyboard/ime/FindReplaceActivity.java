@@ -2,6 +2,7 @@ package com.voiceflowkeyboard.ime;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.InputType;
@@ -98,6 +99,14 @@ public class FindReplaceActivity extends Activity {
         setContentView(buildContent());
     }
 
+    /** Back from the source screen: the shared lists may come from somewhere else now. */
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        loadShared();
+        setContentView(buildContent());
+    }
+
     private void loadShared() {
         shared.clear();
         try {
@@ -110,7 +119,7 @@ public class FindReplaceActivity extends Activity {
 
     /** One line on where the sync server's words stand, or null when this phone is not enrolled. */
     private String syncSummary() {
-        if (view == null || SyncStore.enrolment(this) == null) {
+        if (view == null || SyncStore.wordEnrolment(this) == null) {
             return null;
         }
         WordLists.State state = view.state;
@@ -181,6 +190,15 @@ public class FindReplaceActivity extends Activity {
             sync.setPadding(dp(4), 0, dp(4), dp(12));
             root.addView(sync);
         }
+        // Where the shared lists come from: none, the sync server or a GitHub repository.
+        TextView source = Ui.text(this, "Shared lists: " + WordSourceActivity.summary(this) + "  ›", 13f, true, Ui.ACCENT);
+        source.setPadding(dp(4), 0, dp(4), dp(12));
+        source.setMinHeight(dp(40));
+        source.setClickable(true);
+        source.setBackground(Ui.ripple(this));
+        source.setContentDescription("Where your shared word lists come from: " + WordSourceActivity.summary(this));
+        source.setOnClickListener(v -> startActivity(new Intent(this, WordSourceActivity.class)));
+        root.addView(source);
 
         int total = replacements.size() + shared.size();
         search = new EditText(this);

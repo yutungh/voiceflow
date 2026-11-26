@@ -33,7 +33,7 @@ import java.util.Set;
  *
  * <p>Pure Java by design — no Android types — so it is unit tested directly.
  */
-final class PinyinComposer {
+final class PinyinComposer implements PinyinConverter {
 
     /** Longest buffer we will analyse; beyond this the user should commit something. */
     static final int MAX_INPUT_LENGTH = 32;
@@ -126,7 +126,8 @@ final class PinyinComposer {
     }
 
     /** The lookup behind this composer; the 9-key layout asks it for spellings. */
-    PinyinLookup lookup() {
+    @Override
+    public PinyinLookup lookup() {
         return dictionary;
     }
 
@@ -178,7 +179,8 @@ final class PinyinComposer {
      *
      * @param limit maximum number of candidates to return
      */
-    List<PinyinCandidate> candidates(String rawInput, int limit) {
+    @Override
+    public List<PinyinCandidate> candidates(String rawInput, int limit) {
         if (rawInput == null || limit <= 0) {
             return Collections.emptyList();
         }
