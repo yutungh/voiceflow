@@ -67,7 +67,7 @@ final class UpdateNotifier {
                 context, NOTIFICATION_ID, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification notification = new Notification.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ph_download_simple)
-                .setContentTitle("VoiceFlow update ready")
+                .setContentTitle("VoiceLnq update ready")
                 .setContentText("Tap to install.")
                 .setContentIntent(tap)
                 .setAutoCancel(true)

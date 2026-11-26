@@ -172,7 +172,7 @@ export function anthropicRequest(args: Pick<CompleteArgs, 'model' | 'system' | '
 export function anthropicAnswer(reply: unknown): CompleteResult {
 	const message = reply as { stop_reason?: string | null; content?: { type: string; text?: string }[] } | null;
 	if (!message || !Array.isArray(message.content))
-		return { ok: false, message: 'Anthropic sent back an answer VoiceFlow couldn’t read.' };
+		return { ok: false, message: 'Anthropic sent back an answer VoiceLnq couldn’t read.' };
 	if (message.stop_reason === 'refusal')
 		return { ok: false, message: 'The model declined to look at this dictation.' };
 	if (message.stop_reason === 'max_tokens') return { ok: false, message: 'The answer was cut off. Try again.' };

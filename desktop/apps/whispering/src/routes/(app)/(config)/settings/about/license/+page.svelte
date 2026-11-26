@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>Licence - VoiceFlow</title>
+	<title>Licence - VoiceLnq</title>
 </svelte:head>
 
 <div class="w-full max-w-[960px] px-4 py-4 sm:px-7">

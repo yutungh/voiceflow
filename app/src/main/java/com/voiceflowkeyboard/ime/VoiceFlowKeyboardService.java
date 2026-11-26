@@ -2534,7 +2534,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             menu.getMenu().add(1, MENU_CHINESE_LAYOUT, 5, keypadNext
                     ? "中文 九宫格 (nine-key)" : "中文 全键 (full keyboard)");
         }
-        menu.getMenu().add(1, MENU_SETTINGS, 6, "VoiceFlow settings");
+        menu.getMenu().add(1, MENU_SETTINGS, 6, "VoiceLnq settings");
         menu.setOnMenuItemClickListener(item -> {
             haptic(anchor);
             switch (item.getItemId()) {
@@ -4093,7 +4093,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             setStatus("Clipboard unavailable");
             return;
         }
-        clipboard.setPrimaryClip(ClipData.newPlainText("VoiceFlow transcript", text.trim()));
+        clipboard.setPrimaryClip(ClipData.newPlainText("VoiceLnq transcript", text.trim()));
         setStatus("Copied");
     }
 
@@ -6818,7 +6818,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             try {
                 ClipboardManager clipboard = clipboard();
                 if (clipboard != null) {
-                    clipboard.setPrimaryClip(ClipData.newPlainText("VoiceFlow", text.trim()));
+                    clipboard.setPrimaryClip(ClipData.newPlainText("VoiceLnq", text.trim()));
                     copied = true;
                 }
             } catch (RuntimeException ignored) {

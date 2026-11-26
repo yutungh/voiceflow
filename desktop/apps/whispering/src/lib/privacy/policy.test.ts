@@ -318,7 +318,7 @@ describe('Paste rules: where the text goes when it is ready', () => {
 	test('an app run as administrator, or one whose level is unreadable: copied', () => {
 		const admin = decidePaste({ current: target({ higherIntegrity: true, appName: 'Terminal' }) });
 		expect(admin).toMatchObject({ paste: false, reason: 'elevated' });
-		expect(copiedWhy(admin)).toBe("Terminal runs as administrator, so VoiceFlow can't paste into it.");
+		expect(copiedWhy(admin)).toBe("Terminal runs as administrator, so VoiceLnq can't paste into it.");
 		expect(decidePaste({ current: target({ higherIntegrity: null }) }).reason).toBe('elevation-unknown');
 		// macOS and older snapshots have no level to read.
 		expect(decidePaste({ current: target({ platform: 'macos', higherIntegrity: null }) }).paste).toBe(true);

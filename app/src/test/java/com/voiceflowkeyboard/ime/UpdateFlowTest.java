@@ -170,7 +170,7 @@ public class UpdateFlowTest {
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         UpdateNotifier.readyOnce(context, offer);
         assertEquals(1, shadowOf(manager).size());
-        assertEquals("VoiceFlow update ready",
+        assertEquals("VoiceLnq update ready",
                 shadowOf(manager.getActiveNotifications()[0].getNotification()).getContentTitle().toString());
         assertEquals("Tap to install.",
                 shadowOf(manager.getActiveNotifications()[0].getNotification()).getContentText().toString());

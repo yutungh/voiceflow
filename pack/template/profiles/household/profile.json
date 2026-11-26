@@ -1,5 +1,5 @@
 {
-	"$schema": "https://raw.githubusercontent.com/yutungh/voiceflow/main/pack/schema/voiceflow-profile.v1.schema.json",
+	"$schema": "https://raw.githubusercontent.com/yutungh/voicelnq/main/pack/schema/voiceflow-profile.v1.schema.json",
 	"schema": "voiceflow-profile",
 	"schemaVersion": 1,
 	"layer": "household",

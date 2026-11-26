@@ -1,6 +1,6 @@
-# VoiceFlow Desktop: agent notes
+# VoiceLnq Desktop: agent notes
 
-`desktop/` is VoiceFlow Desktop, a fork of Whispering 7.11.0 (Tauri 2 + Svelte 5). It replaces upstream's `AGENTS.md` and `CLAUDE.md` files.
+`desktop/` is VoiceLnq Desktop, a fork of Whispering 7.11.0 (Tauri 2 + Svelte 5). It replaces upstream's `AGENTS.md` and `CLAUDE.md` files.
 
 ## Where things are
 
@@ -32,7 +32,7 @@ bun run --cwd desktop\apps\whispering tauri build --bundles nsis
 - **No upstream endpoints.** No update checks, downloads, links or videos that reach Whispering's or Epicenter's servers or GitHub. The fork's own updater comes in M4 (spec §7.3).
 - **Secrets** go in the OS credential store (`src-tauri/src/secrets.rs`), never in localStorage or the repo.
 - **Failures are visible.** Never paste raw text silently (spec §2.1): when tidy-up fails, nothing is pasted and the user gets Retry tidy-up / Paste raw text.
-- Mark VoiceFlow changes to upstream files with a short `VoiceFlow:` comment, and list notable ones in `NOTICE`.
+- Mark changes to upstream files with a short `VoiceFlow:` comment (the marker keeps the old name), and list notable ones in `NOTICE`.
 
 ## Code patterns (from upstream)
 

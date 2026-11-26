@@ -1,6 +1,6 @@
-# VoiceFlow word lists (the pack)
+# VoiceLnq word lists (the pack)
 
-The data contract VoiceFlow reads: the words it listens for, the spellings it always fixes, tidy-up styles, model defaults and privacy lists. VoiceFlow Desktop (`../desktop/`) reads it, and so does the Android keyboard (repository root) from 0.8.2, through the sync gateway (`../sync/`). VoiceFlow Desktop, and the Android keyboard from 0.9.2, can also read it from a private GitHub repository ([`../docs/GITHUB-SYNC.md`](../docs/GITHUB-SYNC.md)). It is data only, so sharing it never mixes the apps' licences.
+The data contract VoiceLnq reads: the words it listens for, the spellings it always fixes, tidy-up styles, model defaults and privacy lists. VoiceLnq Desktop (`../desktop/`) reads it, and so does the Android keyboard (repository root) from 0.8.2, through the sync gateway (`../sync/`). VoiceLnq Desktop, and the Android keyboard from 0.9.2, can also read it from a private GitHub repository ([`../docs/GITHUB-SYNC.md`](../docs/GITHUB-SYNC.md)). It is data only, so sharing it never mixes the apps' licences.
 
 Everything here is MIT (see [`LICENSE`](LICENSE)). Every word in the fixtures is invented.
 
@@ -11,7 +11,7 @@ Everything here is MIT (see [`LICENSE`](LICENSE)). Every word in the fixtures is
 | [`schema/voiceflow-op.v1.schema.json`](schema/voiceflow-op.v1.schema.json) | One edit made in the app |
 | [`schema/voiceflow-status.v1.schema.json`](schema/voiceflow-status.v1.schema.json) | The status file each device writes |
 | [`schema/voiceflow-feedback.v1.schema.json`](schema/voiceflow-feedback.v1.schema.json) | What a model answers to feedback on a dictation ([`feedback/`](feedback/README.md)) |
-| [`schema/voiceflow-feedback.v2.schema.json`](schema/voiceflow-feedback.v2.schema.json) | v2 (VoiceFlow Desktop 0.9.16): several problems in one answer, each with the layer that failed and its own fixes ([`feedback/`](feedback/README.md#v2-several-problems-at-once)) |
+| [`schema/voiceflow-feedback.v2.schema.json`](schema/voiceflow-feedback.v2.schema.json) | v2 (VoiceLnq Desktop 0.9.16): several problems in one answer, each with the layer that failed and its own fixes ([`feedback/`](feedback/README.md#v2-several-problems-at-once)) |
 | [`builtin/styles.json`](builtin/styles.json) | The built-in tidy-up styles both apps ship, one stable id each. Today: **Clean** (`clean`), which turns speech into the message the speaker meant to send, in their own voice |
 | [`feedback/README.md`](feedback/README.md) | The feedback contract: what goes to the model, what must come back, how it is checked, and the edit each fix becomes |
 | [`fixtures/demo/`](fixtures/demo/) | A complete example folder: household + one user (`sam`) with all three layers and some edits |
@@ -28,7 +28,7 @@ Everything here is MIT (see [`LICENSE`](LICENSE)). Every word in the fixtures is
 
 ## The folder
 
-Any folder works: a plain folder on your computer, a synced folder, or a network share (`\\NAS\voiceflow`, `/Volumes/voiceflow`). In VoiceFlow Desktop, choose it under **Settings > Word lists**. For a Google Drive folder, shared or not, see [Keep your word lists in Google Drive](../docs/desktop/GOOGLE-DRIVE.md). The same layout also works as a **private GitHub repository** (VoiceFlow Desktop 0.9.19 and later): see [Keep your word lists in a private GitHub repository](../docs/GITHUB-SYNC.md).
+Any folder works: a plain folder on your computer, a synced folder, or a network share (`\\NAS\voiceflow`, `/Volumes/voiceflow`). In VoiceLnq Desktop, choose it under **Settings > Word lists**. For a Google Drive folder, shared or not, see [Keep your word lists in Google Drive](../docs/desktop/GOOGLE-DRIVE.md). The same layout also works as a **private GitHub repository** (VoiceLnq Desktop 0.9.19 and later): see [Keep your word lists in a private GitHub repository](../docs/GITHUB-SYNC.md).
 
 ```text
 <folder>/
@@ -52,7 +52,7 @@ A later layer wins:
 - **Words, corrections and styles have stable ids.** An entry in a higher layer with the same id replaces the lower one entirely. Never reuse an id for something else.
 - **Defaults** are taken field by field from the highest layer that sets them. A default that no layer sets is left to the device (its own settings keep working).
 - **Privacy lists** are added together, and only ever add blocks to the app's built-in lists.
-- **App rules** (`apps`): each entry needs an `id`, the app it is for (a lower-case Windows exe name such as `telegram.exe`, or a macOS bundle id); word and style references are checked. VoiceFlow Desktop uses `style` (a style id or `raw`) as the style a dictation into that app starts with on the recording bar; `terms` is reserved.
+- **App rules** (`apps`): each entry needs an `id`, the app it is for (a lower-case Windows exe name such as `telegram.exe`, or a macOS bundle id); word and style references are checked. VoiceLnq Desktop uses `style` (a style id or `raw`) as the style a dictation into that app starts with on the recording bar; `terms` is reserved.
 
 ## Rules every client follows
 
@@ -67,7 +67,7 @@ A later layer wins:
   - the same word twice within one layer: one kept, `duplicate-word`;
   - a pinned style that doesn't exist: left out, `missing-style`;
   - a style made by edits without a label or a prompt yet: not offered, `style-incomplete`.
-- **Snapshots.** The merged result has an id that changes when its content changes. A dictation pins the snapshot it started with; a refresh never changes a dictation in progress. VoiceFlow Desktop refreshes at start, every hour and on demand, and waits for a running dictation to finish.
+- **Snapshots.** The merged result has an id that changes when its content changes. A dictation pins the snapshot it started with; a refresh never changes a dictation in progress. VoiceLnq Desktop refreshes at start, every hour and on demand, and waits for a running dictation to finish.
 - **Offline is normal.** The app keeps a copy of each layer and of every edit it has seen. When the folder can't be reached it uses those, and dictation works as usual.
 
 ## Edits made in the app (`voiceflow-op` v1)
@@ -85,7 +85,7 @@ A later layer wins:
 |---|---|---|
 | `correction` | `from[]`, `to`, `scope.apps[]`, `note?` | Always write these heard forms this way |
 | `term` | `term: {text, heardAs?, kind?, gloss?, priority?, apps?}` | A word to listen for (hint only) |
-| `app-style` | `app`, `style?`, `expression?` (0–4) | For this app, use this style and/or expression level (an approved feedback fix, or from VoiceFlow Desktop 0.9.21 Settings > Tidy-up > Style for each app). Sets the app rule's fields over the layers'; at least one of the two. App ids are native to each platform (`telegram.exe`, a macOS bundle id, an Android package name). The style is a reference, see [Style references](#style-references-in-app-rules) |
+| `app-style` | `app`, `style?`, `expression?` (0–4) | For this app, use this style and/or expression level (an approved feedback fix, or from VoiceLnq Desktop 0.9.21 Settings > Tidy-up > Style for each app). Sets the app rule's fields over the layers'; at least one of the two. App ids are native to each platform (`telegram.exe`, a macOS bundle id, an Android package name). The style is a reference, see [Style references](#style-references-in-app-rules) |
 | `style-set` | `style`, `set: {…}` | Some fields of one style: `label`, `prompt`, `model`, `models`, `expression`, `expressionOverride`, `icon`, `kind`, `guidance`, `hidden`, `note` (as in a v2 layer file). Field by field the newest edit wins, so an expression change on a phone never overwrites a prompt edit on the PC. `null` clears an optional field; `label` and `prompt` can't be cleared. A style no layer has is made by its edits once they give it a label and a prompt (until then: `style-incomplete`). Written only once every device reads it ([Versions](#versions-readers-before-writers)) |
 | `default-set` | `set: {cleanupStyle?, pinnedStyles?}` | The default style (`raw` for none) and the pinned styles, over the layers; the newest edit wins each. `null` takes the edits' value away, so the layers' applies again. Same rule for writing as `style-set` |
 | `tombstone` | `target` | Remove the edit with this id |
@@ -131,10 +131,10 @@ An app rule's `style` (in a layer's `apps[]` or an `app-style` edit) names the s
 
 1. a style in the merged word lists with that id;
 2. `raw`: no tidy-up;
-3. a built-in style by its fixed id, `vf-builtin-<key>`: `vf-builtin-clean`, `vf-builtin-ai-prompt`, `vf-builtin-email`, `vf-builtin-work-chat`, `vf-builtin-notes`, `vf-builtin-concise`, `vf-builtin-friends`, `vf-builtin-work`, `vf-builtin-family`, `vf-builtin-partner` (VoiceFlow Desktop 0.9.21). `<key>` is the pack id for a style in [`builtin/styles.json`](builtin/styles.json) (`clean`);
+3. a built-in style by its fixed id, `vf-builtin-<key>`: `vf-builtin-clean`, `vf-builtin-ai-prompt`, `vf-builtin-email`, `vf-builtin-work-chat`, `vf-builtin-notes`, `vf-builtin-concise`, `vf-builtin-friends`, `vf-builtin-work`, `vf-builtin-family`, `vf-builtin-partner` (VoiceLnq Desktop 0.9.21). `<key>` is the pack id for a style in [`builtin/styles.json`](builtin/styles.json) (`clean`);
 4. a style made on a PC: `vf-pc-` and the style's own id, each capital letter written as `.` and its lower case (a style `aB3` is `vf-pc-a.b3`). It names a style on the device that reads it; a device without it starts in the default style.
 
-A built-in or PC reference that the reading device doesn't have is not an error: that device uses its default style. VoiceFlow Desktop reports neither form as `missing-style`.
+A built-in or PC reference that the reading device doesn't have is not an error: that device uses its default style. VoiceLnq Desktop reports neither form as `missing-style`.
 
 The precedence when a dictation starts: a style picked on the bar for that dictation, then the app's rule (the person's own `app-style` edits over the layers' `apps[]` rule, field by field), then the default style.
 
@@ -144,10 +144,10 @@ Every app refuses a whole file, and skips a whole edit, it can't read. So a new 
 
 | What | Reads it | Writes it |
 |---|---|---|
-| `voiceflow-profile` v2 (the style fields marked v2 above, `defaults.pinnedStyles`) | VoiceFlow Desktop 0.9.13 | Nobody yet. A person or assistant may write a v2 file only once every device of every user who reads that file reports `reads.profile` containing 2 |
-| `style-set`, `default-set` edits | VoiceFlow Desktop 0.9.13 | Nobody yet. The apps start writing them only once every device of the user reports both in `reads.op`; until then VoiceFlow Desktop keeps any it finds on the device to itself (`edit-held`) and never uploads it |
-| `app-style` edits, `apps[].expression` | VoiceFlow Desktop 0.9.7 and later; not Android 0.8.2 (it refuses what it does not know) | VoiceFlow Desktop makes them (approved feedback fixes; from 0.9.21 also Settings > Tidy-up > Style for each app). From 0.9.13 such an edit works on the PC that made it and is uploaded only once every device of the user reports `app-style` in `reads.op`; edits already on the share from 0.9.7 to 0.9.12 stay there. From 0.9.21 a tombstone of a held edit is held with it (so other devices never see an undo of an edit they don't have); a tombstone of an edit already on the share uploads as before |
-| Built-in and PC style references in an app rule (`vf-builtin-…`, `vf-pc-…`) | VoiceFlow Desktop 0.9.21, which reports `app-style-device-refs-v1` in `reads.features` | VoiceFlow Desktop 0.9.21 writes them in `app-style` edits, which stay on the PC. A device counts as ready for `app-style` edits only when it reports both `app-style` in `reads.op` and `app-style-device-refs-v1` in `reads.features`: an older reader treats these references as a style it doesn't have and starts in the default |
+| `voiceflow-profile` v2 (the style fields marked v2 above, `defaults.pinnedStyles`) | VoiceLnq Desktop 0.9.13 | Nobody yet. A person or assistant may write a v2 file only once every device of every user who reads that file reports `reads.profile` containing 2 |
+| `style-set`, `default-set` edits | VoiceLnq Desktop 0.9.13 | Nobody yet. The apps start writing them only once every device of the user reports both in `reads.op`; until then VoiceLnq Desktop keeps any it finds on the device to itself (`edit-held`) and never uploads it |
+| `app-style` edits, `apps[].expression` | VoiceLnq Desktop 0.9.7 and later; not Android 0.8.2 (it refuses what it does not know) | VoiceLnq Desktop makes them (approved feedback fixes; from 0.9.21 also Settings > Tidy-up > Style for each app). From 0.9.13 such an edit works on the PC that made it and is uploaded only once every device of the user reports `app-style` in `reads.op`; edits already on the share from 0.9.7 to 0.9.12 stay there. From 0.9.21 a tombstone of a held edit is held with it (so other devices never see an undo of an edit they don't have); a tombstone of an edit already on the share uploads as before |
+| Built-in and PC style references in an app rule (`vf-builtin-…`, `vf-pc-…`) | VoiceLnq Desktop 0.9.21, which reports `app-style-device-refs-v1` in `reads.features` | VoiceLnq Desktop 0.9.21 writes them in `app-style` edits, which stay on the PC. A device counts as ready for `app-style` edits only when it reports both `app-style` in `reads.op` and `app-style-device-refs-v1` in `reads.features`: an older reader treats these references as a style it doesn't have and starts in the default |
 
 - A file that uses a v2 field must say `"schemaVersion": 2`; a v1 file with one is refused (an older app would refuse it too, so the mistake shows up on the newest device first). A file that needs none stays v1.
 - Each device's status file says what it reads (`reads`, below). A status without `reads` (an app from before 0.9.13, or a phone) counts as reading profile v1 and the edit types `correction`, `term` and `tombstone` only. No status at all proves nothing, so the answer is "not yet".
@@ -159,7 +159,7 @@ App ids are lower-case: a Windows exe name (`telegram.exe`) or a macOS bundle id
 
 Built per dictation from the pinned snapshot: words for the app being dictated into first, then words for every app by priority, within `promptChars` characters and `promptTerms` words (a word that doesn't fit is skipped and the next tried); most relevant last; one line, `Vocabulary: A, B, C`. No sentences, which a model can echo back on silence.
 
-**The transcriber gets 20 of them** (VoiceFlow Desktop 0.9.15, Android 0.8.5). The transcription request (the line and its `keywords[]`) carries only the first 20 words chosen, in the same order (the app's own words first, then priority), with pronunciation hints fitted to that shorter line within `promptChars`. The tidy-up still gets every word chosen within `promptChars` and `promptTerms` (below). On real recordings, 50 or 80 words made gpt-transcribe drop words, swap an acronym for an everyday word and write listed words nobody said; the top 20 came out right every time, and the break came between 40 and 50. OpenAI calls keywords "hints, not required output" and advises keeping only terms that help.
+**The transcriber gets 20 of them** (VoiceLnq Desktop 0.9.15, Android 0.8.5). The transcription request (the line and its `keywords[]`) carries only the first 20 words chosen, in the same order (the app's own words first, then priority), with pronunciation hints fitted to that shorter line within `promptChars`. The tidy-up still gets every word chosen within `promptChars` and `promptTerms` (below). On real recordings, 50 or 80 words made gpt-transcribe drop words, swap an acronym for an everyday word and write listed words nobody said; the top 20 came out right every time, and the break came between 40 and 50. OpenAI calls keywords "hints, not required output" and advises keeping only terms that help.
 
 - **20 is a code constant** (`TRANSCRIBE_TERMS` in `prompt.ts` and `WordPrompt.java`), with a hard cap of 40 (`TRANSCRIBE_TERMS_MAX`) whatever asks for more. It is not a profile field: Android 0.8.x refuses a profile file with a field it doesn't know, so adding one now would break the phones ([Versions](#versions-readers-before-writers)).
 - **Plan:** a later profile schema version (v2 or after) may add `defaults.transcribeTerms` to override it, clamped to 1..40, written only once every device reads that version. Until then `promptTerms` sizes the tidy-up's list, and the request's size changes only with an app release.
@@ -167,7 +167,7 @@ Built per dictation from the pinned snapshot: words for the app being dictated i
 
 ## The tidy-up's word list
 
-Since VoiceFlow Desktop 0.9.14 and Android 0.8.4, every tidy-up style except the fun ones also gets the words, after its own instructions: "Words this speaker uses", one line per word with a note, then the rules for fixing a misheard word. The speech model can't map an unusual pronunciation onto a word (ZDRL, said "zee-drul", written "zee drill"); the tidy-up can, from the context, and leaves a real word that fits alone.
+Since VoiceLnq Desktop 0.9.14 and Android 0.8.4, every tidy-up style except the fun ones also gets the words, after its own instructions: "Words this speaker uses", one line per word with a note, then the rules for fixing a misheard word. The speech model can't map an unusual pronunciation onto a word (ZDRL, said "zee-drul", written "zee drill"); the tidy-up can, from the context, and leaves a real word that fits alone.
 
 - **Words:** every word the vocabulary prompt chose for that dictation (within `promptChars` and `promptTerms`), most important first. Since 0.9.15 / 0.8.5 that is more than the 20 the transcriber gets.
 - **Notes:** the gloss from any layer (with the kind when the gloss doesn't say it), then `speech-to-text wrote "X" or "Y"` from `heardAs`; at most 120 characters, whole forms only. The list keeps within 3,000 characters: words first, then notes on how a word sounds or was misheard, then the rest.

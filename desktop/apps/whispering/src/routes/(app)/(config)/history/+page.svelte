@@ -318,7 +318,7 @@
 </script>
 
 <svelte:head>
-	<title>History - VoiceFlow</title>
+	<title>History - VoiceLnq</title>
 </svelte:head>
 
 <svelte:window onkeydown={onKey} />

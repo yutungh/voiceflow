@@ -1,6 +1,6 @@
-# VoiceFlow Desktop changelog
+# VoiceLnq Desktop changelog
 
-History and status for VoiceFlow Desktop, moved out of `README.md` so the README can stay a setup guide. The desktop app is a fork of Whispering 7.11.0 (see `UPSTREAM.md`).
+History and status for VoiceLnq Desktop, moved out of `README.md` so the README can stay a setup guide. The desktop app is a fork of Whispering 7.11.0 (see `UPSTREAM.md`).
 
 ## Status (milestone notes)
 

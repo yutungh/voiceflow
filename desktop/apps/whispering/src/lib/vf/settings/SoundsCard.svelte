@@ -59,7 +59,7 @@
 <section class="card sp" id="sounds" aria-labelledby="h-sound">
 	<div class="c-h"><Tile icon="speaker-high" /><h2 id="h-sound">Sounds</h2></div>
 	<div class="srow">
-		<div><b>Sound set</b><span>Made for VoiceFlow</span></div>
+		<div><b>Sound set</b><span>Made for VoiceLnq</span></div>
 		<span class="seg" role="radiogroup" aria-label="Sound set">
 			{#each SOUND_SET_CHOICES as choice (choice)}
 				<button
@@ -74,7 +74,7 @@
 	</div>
 	{#if !off}
 		<div class="srow">
-			<div><b>Volume</b><span>For VoiceFlow's sounds only</span></div>
+			<div><b>Volume</b><span>For VoiceLnq's sounds only</span></div>
 			<span class="vol">
 				<input
 					type="range"
@@ -108,7 +108,7 @@
 			</div>
 		{/each}
 	{:else}
-		<p class="sub small">VoiceFlow makes no sounds.</p>
+		<p class="sub small">VoiceLnq makes no sounds.</p>
 	{/if}
 </section>
 

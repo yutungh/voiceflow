@@ -504,7 +504,7 @@ pub fn parse_profile(text: &str, layer: Layer, user: &str) -> Result<ProfileFile
         Some(v) if PROFILE_VERSIONS_READ.contains(&v) => v,
         Some(v) if v > PROFILE_VERSION => {
             return Err(format!(
-                "schemaVersion {v} is newer than this VoiceFlow understands ({PROFILE_VERSION}); update VoiceFlow"
+                "schemaVersion {v} is newer than this VoiceLnq understands ({PROFILE_VERSION}); update VoiceLnq"
             ))
         }
         _ => return Err("schemaVersion must be 1 or 2".to_string()),
@@ -529,7 +529,7 @@ pub fn parse_profile(text: &str, layer: Layer, user: &str) -> Result<ProfileFile
         }
         if let Some(first) = used.first() {
             return Err(format!(
-                "uses {first}, a schemaVersion 2 field, but says schemaVersion 1; set \"schemaVersion\": 2 (older VoiceFlow apps don't read it)"
+                "uses {first}, a schemaVersion 2 field, but says schemaVersion 1; set \"schemaVersion\": 2 (older VoiceLnq apps don't read it)"
             ));
         }
     }
@@ -833,7 +833,7 @@ pub fn parse_op(text: &str, file_stem: Option<&str>) -> Result<Op, String> {
     }
     match v.get("version").and_then(Value::as_u64) {
         Some(OP_VERSION) => {}
-        Some(n) if n > OP_VERSION => return Err(format!("version {n} is newer than this VoiceFlow understands")),
+        Some(n) if n > OP_VERSION => return Err(format!("version {n} is newer than this VoiceLnq understands")),
         _ => return Err(format!("version must be {OP_VERSION}")),
     }
     let id = str_field(v, "id")?.to_string();

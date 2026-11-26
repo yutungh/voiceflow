@@ -42,7 +42,7 @@
 </script>
 
 <svelte:head>
-	<title>VoiceFlow</title>
+	<title>VoiceLnq</title>
 </svelte:head>
 
 <QueryClientProvider client={queryClient}>

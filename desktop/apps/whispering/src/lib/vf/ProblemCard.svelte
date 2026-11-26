@@ -25,15 +25,15 @@
 		problem.kind === 'held'
 			? 'Your words were kept on this PC'
 			: problem.kind === 'transcription'
-				? "VoiceFlow couldn't turn your words into text"
+				? "VoiceLnq couldn't turn your words into text"
 				: `Nothing was pasted into ${app}`,
 	);
 
 	const cause = $derived(
 		problem.kind === 'held'
 			? r.appName
-				? `VoiceFlow couldn't check the box you were typing in, in ${r.appName}, so nothing was sent.`
-				: "VoiceFlow couldn't tell which app you were in, so nothing was sent."
+				? `VoiceLnq couldn't check the box you were typing in, in ${r.appName}, so nothing was sent.`
+				: "VoiceLnq couldn't tell which app you were in, so nothing was sent."
 			: (r.problem ?? 'Something went wrong.'),
 	);
 

@@ -217,7 +217,7 @@ describe('no key', () => {
 describe('the line under Find fixes', () => {
 	test('names the provider and model actually chosen', () => {
 		expect(findFixesLine({ provider: 'Anthropic', model: 'claude-sonnet-5-5' })).toBe(
-			"Sends this dictation's text and your note to Anthropic (Claude Sonnet 5.5) with your own API key, to suggest fixes to your spellings and styles. Nothing is sent to VoiceFlow.",
+			"Sends this dictation's text and your note to Anthropic (Claude Sonnet 5.5) with your own API key, to suggest fixes to your spellings and styles. Nothing is sent to VoiceLnq.",
 		);
 		const view = fixModelView(
 			fixModelFromSettings(values({ 'feedback.fixModel': 'Anthropic|claude-opus-5-5', 'apiKeys.openai': OPENAI, 'apiKeys.anthropic': ANTHROPIC })),

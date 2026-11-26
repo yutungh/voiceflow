@@ -496,7 +496,7 @@ impl GitHubSource {
 
     fn wait_message(&self, until: i64) -> String {
         format!(
-            "GitHub asked VoiceFlow to wait; it checks again after {} (UTC). Using the last good copy.",
+            "GitHub asked VoiceLnq to wait; it checks again after {} (UTC). Using the last good copy.",
             iso_from_unix(until).replace('T', " ").trim_end_matches('Z')
         )
     }
@@ -799,7 +799,7 @@ impl Source for GitHubSource {
                 return Upload::Deferred;
             }
             self.puts += 1;
-            let result = self.put(&rel, &text, None, format!("VoiceFlow: add edit {id}"));
+            let result = self.put(&rel, &text, None, format!("VoiceLnq: add edit {id}"));
             match result {
                 Ok(response) => {
                     self.note_written(&rel, &response);
@@ -843,7 +843,7 @@ impl Source for GitHubSource {
         let device = self.device.clone();
         let mut sha = listed;
         for attempt in 0..2 {
-            match self.put(rel, text, sha.as_deref(), format!("VoiceFlow: update status {device}")) {
+            match self.put(rel, text, sha.as_deref(), format!("VoiceLnq: update status {device}")) {
                 Ok(response) => {
                     let written = self.note_written(rel, &response).unwrap_or_default();
                     self.meta.status = Some(StatusRecord { sha: written, fingerprint, written_at: self.now });
@@ -947,7 +947,7 @@ fn run_test(
     let mut report = TestReport::default();
     if not_before > now {
         report.message = format!(
-            "GitHub asked VoiceFlow to wait; try again after {} (UTC).",
+            "GitHub asked VoiceLnq to wait; try again after {} (UTC).",
             iso_from_unix(not_before).replace('T', " ").trim_end_matches('Z')
         );
         return report;
@@ -965,7 +965,7 @@ fn run_test(
     // After a rate limit, nothing more is asked.
     let send = |url: String, accept: &'static str, max: usize| -> Result<HttpResponse, String> {
         if limited.get().is_some() {
-            return Err("GitHub asked VoiceFlow to slow down; try again later.".into());
+            return Err("GitHub asked VoiceLnq to slow down; try again later.".into());
         }
         let left = deadline.saturating_duration_since(Instant::now());
         if left < Duration::from_secs(1) {
@@ -982,7 +982,7 @@ fn run_test(
         }
         if let Some(until) = rate_limit_until(&response, now.saturating_add(started.elapsed().as_secs() as i64)) {
             limited.set(Some(until));
-            return Err("GitHub asked VoiceFlow to slow down; try again later.".into());
+            return Err("GitHub asked VoiceLnq to slow down; try again later.".into());
         }
         if response.status == 401 {
             refused.set(true);
@@ -1049,7 +1049,7 @@ fn run_test(
     if !tree.tree.iter().any(|e| e.path.starts_with("profiles/")) {
         report.warnings.push("The repository has no profiles folder yet: copy the template into it.".into());
     } else if !user.is_empty() && !report.user_found {
-        report.warnings.push(format!("There is no profiles/{user}/ folder yet; VoiceFlow makes one with your first edit, or add your words there."));
+        report.warnings.push(format!("There is no profiles/{user}/ folder yet; VoiceLnq makes one with your first edit, or add your words there."));
     }
     let blobs: BTreeMap<String, (String, u64)> = tree
         .tree
@@ -1221,7 +1221,7 @@ mod tests {
                     (Some(_), None) => return Ok(reply(409, r#"{"message":"does not match"}"#)),
                     _ => {}
                 }
-                assert!(body["message"].as_str().unwrap().starts_with("VoiceFlow: "));
+                assert!(body["message"].as_str().unwrap().starts_with("VoiceLnq: "));
                 let sha = sha_of(&text);
                 let size = text.len();
                 s.files.insert(file, text);

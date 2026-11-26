@@ -32,11 +32,11 @@
 		edit: 'Mine',
 	};
 	const LAYER_HELP: Record<ProfileLayer, string> = {
-		default: 'Comes with VoiceFlow',
+		default: 'Comes with VoiceLnq',
 		household: 'Shared by everyone at home. Change it in the household word list.',
 		generated: 'Made from your notes. Ask your assistant to change it.',
 		personal: 'In your word-list file. Change it there, or ask your assistant.',
-		edit: 'Added in VoiceFlow',
+		edit: 'Added in VoiceLnq',
 	};
 
 	const snapshot = $derived(wordLists.snapshot);
@@ -108,7 +108,7 @@
 		const text = result.op.term.text;
 		newWord = '';
 		newHeard = '';
-		show(`“${text}” added. VoiceFlow listens for it from your next dictation.`, id);
+		show(`“${text}” added. VoiceLnq listens for it from your next dictation.`, id);
 	}
 
 	// ---- undo -------------------------------------------------------------------------
@@ -157,7 +157,7 @@
 </script>
 
 <svelte:head>
-	<title>Vocabulary - VoiceFlow</title>
+	<title>Vocabulary - VoiceLnq</title>
 </svelte:head>
 
 {#snippet badge(layer: ProfileLayer)}
@@ -170,7 +170,7 @@
 	<header class="ph">
 		<div>
 			<h1>Vocabulary</h1>
-			<p>Words VoiceFlow listens for, and how it spells them</p>
+			<p>Words VoiceLnq listens for, and how it spells them</p>
 		</div>
 		<div class="ph-r">
 			{#if snapshot}
@@ -221,7 +221,7 @@
 				<p class="err" role="alert"><Icon name="warning-circle" weight="fill" class="i sm" />{addError}</p>
 			{/if}
 			<p class="note">
-				<Icon name="info" class="i sm" />Saved to your own word list. It helps VoiceFlow hear the word; to always
+				<Icon name="info" class="i sm" />Saved to your own word list. It helps VoiceLnq hear the word; to always
 				rewrite a wrong spelling, use Fix a spelling.
 			</p>
 			<div class="acts">
@@ -256,7 +256,7 @@
 			{#if !snapshot}
 				<div class="es pad">
 					<Illo name="wave" size={96} />
-					<b>Words VoiceFlow should always spell your way</b>
+					<b>Words VoiceLnq should always spell your way</b>
 					<p>Connect your word lists in Settings to see and add words here.</p>
 					<a class="btn pri" href="/settings#word-lists">Set up word lists</a>
 				</div>
@@ -319,7 +319,7 @@
 						{/each}
 					</ul>
 					<p class="note sm">
-						<Icon name="info" class="i sm" />VoiceFlow keeps working; it uses the higher list where two disagree.
+						<Icon name="info" class="i sm" />VoiceLnq keeps working; it uses the higher list where two disagree.
 						Ask {assistant} to tidy these up.
 					</p>
 				</section>

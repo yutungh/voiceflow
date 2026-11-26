@@ -193,7 +193,7 @@
 </script>
 
 <svelte:head>
-	<title>Settings - VoiceFlow</title>
+	<title>Settings - VoiceLnq</title>
 </svelte:head>
 
 {#snippet toggle(label: string, help: string, checked: boolean, set: (v: boolean) => void)}
@@ -275,7 +275,7 @@
 						{:else if heard}
 							<span class="okline"><Icon name="check-circle" weight="fill" class="i sm" />Sounds good</span>
 						{:else}
-							<span>{testing ? 'Say something: the bars move when VoiceFlow hears you' : 'Test it to see the bars move'}</span>
+							<span>{testing ? 'Say something: the bars move when VoiceLnq hears you' : 'Test it to see the bars move'}</span>
 						{/if}
 					</div>
 					<select
@@ -398,11 +398,11 @@
 				<div class="srow">
 					<div>
 						<b>Start anywhere</b>
-						<span>VoiceFlow records wherever you are, except in a password manager. Your words are pasted where your cursor is when they are ready. When they are not pasted (the desktop, the taskbar, a password box, an app run as administrator, or anything else) they are copied, so Ctrl+V always works.</span>
+						<span>VoiceLnq records wherever you are, except in a password manager. Your words are pasted where your cursor is when they are ready. When they are not pasted (the desktop, the taskbar, a password box, an app run as administrator, or anything else) they are copied, so Ctrl+V always works.</span>
 					</div>
 				</div>
 				<details class="ldet">
-					<summary>Apps VoiceFlow never types into ({BLOCKED_APPS.length})</summary>
+					<summary>Apps VoiceLnq never types into ({BLOCKED_APPS.length})</summary>
 					<p class="sub">Password managers, authenticators and sign-in prompts. This list can't be changed yet.</p>
 					<ul class="blocked">
 						{#each BLOCKED_APPS as app (app.name)}<li>{app.name}</li>{/each}
@@ -488,8 +488,8 @@
 
 			<section class="about" id="about" aria-label="About">
 				<p>
-					{#await versionPromise then version}VoiceFlow {version ?? ''}.{/await}
-					Based on Whispering by Braden Wong. AGPL-3.0. Icons: Phosphor (MIT). Sounds: VoiceFlow (CC0).
+					{#await versionPromise then version}VoiceLnq {version ?? ''}.{/await}
+					Based on Whispering by Braden Wong. AGPL-3.0. Icons: Phosphor (MIT). Sounds: VoiceLnq (CC0).
 					<a class="lk" href="/settings/about/license">Licence</a>
 					<a class="lk" href={SOURCE_URL} target="_blank" rel="noopener noreferrer">Source code</a>
 				</p>

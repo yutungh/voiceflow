@@ -57,7 +57,7 @@ final class GitHubCredentials {
         }
     }
 
-    static final String RECONNECT = "VoiceFlow's connection to GitHub has ended. Tap Connect GitHub to connect again.";
+    static final String RECONNECT = "VoiceLnq's connection to GitHub has ended. Tap Connect GitHub to connect again.";
 
     private static Problem missing() {
         return new Problem("missing", "Tap Connect GitHub (or paste an access token) first.");

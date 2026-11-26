@@ -299,7 +299,7 @@
 					</div>
 				{:else}
 					{#if auth === 'reconnect'}
-						<p class="err" role="alert"><Icon name="warning-circle" weight="fill" class="i sm" />VoiceFlow’s connection to GitHub has ended. Connect again to keep your word lists up to date.</p>
+						<p class="err" role="alert"><Icon name="warning-circle" weight="fill" class="i sm" />VoiceLnq’s connection to GitHub has ended. Connect again to keep your word lists up to date.</p>
 					{/if}
 					<div class="acts">
 						<button class="btn pri" type="button" onclick={startConnect} disabled={starting}>
@@ -356,7 +356,7 @@
 					/>
 					<span class="sub small">
 						A fine-grained token for this one repository, with Contents read and write. Saving it replaces a GitHub
-						connection. It is kept in this computer’s credential store, never in a file. <a href="https://github.com/yutungh/voiceflow/blob/main/docs/GITHUB-SYNC.md#advanced-use-an-access-token-instead" target="_blank" rel="noreferrer">How to make one</a>
+						connection. It is kept in this computer’s credential store, never in a file. <a href="https://github.com/yutungh/voicelnq/blob/main/docs/GITHUB-SYNC.md#advanced-use-an-access-token-instead" target="_blank" rel="noreferrer">How to make one</a>
 					</span>
 					{#if auth === 'pat'}
 						<div class="acts"><button class="btn text" type="button" onclick={removeToken}>Remove token</button></div>

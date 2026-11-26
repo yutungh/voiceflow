@@ -5,7 +5,7 @@ export const OpenRouterCompletionServiceLive =
 		providerLabel: 'OpenRouter',
 		getBaseUrl: () => 'https://openrouter.ai/api/v1', // Always use OpenRouter endpoint
 		defaultHeaders: {
-			'X-Title': 'VoiceFlow',
+			'X-Title': 'VoiceLnq',
 		},
 		statusMessageOverrides: {
 			402: 'Insufficient credits in your OpenRouter account. Please add credits to continue.',

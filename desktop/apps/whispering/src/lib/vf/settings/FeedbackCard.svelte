@@ -175,7 +175,7 @@
 	{#if done}<p class="sub small" role="status"><Icon name="check-circle" weight="fill" class="i sm" />{done}</p>{/if}
 	<p class="sub small">
 		Find fixes sends one dictation and your note to the model above, with your own key. Nothing goes to
-		VoiceFlow.
+		VoiceLnq.
 	</p>
 	<details class="sent-detail">
 		<summary>Everything that's sent</summary>

@@ -244,7 +244,7 @@ function spellingProblem(
 	for (const f of from) {
 		// A heard form is a word or words: it starts and ends with a letter or digit.
 		if (!LETTER.test(f.at(0) ?? '') || !LETTER.test(f.at(-1) ?? ''))
-			return `“${f}” isn’t a word VoiceFlow can correct.`;
+			return `“${f}” isn’t a word VoiceLnq can correct.`;
 		const words = f.toLocaleLowerCase().split(/[^\p{L}\p{N}'’]+/u).filter(Boolean);
 		const common = (w: string) => {
 			const plain = w.replace(/’/g, "'");

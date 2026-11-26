@@ -1,13 +1,13 @@
-VoiceFlow Desktop
+VoiceLnq Desktop
 
 This directory contains a modified version of Whispering 7.11.0,
 Copyright (C) 2023-2025 Braden Wong,
 from https://github.com/EpicenterHQ/epicenter (tag v7.11.0).
 
-Modified by the VoiceFlow project, 2026. The changes began on 2026-11-16 and
-include: renaming the app to VoiceFlow with new icons and a new application
-identifier, removing the Aptabase analytics, disabling the upstream automatic
-updater, removing upstream's deployment scripts, new default OpenAI models for
+Modified by the VoiceLnq project, 2026. The changes began on 2026-11-16 and
+include: renaming the app (VoiceFlow, then VoiceLnq from November 2026) with
+new icons and a new application identifier, removing the Aptabase analytics,
+disabling the upstream automatic updater, removing upstream's deployment scripts, new default OpenAI models for
 transcription and tidy-up, storing API keys in the operating system's
 credential store, pasting nothing when tidy-up fails (with Retry and Paste raw
 text), an About screen, pointing links and model downloads away from
@@ -19,7 +19,7 @@ expression, voice feedback), dictation hotkeys handled natively
 (the recorder starts in Rust even while the window sleeps) with every
 webview created with WebView2 switches that keep it from being backgrounded,
 keeping recordings as 16 kHz mono audio uploaded
-as FLAC (split when very long), VoiceFlow's own version numbering (0.9.0),
+as FLAC (split when very long), VoiceLnq's own version numbering (0.9.0),
 and rebuilt Home, History, Styles, Settings and first-run screens with saved
 spellings kept as local profile operations, and a language check after
 tidy-up that keeps the speaker's own words when part of a mixed-language
@@ -38,14 +38,14 @@ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
 details.
 
-"Whispering" is the name of the upstream project. VoiceFlow is not affiliated
+"Whispering" is the name of the upstream project. VoiceLnq is not affiliated
 with or endorsed by Braden Wong or Epicenter.
 
 Icons in the app screens are from Phosphor (https://github.com/phosphor-icons/core),
 Copyright (c) 2020 Phosphor Icons, under the MIT License.
 
 The app's sounds (three sets: Glass, Soft and Minimal) are original works of
-the VoiceFlow project, synthesised in code by tools/sounds/generate.mjs with
+the VoiceLnq project, synthesised in code by tools/sounds/generate.mjs with
 no recordings or samples, and dedicated to the public domain under CC0 1.0
 (https://creativecommons.org/publicdomain/zero/1.0/). The generator itself is
 part of this program (AGPL-3.0). Upstream's sound effects (from Zapsplat.com

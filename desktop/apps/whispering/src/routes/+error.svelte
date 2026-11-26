@@ -4,7 +4,7 @@
 
 <svelte:head>
 	<title>
-		{page.status === 404 ? 'Page Not Found' : 'Error'} - VoiceFlow
+		{page.status === 404 ? 'Page Not Found' : 'Error'} - VoiceLnq
 	</title>
 </svelte:head>
 

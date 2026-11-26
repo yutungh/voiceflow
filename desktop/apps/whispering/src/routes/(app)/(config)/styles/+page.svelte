@@ -196,7 +196,7 @@
 </script>
 
 <svelte:head>
-	<title>Styles - VoiceFlow</title>
+	<title>Styles - VoiceLnq</title>
 </svelte:head>
 
 {#snippet pinRow(barId: string, on: boolean, style?: Transformation)}
@@ -217,7 +217,7 @@
 	<header class="ph">
 		<div>
 			<h1>Styles</h1>
-			<p>How VoiceFlow tidies your words</p>
+			<p>How VoiceLnq tidies your words</p>
 		</div>
 		<div class="ph-r">
 			<button class="btn sec" type="button" onclick={() => edit(newStyle(), true)}>
@@ -380,7 +380,7 @@
 				<div class="es">
 					<Illo name="wave" size={96} />
 					<b>No styles yet</b>
-					<p>A style tells VoiceFlow how to tidy your words. Until you make one, your words are pasted as heard.</p>
+					<p>A style tells VoiceLnq how to tidy your words. Until you make one, your words are pasted as heard.</p>
 					<button class="btn pri" type="button" onclick={() => edit(newStyle(), true)}>
 						<Icon name="plus" /><span>Make a style</span>
 					</button>

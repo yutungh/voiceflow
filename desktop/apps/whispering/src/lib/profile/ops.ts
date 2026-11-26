@@ -295,7 +295,7 @@ export function validateNewCorrection(
 	const from = candidate.from.map((f) => f.trim()).filter(Boolean);
 	const to = candidate.to.trim();
 	if (from.length === 0)
-		return { ok: false, message: 'Type the word VoiceFlow heard.' };
+		return { ok: false, message: 'Type the word VoiceLnq heard.' };
 	if (!to) return { ok: false, message: 'Type how it should be written.' };
 	if (from.every((f) => f === to))
 		return {
@@ -315,11 +315,11 @@ export function validateNewCorrection(
 			if (op.to === to)
 				return {
 					ok: false,
-					message: `VoiceFlow already writes ${quote(clash)} as ${quote(op.to)}.`,
+					message: `VoiceLnq already writes ${quote(clash)} as ${quote(op.to)}.`,
 				};
 			return {
 				ok: false,
-				message: `VoiceFlow already writes ${quote(clash)} as ${quote(op.to)}. Remove that spelling first if ${quote(to)} is right.`,
+				message: `VoiceLnq already writes ${quote(clash)} as ${quote(op.to)}. Remove that spelling first if ${quote(to)} is right.`,
 			};
 		}
 		if (op.from.some((g) => sameForm(g, to)))

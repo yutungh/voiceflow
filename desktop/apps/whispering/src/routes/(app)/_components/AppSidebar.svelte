@@ -38,7 +38,7 @@
 	] as const;
 
 	export function pageTitle(pathname: string): string {
-		return NAV_ITEMS.find((item) => item.match(pathname))?.label ?? 'VoiceFlow';
+		return NAV_ITEMS.find((item) => item.match(pathname))?.label ?? 'VoiceLnq';
 	}
 </script>
 
@@ -78,7 +78,7 @@
 	>
 		<img src="/apple-touch-icon.png" alt="" class="size-7 rounded-[7px]" />
 		<span class="font-display text-[15px] font-semibold tracking-[-0.01em]"
-			>VoiceFlow</span
+			>VoiceLnq</span
 		>
 	</a>
 {/snippet}

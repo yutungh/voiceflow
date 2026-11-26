@@ -14,10 +14,10 @@
 ## How it was imported
 
 - Every tracked file at the tag (`git archive v7.11.0`, 1,361 files), unchanged and at the same paths, under `desktop/`.
-- One exception: upstream's root `README.md` is kept as `README.upstream.md`, because `desktop/README.md` is VoiceFlow's own.
+- One exception: upstream's root `README.md` is kept as `README.upstream.md`, because `desktop/README.md` is VoiceLnq's own.
 - No upstream git history is included.
 
-## Seeing what VoiceFlow changed
+## Seeing what VoiceLnq changed
 
 Compare a file with the tag in a clone of the upstream repository:
 
