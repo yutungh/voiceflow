@@ -2411,7 +2411,12 @@ if (typeof window !== 'undefined' && window.__TAURI_INTERNALS__) {
 		);
 		// VoiceFlow 0.9.9: the built-in styles, added once (never again once handled).
 		// 0.9.11: then built-ins nobody edited get the current prompts.
-		void import('$lib/vf/builtin-styles')
+		// 0.9.22: a provisioning file first (its default style must be in place
+		// before the seeding decides whether this is a new install).
+		void import('$lib/provision/run')
+			.then(({ importProvisionFileAtLaunch }) => importProvisionFileAtLaunch())
+			.catch((error) => console.warn('[provision] not imported', error))
+			.then(() => import('$lib/vf/builtin-styles'))
 			.then(async ({ seedBuiltInStylesOnThisPC, refreshBuiltInStylesOnThisPC }) => {
 				const result = await seedBuiltInStylesOnThisPC();
 				if (result.stopped) console.warn('[styles] built-in styles not added:', result.stopped);

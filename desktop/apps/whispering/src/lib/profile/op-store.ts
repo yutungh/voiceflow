@@ -59,6 +59,39 @@ export function deviceId(): string {
 	}
 }
 
+/** 0.9.22: this install's device id if it has one yet (never makes one). */
+export function storedDeviceId(): string | null {
+	try {
+		return localStorage.getItem(DEVICE_KEY);
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * 0.9.22: takes the device id a sync server token was issued for (the
+ * provisioning file). Only before this install has edits of its own: their
+ * file names carry the id.
+ */
+export function setDeviceId(id: string): void {
+	localStorage.setItem(DEVICE_KEY, id);
+}
+
+/** 0.9.22: edit files made on this computer exist. */
+export async function hasLocalEdits(): Promise<boolean> {
+	if (!isDesktop()) {
+		try {
+			return (JSON.parse(localStorage.getItem(WEB_OPS_KEY) ?? '[]') as unknown[]).length > 0;
+		} catch {
+			return false;
+		}
+	}
+	const { exists, readDir } = await import('@tauri-apps/plugin-fs');
+	const dir = await dataDir('profile-ops');
+	if (!(await exists(dir))) return false;
+	return (await readDir(dir)).some((e) => e.isFile && e.name.endsWith('.json'));
+}
+
 function uuid(): string {
 	return crypto.randomUUID();
 }

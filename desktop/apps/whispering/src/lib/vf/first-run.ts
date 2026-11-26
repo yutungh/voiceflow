@@ -27,6 +27,10 @@ export function markFirstRunDone() {
 export async function shouldShowFirstRun(): Promise<boolean> {
 	if (done()) return false;
 	await settings.apiKeysReady;
+	// 0.9.22: a provisioning file fills in the key first (set up for them).
+	await import('$lib/provision/run')
+		.then(({ importProvisionFileAtLaunch }) => importProvisionFileAtLaunch())
+		.catch(() => {});
 	const { data: recordings, error } = await services.db.recordings.getAll();
 	// If history can't be read, assume an existing install: never interrupt.
 	const used =

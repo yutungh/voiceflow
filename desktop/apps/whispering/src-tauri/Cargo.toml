@@ -6,8 +6,9 @@ authors = ["you"]
 edition = "2021"
 
 [package.metadata]
-# Set minimum macOS version for C++17 filesystem support
-cargo-target-macos-version = "10.15"
+# Set minimum macOS version (C++17 filesystem support needs 10.15; the UI
+# needs a WebKit from Safari 16.4, which macOS 11 and later can have)
+cargo-target-macos-version = "11.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

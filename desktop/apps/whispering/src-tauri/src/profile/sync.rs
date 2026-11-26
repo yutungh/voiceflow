@@ -40,6 +40,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use super::gateway;
 use super::github::Repo;
 use super::merge::{live_ops, merge, Issue, Snapshot};
 use super::model::{
@@ -68,7 +69,8 @@ pub struct Config {
     /// This device's id (the same one its edit files carry).
     pub device: String,
     /// 0.9.19: where the word lists are: `folder` (also when empty: every
-    /// earlier settings file) or `github`.
+    /// earlier settings file) or `github`; 0.9.22: `gateway` (a sync server,
+    /// `sync/` in the repository).
     pub kind: String,
     /// GitHub: `owner/name`.
     pub repo: String,
@@ -76,11 +78,23 @@ pub struct Config {
     pub branch: String,
     /// GitHub: this computer only reads (no edits or status are uploaded).
     pub read_only: bool,
+    /// 0.9.22, sync server: its bare `https://` address. The device token is
+    /// kept in the OS credential store (`secrets::gateway_token`).
+    pub gateway: String,
 }
 
 impl Config {
     pub fn is_github(&self) -> bool {
         self.kind == "github"
+    }
+
+    pub fn is_gateway(&self) -> bool {
+        self.kind == "gateway"
+    }
+
+    /// The sync server's address, for a gateway source with a valid one.
+    pub fn gateway_origin(&self) -> Option<String> {
+        self.is_gateway().then(|| gateway::normalize_origin(&self.gateway).ok()).flatten()
     }
 
     /// The repository, for a GitHub source with valid settings.
@@ -91,14 +105,20 @@ impl Config {
     /// Which word lists these settings name: two settings with the same
     /// identity read the same files.
     pub fn identity(&self) -> String {
+        if let Some(origin) = self.gateway_origin() {
+            return format!("gateway:{origin}#{}", self.user);
+        }
         match self.github_repo() {
             Some(repo) => format!("{}#{}", repo.identity(), self.user),
             None => format!("folder:{}#{}", self.source, self.user),
         }
     }
 
-    /// For messages: the folder, or the repository.
+    /// For messages: the folder, the repository or the sync server.
     pub fn where_label(&self) -> String {
+        if let Some(origin) = self.gateway_origin() {
+            return origin;
+        }
         match self.github_repo() {
             Some(repo) => repo.label(),
             None => self.source.clone(),
@@ -109,11 +129,13 @@ impl Config {
         if !self.enabled {
             return Ok(());
         }
-        if !matches!(self.kind.as_str(), "" | "folder" | "github") {
+        if !matches!(self.kind.as_str(), "" | "folder" | "github" | "gateway") {
             return Err("Choose where the word lists are.".into());
         }
         if self.is_github() {
             Repo::parse(&self.repo, &self.branch)?;
+        } else if self.is_gateway() {
+            gateway::normalize_origin(&self.gateway)?;
         } else if self.source.trim().is_empty() {
             return Err("Choose the folder that holds the word lists.".into());
         }
@@ -166,6 +188,9 @@ pub struct SyncReport {
     pub source_issue: Option<String>,
     /// 0.9.19: calm notes that need no fixing (uploads refused or off).
     pub notices: Vec<String>,
+    /// 0.9.22: some files were left for the next check (time budget or the
+    /// source asked to wait), so the next check comes sooner than hourly.
+    pub more_later: bool,
 }
 
 pub struct Paths {
@@ -175,6 +200,8 @@ pub struct Paths {
     pub device: String,
     /// 0.9.19: set when the word lists are in a GitHub repository.
     pub github: Option<Repo>,
+    /// 0.9.22: set when the word lists come from a sync server (its origin).
+    pub gateway: Option<String>,
 }
 
 impl Paths {
@@ -185,6 +212,7 @@ impl Paths {
             user: config.user.clone(),
             device: config.device.clone(),
             github: config.github_repo(),
+            gateway: config.gateway_origin(),
         }
     }
     /// The same files, relative to the source (`/`-separated).
@@ -240,6 +268,9 @@ impl Paths {
             // and a NUL first, which no folder path has, so a folder can never
             // share a GitHub source's cache.
             source = format!("\u{0}{}", repo.identity());
+        } else if let Some(origin) = &self.gateway {
+            // The same for a sync server (its origin is already lower case).
+            source = format!("\u{0}gateway:{origin}");
         } else if cfg!(windows) {
             source = source.replace('/', "\\").to_lowercase();
         }
@@ -616,7 +647,7 @@ pub struct Outcome {
 /// A folder only: a GitHub source needs its token and a client, so the
 /// service builds one and calls [`check`]. Offline, both read the cache.
 pub fn refresh(paths: &Paths, online: bool, now: &str) -> Outcome {
-    if online && paths.github.is_none() {
+    if online && paths.github.is_none() && paths.gateway.is_none() {
         let mut folder = FolderSource::new(&paths.source);
         refresh_with(paths, Some(&mut folder), now)
     } else {
@@ -760,6 +791,7 @@ pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &st
     local_files.extend(uploadable);
     issues.extend(held);
     let mut uploaded_now = 0;
+    let mut more_later = false;
     let mut uploads_off = false;
     if let Some(source) = live!() {
         let remote = paths.ops_rel();
@@ -775,7 +807,7 @@ pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &st
                         uploaded.insert(id);
                         uploaded_now += 1;
                     }
-                    Upload::Deferred => {}
+                    Upload::Deferred => more_later = true,
                     // Said once, as a notice (from the source).
                     Upload::Refused(_) => refused = true,
                     Upload::Failed(e) => errors.push(format!("Couldn't upload an edit: {e}")),
@@ -836,6 +868,7 @@ pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &st
             }
         }
         if later > 0 {
+            more_later = true;
             notices.push(format!(
                 "{later} {} from your other devices will be read at the next check.",
                 if later == 1 { "edit" } else { "edits" }
@@ -883,6 +916,7 @@ pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &st
         errors,
         source_issue,
         notices,
+        more_later,
     };
     Outcome { snapshot, report }
 }
@@ -1435,6 +1469,7 @@ mod tests {
             user: "alex".into(),
             device: "dev1".into(),
             github: None,
+            gateway: None,
         };
         let out = refresh(&alex, true, "t2");
         assert_eq!(out.snapshot.terms.len(), 0, "Sam's word must not reach Alex");
@@ -1468,6 +1503,7 @@ mod tests {
             user: "sam".into(),
             device: "dev1".into(),
             github: None,
+            gateway: None,
         };
         let out = refresh(&b, true, "t2");
         assert_eq!(out.report.layers[2].state, "missing", "A's personal layer must not stand in for B's");
@@ -1544,7 +1580,7 @@ mod tests {
 
     #[test]
     fn scope_key_ignores_case_and_trailing_slash_on_windows() {
-        let p = |s: &str| Paths { source: PathBuf::from(s), app_data: PathBuf::new(), user: "sam".into(), device: "d".into(), github: None };
+        let p = |s: &str| Paths { source: PathBuf::from(s), app_data: PathBuf::new(), user: "sam".into(), device: "d".into(), github: None, gateway: None };
         assert_ne!(p("C:/a").scope_key(), p("C:/b").scope_key());
         assert!(p("C:/a").scope_key().starts_with("sam-"));
         if cfg!(windows) {

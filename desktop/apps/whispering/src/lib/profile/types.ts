@@ -104,8 +104,10 @@ export type ProfileConfig = {
 	user: string;
 	assistant: string;
 	device: string;
-	/** 0.9.19: `folder` (also when empty) or `github`. */
-	kind?: '' | 'folder' | 'github';
+	/** 0.9.19: `folder` (also when empty) or `github`; 0.9.22: `gateway`. */
+	kind?: '' | 'folder' | 'github' | 'gateway';
+	/** 0.9.22, sync server: its bare https:// address. */
+	gateway?: string;
 	/** GitHub: `owner/name`. */
 	repo?: string;
 	branch?: string;
@@ -161,6 +163,8 @@ export type ProfileState = {
 	};
 	/** 0.9.19: a GitHub token is stored on this computer (never sent here). */
 	githubToken?: boolean;
+	/** 0.9.22: a sync server token is stored on this computer (never sent here). */
+	gatewayToken?: boolean;
 	/**
 	 * 0.9.20: how this computer reaches GitHub: '' (not set up), 'app'
 	 * (Connect GitHub), 'pat' (a pasted token) or 'reconnect' (the

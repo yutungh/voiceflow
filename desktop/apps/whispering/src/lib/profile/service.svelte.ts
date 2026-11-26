@@ -109,6 +109,13 @@ export const wordLists = {
 		apply(await invoke<ProfileState>('profile_github_set_token', { token }));
 	},
 	/**
+	 * 0.9.22: stores this computer's sync server token in the OS credential
+	 * store ('' removes it). It is never read back into the page.
+	 */
+	async setGatewayToken(token: string): Promise<void> {
+		apply(await invoke<ProfileState>('profile_gateway_set_token', { token }));
+	},
+	/**
 	 * Reads a GitHub repository without writing anything. `token` '' uses the
 	 * stored one; a typed token is used for this test only.
 	 */

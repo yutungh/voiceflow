@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Switch } from '@epicenter/ui/switch';
 	import { untrack } from 'svelte';
+	import { IS_MACOS } from '$lib/constants/platform';
 	import { deviceId } from '$lib/profile/op-store';
 	import { wordLists } from '$lib/profile/service.svelte';
 	import type { GithubConnectState, GithubLinks, GithubRepoChoice, GithubTestReport } from '$lib/profile/types';
@@ -19,6 +20,11 @@
 	 * App (device flow): this page shows the code and a link, then a list of
 	 * the repositories the app is installed on. A pasted token stays as an
 	 * Advanced choice; whichever was set last is used.
+	 *
+	 * 0.9.22: or a sync server (`sync/` in the repository, the one the phones
+	 * use): its address and this computer's device token, which is kept in
+	 * the credential store and never comes back to this page. The token is
+	 * issued for this computer's device id, shown here.
 	 */
 
 	const isDesktop = !!window.__TAURI_INTERNALS__;
@@ -29,7 +35,12 @@
 	const summary = $derived(syncSummary(wordLists.state));
 
 	let enabled = $state(untrack(() => current?.enabled ?? false));
-	let kind = $state<'folder' | 'github'>(untrack(() => (current?.kind === 'github' ? 'github' : 'folder')));
+	type Kind = 'folder' | 'github' | 'gateway';
+	const kindOf = (k: string | undefined): Kind => (k === 'github' || k === 'gateway' ? k : 'folder');
+	let kind = $state<Kind>(untrack(() => kindOf(current?.kind)));
+	let gatewayUrl = $state(untrack(() => current?.gateway ?? ''));
+	let serverToken = $state('');
+	const serverTokenStored = $derived(!!wordLists.state?.gatewayToken);
 	let source = $state(untrack(() => current?.source ?? ''));
 	let repo = $state(untrack(() => current?.repo ?? ''));
 	let branch = $state(untrack(() => current?.branch || 'main'));
@@ -51,7 +62,8 @@
 		if (loaded || !current) return;
 		loaded = true;
 		enabled = current.enabled;
-		kind = current.kind === 'github' ? 'github' : 'folder';
+		kind = kindOf(current.kind);
+		gatewayUrl = current.gateway ?? '';
 		source = current.source;
 		repo = current.repo ?? '';
 		branch = current.branch || 'main';
@@ -70,7 +82,9 @@
 	const dirty = $derived(
 		!current ||
 			enabled !== current.enabled ||
-			kind !== (current.kind === 'github' ? 'github' : 'folder') ||
+			kind !== kindOf(current.kind) ||
+			gatewayUrl.trim() !== (current.gateway ?? '') ||
+			serverToken.trim() !== '' ||
 			source.trim() !== current.source ||
 			repo.trim() !== (current.repo ?? '') ||
 			branch.trim() !== (current.branch || 'main') ||
@@ -90,12 +104,17 @@
 				await wordLists.setGithubToken(token.trim());
 				token = '';
 			}
+			if (kind === 'gateway' && serverToken.trim()) {
+				await wordLists.setGatewayToken(serverToken.trim());
+				serverToken = '';
+			}
 			await wordLists.setConfig({
 				enabled,
 				kind,
 				source: source.trim(),
 				repo: repo.trim(),
 				branch: branch.trim(),
+				gateway: gatewayUrl.trim(),
 				readOnly: !upload,
 				user: user.trim().toLowerCase(),
 				assistant: assistant.trim(),
@@ -257,7 +276,7 @@
 	<div class="srow">
 		<div>
 			<b>Use word lists</b>
-			<span>Words, spellings and styles come from a shared folder or a private GitHub repository, so every device spells your way</span>
+			<span>Words, spellings and styles come from a shared folder, a private GitHub repository or a sync server, so every device spells your way</span>
 		</div>
 		<Switch checked={enabled} onCheckedChange={toggle} aria-label="Use word lists" />
 	</div>
@@ -267,6 +286,7 @@
 			<div class="seg" role="radiogroup" aria-labelledby="wl-kind-label">
 				<label class:on={kind === 'folder'}><input type="radio" bind:group={kind} value="folder" />A folder</label>
 				<label class:on={kind === 'github'}><input type="radio" bind:group={kind} value="github" />A private GitHub repository</label>
+				<label class:on={kind === 'gateway'}><input type="radio" bind:group={kind} value="gateway" />A sync server</label>
 			</div>
 			{#if kind === 'folder'}
 				<label for="wl-source">Folder</label>
@@ -275,10 +295,31 @@
 					class="inp"
 					bind:value={source}
 					onblur={findUsers}
-					placeholder={'\\\\NAS\\voiceflow or C:\\Users\\you\\VoiceFlow'}
+					placeholder={IS_MACOS ? '/Volumes/voiceflow or ~/VoiceFlow' : '\\\\NAS\\voiceflow or C:\\Users\\you\\VoiceFlow'}
 					autocomplete="off"
 					spellcheck="false"
 				/>
+			{:else if kind === 'gateway'}
+				<label for="wl-gateway">Sync server address</label>
+				<input id="wl-gateway" class="inp" bind:value={gatewayUrl} placeholder="https://sync.example.com" autocomplete="off" spellcheck="false" />
+				<label for="wl-server-token">This computer’s token</label>
+				<input
+					id="wl-server-token"
+					class="inp"
+					type="password"
+					bind:value={serverToken}
+					placeholder={serverTokenStored ? 'Stored on this computer (type a new one to replace it)' : 'vfs1.…'}
+					autocomplete="off"
+					spellcheck="false"
+				/>
+				<span class="sub small">
+					Issued on the sync server for this computer’s device id, <b>{deviceId()}</b>. It is kept in this computer’s
+					credential store, never in a file.
+				</span>
+				<div class="srow tight">
+					<div><b>Upload this computer’s changes</b><span>Words and spellings you fix here, and this computer’s status</span></div>
+					<Switch checked={upload} onCheckedChange={(on) => (upload = on)} aria-label="Upload this computer’s changes" />
+				</div>
 			{:else}
 				<span class="lbl">GitHub</span>
 				{#if auth === 'app' && !attempt}
@@ -396,7 +437,7 @@
 				{#each users as u (u)}<option value={u}></option>{/each}
 			</datalist>
 			{#if users.length > 0}
-				<span class="sub small">In this {kind === 'github' ? 'repository' : 'folder'}: {users.join(', ')}</span>
+				<span class="sub small">In this {kind === 'github' ? 'repository' : kind === 'gateway' ? 'server' : 'folder'}: {users.join(', ')}</span>
 			{/if}
 			<label for="wl-assistant">Your assistant’s name <span class="sub">(optional)</span></label>
 			<input id="wl-assistant" class="inp" bind:value={assistant} placeholder="Who keeps your notes" autocomplete="off" />

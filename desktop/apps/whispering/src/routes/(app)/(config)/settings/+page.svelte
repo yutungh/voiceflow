@@ -169,6 +169,23 @@
 		() => desktopRpc.autostart.disable.options,
 	);
 	/** The login item's name on each OS; it starts VoiceFlow hidden, in the tray. */
+	// VoiceFlow 0.9.22: where the app waits, in each system's words.
+	const trayName = IS_MACOS ? 'menu bar' : 'tray';
+	let importing = $state(false);
+	async function importSettingsFile() {
+		importing = true;
+		try {
+			const { importProvisionFileByHand } = await import('$lib/provision/run');
+			await importProvisionFileByHand();
+		} catch (error) {
+			rpc.notify.error.execute({
+				title: "Couldn't import the settings file",
+				description: error instanceof Error ? error.message : String(error),
+			});
+		} finally {
+			importing = false;
+		}
+	}
 	const autostartLabel = IS_WINDOWS
 		? 'Start with Windows'
 		: IS_MACOS
@@ -288,7 +305,7 @@
 								e.currentTarget.value ? asDeviceIdentifier(e.currentTarget.value) : null,
 							)}
 					>
-						<option value="">Windows default</option>
+						<option value="">{IS_WINDOWS ? 'Windows default' : 'System default'}</option>
 						{#each devicesQuery.data ?? [] as device (device.id)}
 							<option value={device.id}>{device.label}</option>
 						{/each}
@@ -413,7 +430,7 @@
 			<section class="card sp" id="appearance" aria-labelledby="h-look">
 				<div class="c-h"><Tile icon="sun" /><h2 id="h-look">Appearance</h2></div>
 				<div class="srow">
-					<div><b>Theme</b><span>System follows Windows</span></div>
+					<div><b>Theme</b><span>System follows {IS_MACOS ? 'macOS' : IS_WINDOWS ? 'Windows' : 'the system'}</span></div>
 					<span class="seg" role="radiogroup" aria-label="Theme">
 						{#each THEME_OPTIONS as option (option.value)}
 							<button
@@ -471,7 +488,7 @@
 				<div class="c-h"><Tile icon="power" /><h2 id="h-start">Startup</h2></div>
 				{#if isDesktop}
 					<div class="srow">
-						<div><b>{autostartLabel}</b><span>Starts in the tray when you sign in, ready for your keys. Closing the window keeps it in the tray.</span></div>
+						<div><b>{autostartLabel}</b><span>Starts in the {trayName} when you sign in, ready for your keys. Closing the window keeps it in the {trayName}.</span></div>
 						<Switch
 							checked={autostartQuery.data ?? false}
 							onCheckedChange={setAutostart}
@@ -483,6 +500,13 @@
 					</div>
 				{:else}
 					<p class="sub">Starting with Windows is set in the desktop app.</p>
+				{/if}
+				<!-- VoiceFlow 0.9.22: a provisioning file prepared for this person. -->
+				{#if isDesktop}
+					<div class="srow">
+						<div><b>Import settings file</b><span>Fills in your API key and settings from a file prepared for you. Delete the file afterwards.</span></div>
+						<button class="btn sec" type="button" onclick={importSettingsFile} disabled={importing}>{importing ? 'Importing…' : 'Import…'}</button>
+					</div>
 				{/if}
 			</section>
 

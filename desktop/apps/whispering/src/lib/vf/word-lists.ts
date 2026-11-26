@@ -31,8 +31,16 @@ const issueTitle: Record<string, string> = {
 	truncated: 'Your word-list repository has too many files',
 };
 
+/** 0.9.22: the same, for a sync server. */
+const gatewayIssueTitle: Record<string, string> = {
+	auth: 'The sync server didn’t accept this computer',
+	'not-found': 'No word lists at the sync server’s address',
+	'rate-limited': 'The sync server asked VoiceLnq to wait',
+};
+
 /** 0.9.20: a refused sign-in reads by how this PC reaches GitHub. */
 function authTitle(state: ProfileState, issue: string | undefined): string | undefined {
+	if (state.config.kind === 'gateway') return issue ? gatewayIssueTitle[issue] : undefined;
 	if (issue !== 'auth' || state.config.kind !== 'github') return undefined;
 	if (state.githubAuth === 'app' || state.githubAuth === 'reconnect') return 'Connect GitHub again';
 	if (!state.githubAuth) return 'Connect GitHub to read your word lists';

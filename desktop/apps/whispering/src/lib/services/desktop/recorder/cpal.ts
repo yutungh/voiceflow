@@ -6,6 +6,7 @@ import type {
 	CancelRecordingResult,
 	WhisperingRecordingState,
 } from '$lib/constants/audio';
+import { IS_MACOS } from '$lib/constants/platform';
 import { FsServiceLive } from '$lib/services/desktop/fs';
 import {
 	type CpalRecordingParams,
@@ -177,7 +178,7 @@ export function createCpalRecorderService(): RecorderService {
 			if (initRecordingSessionError)
 				return RecorderServiceErr({
 					message:
-						"VoiceLnq couldn't open the microphone. Another app may be using it, Windows may be blocking it, or it may be unplugged.",
+						`VoiceLnq couldn't open the microphone. Another app may be using it, ${IS_MACOS ? 'macOS' : 'Windows'} may be blocking it, or it may be unplugged.`,
 				});
 
 			sendStatus({

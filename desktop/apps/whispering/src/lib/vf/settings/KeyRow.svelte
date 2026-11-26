@@ -2,6 +2,7 @@
 	import * as Popover from '@epicenter/ui/popover';
 	import type { Command } from '$lib/commands';
 	import type { KeyboardEventSupportedKey } from '$lib/constants/keyboard';
+	import { IS_MACOS } from '$lib/constants/platform';
 	import { desktopRpc } from '$lib/query';
 	import {
 		type Accelerator,
@@ -64,7 +65,7 @@
 			if (registerError) {
 				message = {
 					tone: 'bad',
-					text: 'Those keys are taken by another app or Windows. Try another combination.',
+					text: `Those keys are taken by another app or ${IS_MACOS ? 'macOS' : 'Windows'}. Try another combination.`,
 				};
 				if (value) {
 					await desktopRpc.globalShortcuts.registerCommand.execute({

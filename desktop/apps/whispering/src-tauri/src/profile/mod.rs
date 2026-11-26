@@ -15,6 +15,7 @@
 //! The webview reads the merged snapshot with `profile_state` and hears
 //! about changes on the `profile://changed` event.
 
+pub mod gateway;
 pub mod github;
 pub mod github_auth;
 pub mod merge;
@@ -30,6 +31,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::Notify;
 
+use gateway::{GatewaySource, GatewayTransport};
 use github::{GitHubSource, ReqwestTransport, TestReport};
 use github_auth::{AccessError, Credential, ReqwestOAuth, VAULT};
 use merge::Snapshot;
@@ -76,6 +78,8 @@ pub struct ProfileState {
     /// (Connect GitHub), `pat` (a pasted token) or `reconnect` (the
     /// connection ended).
     pub github_auth: String,
+    /// 0.9.22: a sync server token is stored (the token never leaves Rust).
+    pub gateway_token: bool,
 }
 
 #[derive(Default)]
@@ -162,6 +166,35 @@ async fn refresh_online(app: &AppHandle, service: &ProfileService) {
     let read_only = config.read_only;
     let task = tokio::task::spawn_blocking(move || {
         let _io = SHARE_IO.lock().unwrap_or_else(|e| e.into_inner());
+        // 0.9.22: a sync server, with this computer's device token.
+        if let Some(origin) = paths.gateway.clone() {
+            let token = match crate::secrets::gateway_token(&worker_app) {
+                Ok(Some(token)) => token,
+                Ok(None) => {
+                    return (
+                        offline_with(&paths, &now, "This computer has no token for the sync server yet. Add it in Settings > Word lists. Using the last good copy.", "auth"),
+                        None,
+                    )
+                }
+                Err(e) => return (offline_with(&paths, &now, &format!("Couldn't read the sync server token ({e}); using the last good copy."), "offline"), None),
+            };
+            let transport = match GatewayTransport::new(&version, &origin) {
+                Ok(t) => t,
+                Err(e) => return (offline_with(&paths, &now, &format!("{e}; using the last good copy."), "offline"), None),
+            };
+            let mut source = GatewaySource::new(
+                gateway::Options {
+                    origin,
+                    user: paths.user.clone(),
+                    device: paths.device.clone(),
+                    token,
+                    upload: !read_only,
+                    deadline,
+                },
+                Box::new(transport),
+            );
+            return (sync::check(&paths, &mut source, &version, &now), None);
+        }
         let Some(repo) = paths.github.clone() else {
             let mut folder = FolderSource::new(&paths.source);
             return (sync::check(&paths, &mut folder, &version, &now), None::<&'static str>);
@@ -290,6 +323,15 @@ pub fn start(app: &AppHandle) {
             // credential store never holds up the word-list checks.
             let reader = handle.clone();
             tauri::async_runtime::spawn(async move {
+                // 0.9.22: and whether a sync server token is.
+                let gateway_probe = reader.clone();
+                let gateway = tokio::task::spawn_blocking(move || crate::secrets::gateway_token(&gateway_probe).map(|t| t.is_some())).await;
+                if let Ok(Ok(stored)) = gateway {
+                    let service = reader.state::<ProfileService>();
+                    if let Ok(mut state) = service.state.lock() {
+                        state.gateway_token = stored;
+                    };
+                }
                 let probe = reader.clone();
                 let stored = tokio::task::spawn_blocking(move || VAULT.kind(&crate::secrets::GithubStore(probe), sync::now_unix())).await;
                 if let Ok(Ok(auth)) = stored {
@@ -308,12 +350,13 @@ pub fn start(app: &AppHandle) {
             if !first {
                 // A share that wasn't there (the PC just woke or signed in
                 // before the network) is tried again sooner than hourly.
+                // 0.9.22: so is one that left files for the next check.
                 let unreachable = service
                     .state
                     .lock()
                     .map(|s| {
                         s.config.enabled
-                            && s.status.report.as_ref().is_some_and(|r| !r.source_reachable)
+                            && s.status.report.as_ref().is_some_and(|r| !r.source_reachable || r.more_later)
                     })
                     .unwrap_or(false);
                 let wait = if unreachable { RETRY_UNREACHABLE } else { HOURLY };
@@ -391,6 +434,7 @@ pub fn profile_set_config(
 ) -> Result<ProfileState, String> {
     let mut config = Config {
         source: config.source.trim().to_string(),
+        gateway: config.gateway.trim().to_string(),
         user: config.user.trim().to_lowercase(),
         assistant: config.assistant.trim().to_string(),
         repo: config.repo.trim().to_string(),
@@ -402,6 +446,10 @@ pub fn profile_set_config(
     if config.enabled && config.is_github() {
         let repo = github::Repo::parse(&config.repo, &config.branch)?;
         config.repo = format!("{}/{}", repo.owner, repo.name);
+    }
+    // 0.9.22: a sync server's address is kept in its normal form.
+    if config.enabled && config.is_gateway() {
+        config.gateway = gateway::normalize_origin(&config.gateway)?;
     }
     let dir = app_data(&app)?;
     sync::save_config(&dir, &config)?;
@@ -492,6 +540,29 @@ pub async fn profile_github_set_token(app: AppHandle, token: String) -> Result<P
     }
     set_auth(&app, auth);
     let service = app.state::<ProfileService>();
+    service.wake.notify_one();
+    emit(&app, &service);
+    Ok(service.snapshot_state())
+}
+
+/// 0.9.22: stores this computer's sync server token in the OS credential
+/// store (an empty value removes it) and checks the word lists again. The
+/// token is never sent back.
+#[tauri::command]
+pub async fn profile_gateway_set_token(app: AppHandle, token: String) -> Result<ProfileState, String> {
+    let token = token.trim().to_string();
+    if !token.is_empty() && !gateway::valid_token(&token) {
+        return Err("That doesn't look like a sync server token. It starts with vfs1.".into());
+    }
+    let stored = !token.is_empty();
+    let writer = app.clone();
+    tokio::task::spawn_blocking(move || crate::secrets::set_gateway_token(&writer, &token))
+        .await
+        .map_err(|e| e.to_string())??;
+    let service = app.state::<ProfileService>();
+    if let Ok(mut state) = service.state.lock() {
+        state.gateway_token = stored;
+    }
     service.wake.notify_one();
     emit(&app, &service);
     Ok(service.snapshot_state())
