@@ -186,6 +186,21 @@ final class WordLists {
             this.tidyWords = tidyWords == null ? TidyWords.Block.EMPTY : tidyWords;
         }
 
+        /**
+         * 0.9.4: the same dictation for a style whose word list is off
+         * ({@link Prefs#styleWordsOn}): no words for the speech model (no prompt, keywords or
+         * context terms) and no word notes for the tidy-up. The corrections stay.
+         */
+        DictationWords withoutTerms() {
+            return new DictationWords(legacy, "", Collections.<String>emptyList(), corrections, snapshotId,
+                    TidyWords.Block.EMPTY, Collections.<String>emptyList());
+        }
+
+        /** 0.9.4: these words, or {@link #withoutTerms} when {@code styleId}'s word list is off. */
+        DictationWords forStyle(Context context, String styleId) {
+            return Prefs.styleWordsOn(context, styleId) ? this : withoutTerms();
+        }
+
         static DictationWords legacy(List<PhraseReplacement> all) {
             return new DictationWords(true, PersonalVocabulary.transcriptionPrompt(all),
                     PersonalVocabulary.keywords(all), all, "");

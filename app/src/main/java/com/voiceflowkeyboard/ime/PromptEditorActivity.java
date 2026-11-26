@@ -21,6 +21,7 @@ public class PromptEditorActivity extends Activity {
     private EditText styleGuidanceInput;
     private TextView iconValue;
     private TextView speechValue;
+    private TextView wordsValue;
     private String selectedIcon = "";
 
     private static final String[] ICON_VALUES = {
@@ -83,6 +84,8 @@ public class PromptEditorActivity extends Activity {
         // 0.9.3: this style's own speech model. Saved at once (a word-list style too), not by Save.
         LinearLayout speech = section(content, "Speech model");
         speech.addView(speechRow());
+        // 0.9.4: whether this style's dictations use the word lists' words. Saved at once.
+        speech.addView(wordsRow());
 
         LinearLayout style = section(content, "Tone and audience");
         styleGuidanceInput = input("Describe how this should sound to the recipient", 7);
@@ -182,6 +185,40 @@ public class PromptEditorActivity extends Activity {
         row.addView(speechValue);
         updateSpeechValue();
         return row;
+    }
+
+    private View wordsRow() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(0, dp(10), 0, dp(4));
+        row.setClickable(true);
+        row.setOnClickListener(v -> showWordsPicker());
+        row.addView(Ui.text(this, "Word list", 15, true, Ui.TEXT));
+        wordsValue = Ui.text(this, "", 12, false, Ui.MUTED);
+        wordsValue.setPadding(0, dp(3), 0, 0);
+        row.addView(wordsValue);
+        updateWordsValue();
+        return row;
+    }
+
+    private void updateWordsValue() {
+        if (wordsValue != null) {
+            wordsValue.setText(Prefs.styleWordsOn(this, promptId)
+                    ? "On: the speech model and tidy-up get your word lists' words"
+                    : "Off: no words from your word lists for this style; corrections still apply");
+        }
+    }
+
+    private void showWordsPicker() {
+        String[] labels = {"On (default)", "Off"};
+        new AlertDialog.Builder(this)
+                .setTitle("Word list")
+                .setSingleChoiceItems(labels, Prefs.styleWordsOn(this, promptId) ? 0 : 1, (dialog, which) -> {
+                    Prefs.setStyleWordsOn(this, promptId, which == 0);
+                    updateWordsValue();
+                    dialog.dismiss();
+                })
+                .show();
     }
 
     private void updateSpeechValue() {

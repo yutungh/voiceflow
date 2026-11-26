@@ -29,6 +29,10 @@ final class ListStyles {
     static final String PREFIX = "list_";
 
     private static volatile List<WordLayer.Style> published = Collections.emptyList();
+    /** 0.9.4: whether a snapshot (or its absence) was published since the app started. */
+    private static volatile boolean loaded;
+    /** 0.9.4: told after each publish (on the publishing thread); the keyboard posts to its own. */
+    private static volatile Runnable listener;
     private static final Object APPLY_LOCK = new Object();
 
     private ListStyles() {
@@ -67,8 +71,31 @@ final class ListStyles {
      */
     static void publish(Context context, WordMerge.Snapshot snapshot) {
         published = snapshot == null ? Collections.<WordLayer.Style>emptyList() : snapshot.styles;
+        loaded = true;
         if (snapshot != null && context != null) {
             applyDefaultOnce(context, snapshot);
+        }
+        Runnable told = listener;
+        if (told != null) {
+            told.run();
+        }
+    }
+
+    /**
+     * 0.9.4: false until the first publish since the app started: a word-list style not found
+     * yet may still arrive ("not-yet"), rather than being gone.
+     */
+    static boolean loaded() {
+        return loaded;
+    }
+
+    static void setListener(Runnable runnable) {
+        listener = runnable;
+    }
+
+    static void clearListener(Runnable runnable) {
+        if (listener == runnable) {
+            listener = null;
         }
     }
 
@@ -100,5 +127,6 @@ final class ListStyles {
     /** Tests: forget the published styles. */
     static void resetForTest() {
         published = Collections.emptyList();
+        loaded = false;
     }
 }

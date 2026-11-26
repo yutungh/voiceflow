@@ -198,6 +198,7 @@ public class VoiceBarServiceTest {
     }
 
     @Test public void aStylePickedInTheSheetIsForOneMessageOnly() {
+        Prefs.setStyleChoiceMode(service, KeyboardStyles.CHOICE_ONE_MESSAGE); // 0.9.4: the one-message behaviour
         findStarting(root, "Style: ").performClick();
         idle();
         assertTrue(sheetOpen());
@@ -213,6 +214,7 @@ public class VoiceBarServiceTest {
     }
 
     @Test public void theExpressionSliderNeverSavesButMakeDefaultDoes() {
+        Prefs.setStyleChoiceMode(service, KeyboardStyles.CHOICE_ONE_MESSAGE); // 0.9.4: the one-message behaviour
         findStarting(root, "Style: ").performClick();
         idle();
         SeekBar slider = ReflectionHelpers.getField(service, "expressionSlider");
@@ -232,6 +234,7 @@ public class VoiceBarServiceTest {
     }
 
     @Test public void theKeyboardHidingEndsAOneOffChoice() {
+        Prefs.setStyleChoiceMode(service, KeyboardStyles.CHOICE_ONE_MESSAGE); // 0.9.4: the one-message behaviour
         findStarting(root, "Style: ").performClick();
         idle();
         tap("Style Friends");
