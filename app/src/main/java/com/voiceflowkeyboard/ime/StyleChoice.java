@@ -35,6 +35,11 @@ final class StyleChoice {
         this.oneOff = true;
     }
 
+    /** 0.9.3: the style {@link #startRecording} will settle on, without changing anything. */
+    String presetAtStart(String defaultPreset) {
+        return oneOff ? preset : defaultPreset;
+    }
+
     /** At record start: the saved default, unless a one-off is waiting. */
     void startRecording(String defaultPreset, int defaultExpression) {
         if (!oneOff) {

@@ -20,6 +20,7 @@ public class PromptEditorActivity extends Activity {
     private EditText promptInput;
     private EditText styleGuidanceInput;
     private TextView iconValue;
+    private TextView speechValue;
     private String selectedIcon = "";
 
     private static final String[] ICON_VALUES = {
@@ -78,6 +79,10 @@ public class PromptEditorActivity extends Activity {
                     : "Permanently remove this custom style";
             details.addView(actionRow(action, detail, Ui.DANGER, Ui.DANGER_SOFT, v -> confirmDelete()));
         }
+
+        // 0.9.3: this style's own speech model. Saved at once (a word-list style too), not by Save.
+        LinearLayout speech = section(content, "Speech model");
+        speech.addView(speechRow());
 
         LinearLayout style = section(content, "Tone and audience");
         styleGuidanceInput = input("Describe how this should sound to the recipient", 7);
@@ -157,6 +162,49 @@ public class PromptEditorActivity extends Activity {
         row.addView(labels, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         row.addView(Ui.text(this, ">", 18, true, color));
         return row;
+    }
+
+    private View speechRow() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(0, dp(4), 0, dp(4));
+        row.setClickable(true);
+        row.setOnClickListener(v -> showSpeechPicker());
+        row.addView(Ui.text(this, "Speech model for this style", 15, true, Ui.TEXT));
+        speechValue = Ui.text(this, "", 12, false, Ui.MUTED);
+        speechValue.setPadding(0, dp(3), 0, 0);
+        row.addView(speechValue);
+        updateSpeechValue();
+        return row;
+    }
+
+    private void updateSpeechValue() {
+        if (speechValue != null) {
+            speechValue.setText(SpeechModels.summary(this, promptId));
+        }
+    }
+
+    private void showSpeechPicker() {
+        java.util.List<SpeechModels.Option> options = SpeechModels.options(this, promptId);
+        CharSequence[] labels = new CharSequence[options.size()];
+        for (int i = 0; i < options.size(); i++) {
+            SpeechModels.Option option = options.get(i);
+            labels[i] = option.title + "\n" + option.detail;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Speech model")
+                .setItems(labels, (dialog, which) -> {
+                    SpeechModels.Option option = options.get(which);
+                    if (!option.available) {
+                        Toast.makeText(this, option.detail, Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    Prefs.setSpeechModelForStyle(this, promptId, option.value);
+                    updateSpeechValue();
+                    Toast.makeText(this, "Speech model saved", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private View iconRow() {

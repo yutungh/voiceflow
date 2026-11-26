@@ -590,6 +590,13 @@ public class SettingsActivity extends Activity {
                 offlineFallbackSummary(), v -> prepareOfflineFallbackModel());
         offlineFallbackValue = offline.findViewWithTag("subtitle");
         voice.addView(offline);
+        // 0.9.3: a style's own speech model (Styles > a style > Speech model) falls back once.
+        voice.addView(Ui.divider(this, 60));
+        CheckBox speechFallback = new CheckBox(this);
+        speechFallback.setChecked(Prefs.speechFallbackToAppDefault(this));
+        voice.addView(checkboxRow("If a style's speech model fails, try the app default",
+                "Tries the voice model above once. Off: the dictation stops and the recording is kept to retry",
+                speechFallback, () -> Prefs.setSpeechFallbackToAppDefault(this, speechFallback.isChecked())));
         column.addView(voice);
 
         column.addView(Ui.sectionLabel(this, "Tidy-up"));

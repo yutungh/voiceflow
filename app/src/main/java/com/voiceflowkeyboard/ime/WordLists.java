@@ -157,6 +157,12 @@ final class WordLists {
          * {@link WordPrompt#TRANSCRIBE_TERMS}). Empty in the 0.8.1 behaviour (no synced copy yet).
          */
         final TidyWords.Block tidyWords;
+        /**
+         * 0.9.3: every word chosen within the budget, for a speech model that takes more than
+         * {@link #keywords} (Soniox's {@code context.terms}). Empty in the 0.8.1 behaviour,
+         * where {@link #keywords} already holds every word.
+         */
+        final List<String> contextTerms;
 
         DictationWords(boolean legacy, String prompt, List<String> keywords, List<PhraseReplacement> corrections,
                        String snapshotId) {
@@ -165,6 +171,13 @@ final class WordLists {
 
         DictationWords(boolean legacy, String prompt, List<String> keywords, List<PhraseReplacement> corrections,
                        String snapshotId, TidyWords.Block tidyWords) {
+            this(legacy, prompt, keywords, corrections, snapshotId, tidyWords, Collections.<String>emptyList());
+        }
+
+        DictationWords(boolean legacy, String prompt, List<String> keywords, List<PhraseReplacement> corrections,
+                       String snapshotId, TidyWords.Block tidyWords, List<String> contextTerms) {
+            this.contextTerms = Collections.unmodifiableList(new ArrayList<>(contextTerms == null
+                    ? Collections.<String>emptyList() : contextTerms));
             this.legacy = legacy;
             this.prompt = prompt == null ? "" : prompt;
             this.keywords = Collections.unmodifiableList(new ArrayList<>(keywords));
@@ -185,8 +198,12 @@ final class WordLists {
             for (WordLayer.Correction c : snapshot.correctionsFor(app)) {
                 corrections.add(new PhraseReplacement(String.join("\n", c.from), c.to));
             }
+            List<String> chosen = new ArrayList<>();
+            for (WordLayer.Term term : built.chosen) {
+                chosen.add(term.text);
+            }
             return new DictationWords(false, built.prompt, WordPrompt.keywords(built.sent), corrections, snapshot.id,
-                    TidyWords.forTerms(built.chosen, TidyWords.TIDY_WORDS_CHARS));
+                    TidyWords.forTerms(built.chosen, TidyWords.TIDY_WORDS_CHARS), WordPrompt.keywords(chosen));
         }
     }
 

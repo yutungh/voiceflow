@@ -274,6 +274,14 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     private List<PhraseReplacement> recordingCorrections = new ArrayList<>();
     // The vocabulary (prompt, keywords) frozen with them: the word lists may refresh mid-dictation.
     private WordLists.DictationWords recordingWords = WordLists.DictationWords.legacy(new ArrayList<>());
+    /** 0.9.3: the speech model this dictation uses, fixed when its recording started (null: the app's). */
+    private SpeechModels.Resolved recordingSpeech;
+    /** 0.9.3: cancels the speech request in flight and its fallback; null when none is in flight. */
+    private volatile SpeechCancel speechCancel;
+    private final Object speechLock = new Object();
+    /** 0.9.3: a dictation whose speech models all failed, kept (in memory) so it can be tried again. */
+    private CloudCapture pendingRetry;
+    private View workingCancelButton;
     private MediaRecorder recorder;
     private AudioRecord offlineRecorder;
     private Thread offlineRecordThread;
@@ -439,6 +447,11 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         watchClipboard(false);
         mainHandler.removeCallbacks(pasteExpiryRunnable);
         stopRecorderSilently();
+        SpeechCancel inFlight = speechCancel;
+        if (inFlight != null) {
+            inFlight.cancel();
+        }
+        discardPendingRetry();
         if (pinyinEngine != null && pinyinEngine.rime() != null) {
             // Clears the breaker's marker: this was a clean stop, not a crash.
             pinyinEngine.rime().stop();
@@ -1146,6 +1159,12 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         workingIconParams.setMargins(dp(6), 0, dp(10), 0);
         workingBar.addView(workingIcon, workingIconParams);
         workingBar.addView(statusText, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        workingCancelButton = iconButton(R.drawable.ph_x, "Cancel transcription", v -> {
+            haptic(v);
+            cancelSpeechRequest();
+        });
+        workingCancelButton.setVisibility(View.GONE);
+        workingBar.addView(workingCancelButton);
         barHost.addView(workingBar, barParams());
 
         // ------------------------------------------- inserted and kept-words
@@ -2168,6 +2187,10 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             renderBar();
             return;
         }
+        if (showRetryChip()) {
+            renderBar();
+            return;
+        }
         if (showSpellingSuggestionChip()) {
             renderBar();
             return;
@@ -2220,6 +2243,10 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         micButton.setVisibility(mode == VoiceBar.Mode.SUGGESTIONS ? View.VISIBLE : View.GONE);
         listeningBar.setVisibility(mode == VoiceBar.Mode.LISTENING ? View.VISIBLE : View.GONE);
         workingBar.setVisibility(mode == VoiceBar.Mode.WORKING ? View.VISIBLE : View.GONE);
+        if (workingCancelButton != null) {
+            workingCancelButton.setVisibility(mode == VoiceBar.Mode.WORKING && speechCancel != null
+                    ? View.VISIBLE : View.GONE);
+        }
         boolean done = mode == VoiceBar.Mode.INSERTED || mode == VoiceBar.Mode.KEPT_WORDS;
         doneBar.setVisibility(done ? View.VISIBLE : View.GONE);
         boolean header = mode == VoiceBar.Mode.HISTORY || mode == VoiceBar.Mode.RETONE;
@@ -5833,7 +5860,10 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         // Resolve any pending reading before audio starts, so the buffer cannot
         // interleave with the transcript.
         settlePinyin(PinyinSession.SettleReason.RECORDING_STARTED);
-        String provider = Prefs.transcriptionProvider(this);
+        // 0.9.3: the style's own speech model, decided now, before cloud or offline routing.
+        // A style switched on the recording panel keeps the model chosen here.
+        SpeechModels.Resolved speech = SpeechModels.atRecordStart(this, choice.presetAtStart(defaultPreset()));
+        String provider = speech.used.provider;
         boolean chinese = dictationLanguage().isChinese();
 
         // The bundled offline models are English-only. Left alone they would
@@ -5853,6 +5883,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             return;
         }
 
+        recordingSpeech = speech;
         if (isOfflineTranscriptionProvider(provider)) {
             toggleOfflineRecording(provider);
         } else if (!hasNetworkConnectivity()) {
@@ -5904,6 +5935,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             hideHistoryPanel();
         }
         creationCapture = true;
+        recordingSpeech = null;
         String provider = Prefs.transcriptionProvider(this);
         if (isOfflineTranscriptionProvider(provider)) {
             toggleOfflineRecording(provider);
@@ -5956,6 +5988,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         }
         instructionCapture = true;
         instructionSourceText = sourceText;
+        recordingSpeech = null;
         String provider = Prefs.transcriptionProvider(this);
         if (isOfflineTranscriptionProvider(provider)) {
             toggleOfflineRecording(provider);
@@ -6004,6 +6037,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         }
         translationCapture = true;
         translationTargetLanguage = Prefs.translationTargetLanguage(this);
+        recordingSpeech = null;
         String provider = Prefs.transcriptionProvider(this);
         if (isOfflineTranscriptionProvider(provider)) {
             toggleOfflineRecording(provider);
@@ -6301,6 +6335,7 @@ public class VoiceFlowKeyboardService extends InputMethodService {
 
     /** Fixes, at record start, where this dictation may go and which corrections it gets. */
     private void freezeRecordingTarget() {
+        discardPendingRetry();
         recordingTarget = currentDeliveryTarget();
         // The word lists in force for this dictation: the sync server's lists merged with this
         // phone's own (or, before the first sync, the phone's own list as before),
@@ -6351,31 +6386,217 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         DeliveryGuard.Target targetForThisRecording = recordingTarget;
         List<PhraseReplacement> correctionsForThisRecording = recordingCorrections;
         WordLists.DictationWords wordsForThisRecording = recordingWords;
+        SpeechModels.Resolved speechForThisRecording = recordingSpeech;
+        recordingSpeech = null;
+        runCloudCapture(new CloudCapture(
+                audio,
+                speechForThisRecording,
+                presetForThisRecording,
+                expressionForThisRecording,
+                creationForThisRecording,
+                instructionForThisRecording,
+                sourceForThisInstruction,
+                translationForThisRecording,
+                targetForThisTranslation,
+                rememberForThisRecording,
+                languageForThisRecording,
+                targetForThisRecording,
+                correctionsForThisRecording,
+                wordsForThisRecording
+        ));
+    }
+
+    /** 0.9.3: everything one cloud recording needs to be transcribed, or tried again. */
+    private static final class CloudCapture {
+        final File audio;
+        /** Null: the app's own speech model (text creation, instructions, translation). */
+        final SpeechModels.Resolved speech;
+        final String preset;
+        final int expression;
+        final boolean creation;
+        final boolean instruction;
+        final String instructionSource;
+        final boolean translation;
+        final String targetLanguage;
+        final boolean remember;
+        final DictationLanguage language;
+        final DeliveryGuard.Target target;
+        final List<PhraseReplacement> corrections;
+        final WordLists.DictationWords words;
+
+        CloudCapture(File audio, SpeechModels.Resolved speech, String preset, int expression, boolean creation,
+                     boolean instruction, String instructionSource, boolean translation, String targetLanguage,
+                     boolean remember, DictationLanguage language, DeliveryGuard.Target target,
+                     List<PhraseReplacement> corrections, WordLists.DictationWords words) {
+            this.audio = audio;
+            this.speech = speech;
+            this.preset = preset;
+            this.expression = expression;
+            this.creation = creation;
+            this.instruction = instruction;
+            this.instructionSource = instructionSource;
+            this.translation = translation;
+            this.targetLanguage = targetLanguage;
+            this.remember = remember;
+            this.language = language;
+            this.target = target;
+            this.corrections = corrections;
+            this.words = words;
+        }
+
+        /**
+         * Kept for a retry only from a field that may keep a history (never incognito or a
+         * password field), and only for a dictation.
+         */
+        boolean mayKeep() {
+            return remember && !creation && !instruction && !translation;
+        }
+    }
+
+    /**
+     * The style's speech model, then at most once the app default ({@link SpeechModels#run}).
+     * A cancel ends both and nothing is inserted. The text goes on exactly once: only the
+     * request that still owns {@link #speechCancel} may deliver it.
+     */
+    private void runCloudCapture(CloudCapture c) {
+        SpeechCancel cancel = new SpeechCancel();
+        synchronized (speechLock) {
+            speechCancel = cancel;
+        }
+        mainHandler.post(this::renderBar);
         executor.execute(() -> {
+            boolean keep = false;
             try {
-                String transcript = TranscriptionClient.transcribe(this, audio, languageForThisRecording, wordsForThisRecording);
+                SpeechModels.Choice app = SpeechModels.appDefault(this);
+                SpeechModels.Resolved speech = c.speech != null ? c.speech : new SpeechModels.Resolved(app, false, null);
+                SpeechModels.Choice fallback = SpeechModels.fallback(speech, app,
+                        Prefs.speechFallbackToAppDefault(this), SpeechModels.availability(this));
+                SpeechModels.Outcome outcome = SpeechModels.run(speech, fallback,
+                        (choice, appDefault) -> TranscriptionClient.transcribeWith(
+                                this, choice, appDefault, c.audio, c.language, c.words, cancel),
+                        cancel);
+                if (!claimSpeech(cancel)) {
+                    return; // canceled: the bar is already back, and nothing is inserted
+                }
+                String notice = outcome.notice();
+                if (notice.isEmpty() && speech.unavailable != null) {
+                    notice = Prefs.providerLabel(speech.unavailable.provider) + " unavailable, used "
+                            + Prefs.providerLabel(outcome.used.provider);
+                }
+                if (!notice.isEmpty()) {
+                    Prefs.addModelSwitchNotice(this, notice);
+                }
                 processTranscribedCapture(
-                        transcript,
-                        presetForThisRecording,
-                        expressionForThisRecording,
-                        creationForThisRecording,
-                        instructionForThisRecording,
-                        sourceForThisInstruction,
-                        translationForThisRecording,
-                        targetForThisTranslation,
-                        rememberForThisRecording,
-                        targetForThisRecording,
-                        correctionsForThisRecording,
-                        wordsForThisRecording.tidyWords
+                        outcome.text,
+                        c.preset,
+                        c.expression,
+                        c.creation,
+                        c.instruction,
+                        c.instructionSource,
+                        c.translation,
+                        c.targetLanguage,
+                        c.remember,
+                        c.target,
+                        c.corrections,
+                        c.words.tidyWords
                 );
             } catch (Exception e) {
-                mainHandler.post(() -> finishProcessingState(concise(e)));
+                if (!claimSpeech(cancel)) {
+                    return;
+                }
+                keep = c.mayKeep() && c.audio.exists();
+                boolean kept = keep;
+                String message = concise(e);
+                mainHandler.post(() -> {
+                    if (kept) {
+                        discardPendingRetry();
+                        pendingRetry = c;
+                    }
+                    finishProcessingState(kept ? message + " - recording kept, tap Retry" : message);
+                });
             } finally {
-                if (!audio.delete()) {
-                    audio.deleteOnExit();
+                if (!keep && !c.audio.delete()) {
+                    c.audio.deleteOnExit();
                 }
             }
         });
+    }
+
+    /** True for the one request still allowed to deliver; it gives up the cancel. */
+    private boolean claimSpeech(SpeechCancel cancel) {
+        synchronized (speechLock) {
+            if (speechCancel != cancel || cancel.isCancelled()) {
+                return false;
+            }
+            speechCancel = null;
+        }
+        mainHandler.post(this::renderBar);
+        return true;
+    }
+
+    /** 0.9.3: the working bar's cancel, while the speech request (or its fallback) runs. */
+    private void cancelSpeechRequest() {
+        SpeechCancel cancel;
+        synchronized (speechLock) {
+            cancel = speechCancel;
+            speechCancel = null;
+        }
+        if (cancel == null) {
+            return;
+        }
+        cancel.cancel();
+        finishProcessingState("Canceled - nothing inserted");
+    }
+
+    private void retryPendingCapture() {
+        CloudCapture c = pendingRetry;
+        if (c == null || processing || recording) {
+            return;
+        }
+        if (!hasNetworkConnectivity()) {
+            setStatus("Retry needs a connection");
+            return;
+        }
+        pendingRetry = null;
+        processing = true;
+        setKeyboardLocked(true);
+        showCaptureProcessingState();
+        startStatusSpinner("Transcribing");
+        runCloudCapture(c);
+    }
+
+    private void discardPendingRetry() {
+        CloudCapture c = pendingRetry;
+        pendingRetry = null;
+        if (c != null && !c.audio.delete()) {
+            c.audio.deleteOnExit();
+        }
+    }
+
+    /** 0.9.3: Retry or Discard a dictation whose speech models all failed. */
+    private boolean showRetryChip() {
+        if (pendingRetry == null
+                || chipStrip == null
+                || recording
+                || processing
+                || historyMode
+                || retoneMode
+                || emojiPicker != null) {
+            return false;
+        }
+        chipStrip.removeAllViews();
+        showChipStrip();
+        TextView retry = chip("Retry dictation", v -> retryPendingCapture());
+        retry.setContentDescription("Retry the dictation that failed");
+        chipStrip.addView(retry);
+        TextView discard = chip("Discard", v -> {
+            discardPendingRetry();
+            showIdleChips();
+            setStatus("Recording discarded");
+        });
+        discard.setContentDescription("Discard the recording that failed");
+        chipStrip.addView(discard);
+        return true;
     }
 
     private boolean shouldTransform(String preset) {
