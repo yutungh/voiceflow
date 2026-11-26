@@ -138,3 +138,45 @@ jobs:
           path: ${{ runner.temp }}/t/${{ matrix.bundle_glob }}
           if-no-files-found: error
           retention-days: 14
+
+      # The .app itself, zipped with ditto on the runner: upload-artifact does
+      # not keep symlinks or the executable bit, and the bundle's code
+      # signature depends on both. The zip survives any copy (a FAT or exFAT
+      # USB stick included) and unpacks with `ditto -x -k`.
+      - name: Zip and check the app bundle (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          BUNDLE_DIR="$CARGO_TARGET_DIR/universal-apple-darwin/release/bundle/macos"
+          APP=$(ls -d "$BUNDLE_DIR"/*.app | head -1)
+          NAME=$(basename "$APP" .app)
+          echo "App: $NAME.app"
+          echo "--- architectures"
+          EXE=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP/Contents/Info.plist")
+          lipo -archs "$APP/Contents/MacOS/$EXE"
+          echo "--- minimum macOS"
+          /usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$APP/Contents/Info.plist"
+          echo "--- version"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist"
+          echo "--- usage strings"
+          /usr/libexec/PlistBuddy -c "Print :NSMicrophoneUsageDescription" "$APP/Contents/Info.plist"
+          echo "--- signature"
+          codesign -dv --verbose=2 "$APP" 2>&1 | grep -E "^(Identifier|Format|CodeDirectory|Signature|TeamIdentifier|Runtime)" || true
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          mkdir -p "$RUNNER_TEMP/app-zip"
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/app-zip/$NAME-macos-universal.app.zip"
+          # Unpack it again and check the copy still verifies.
+          mkdir -p "$RUNNER_TEMP/app-check"
+          ditto -x -k "$RUNNER_TEMP/app-zip/$NAME-macos-universal.app.zip" "$RUNNER_TEMP/app-check"
+          codesign --verify --deep --strict "$RUNNER_TEMP/app-check/$NAME.app"
+          echo "Unzipped copy verifies."
+          ls -la "$RUNNER_TEMP/app-zip"
+
+      - name: Upload the app bundle (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: voiceflow-desktop-macos-universal-app
+          path: ${{ runner.temp }}/app-zip/*.app.zip
+          if-no-files-found: error
+          retention-days: 14

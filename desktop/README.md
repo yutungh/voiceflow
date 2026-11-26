@@ -70,6 +70,10 @@ bun run --cwd desktop/apps/whispering tauri build --target universal-apple-darwi
 
 The build is ad-hoc signed (no Apple Developer ID), so macOS asks you to "Open Anyway" in System Settings the first time.
 
+- From 0.9.22 CI also uploads the `.app` itself, zipped with `ditto` (artifact `voiceflow-desktop-macos-universal-app`). Unpack it with `ditto -x -k <zip> /Applications`, which keeps the signature's symlinks; other unzip tools may break the signature.
+- It needs macOS 11 or later with Safari 16.4 or later installed (the app's pages use the system WebKit). It asks for the microphone on first use, and needs **Accessibility** (System Settings > Privacy & Security) to paste. The app appears as "VoiceFlow" in those lists.
+- With an ad-hoc signature, macOS may ask again for Accessibility, and for Keychain access to the API key, after an update.
+
 ### Tests
 
 ```sh
@@ -87,7 +91,33 @@ cd src-tauri && cargo test --locked --lib   # Rust unit tests (after a build)
 
 **What works without any sync:** everything above. Transcription uses `gpt-transcribe` by default and the tidy-up uses `gpt-5.4-mini` by default; both model ids can be changed. The word lists, the sync server and the Android keyboard are all optional.
 
-**Optional: your own word lists.** In **Settings > Word lists**, turn on **Use word lists**, enter the **Folder** (a local folder, a synced folder or a network share, for example `\\server\voiceflow`) and your user name under **Whose words**. The folder layout is in [`../pack/README.md`](../pack/README.md), and [`../docs/desktop/CONNECT-YOUR-OWN-AI.md`](../docs/desktop/CONNECT-YOUR-OWN-AI.md) shows how to let an assistant maintain the lists. The desktop app reads this folder directly; it does not talk to the sync server. To share the same folder with a phone, put it behind the [sync gateway](../sync/README.md). From 0.9.19 the word lists can also live in a **private GitHub repository** (choose it under **Where they are**; from 0.9.20, **Connect GitHub** signs in without a token): see [`../docs/GITHUB-SYNC.md`](../docs/GITHUB-SYNC.md).
+**Optional: your own word lists.** In **Settings > Word lists**, turn on **Use word lists**, enter the **Folder** (a local folder, a synced folder or a network share, for example `\\server\voiceflow`) and your user name under **Whose words**. The folder layout is in [`../pack/README.md`](../pack/README.md), and [`../docs/desktop/CONNECT-YOUR-OWN-AI.md`](../docs/desktop/CONNECT-YOUR-OWN-AI.md) shows how to let an assistant maintain the lists. The desktop app reads this folder directly. To share the same folder with a phone, put it behind the [sync gateway](../sync/README.md); from 0.9.22 the desktop app can also use that gateway itself (**Where they are > A sync server**: its address and a token issued for this computer's device id, shown there). From 0.9.19 the word lists can also live in a **private GitHub repository** (choose it under **Where they are**; from 0.9.20, **Connect GitHub** signs in without a token): see [`../docs/GITHUB-SYNC.md`](../docs/GITHUB-SYNC.md).
+
+**A settings file (0.9.22).** Someone setting up VoiceLnq for another person can prepare a `provision.json`: API keys, a few device settings and where the word lists come from. Placed in the app's config folder (`~/Library/Application Support/com.voiceflowkeyboard.desktop/` on macOS, `%APPDATA%\com.voiceflowkeyboard.desktop\` on Windows), it is imported at the next start and then removed; **Settings > Startup > Import settings file** imports one by hand. Keys go to the OS keychain only. A field outside the list below is ignored and named; a bad value on the list stops the import before anything is saved. Each value is read back before the file is removed, and a receipt without values (`provision.applied.json`) is left behind.
+
+```json
+{
+  "schema": "voicelnq-provision",
+  "version": 1,
+  "apiKeys": { "openai": "sk-..." },
+  "settings": {
+    "transcription.selectedTranscriptionService": "OpenAI",
+    "transcription.outputLanguage": "auto",
+    "transcription.openai.model": "gpt-transcribe",
+    "transformations.selectedTransformationId": "vf-builtin-friends",
+    "shortcuts.global.toggleManualRecording": "CommandOrControl+Shift+;",
+    "shortcuts.global.pushToTalk": "CommandOrAlt+Shift+D",
+    "shortcuts.global.cancelManualRecording": "CommandOrControl+Shift+'"
+  },
+  "wordLists": { "kind": "gateway", "url": "https://sync.example.com", "user": "alex", "device": "mac1a2b3c4d", "token": "vfs1...." }
+}
+```
+
+- `apiKeys`: `openai`, `anthropic`, `groq`, `google`, `deepgram`, `elevenlabs`, `mistral`, `openrouter`.
+- `transformations.selectedTransformationId`: a built-in style's id (`vf-builtin-<key>`).
+- `wordLists`: `{"kind": "gateway", ...}` (a sync server; the token is issued for the `device` id given, which this computer takes) or `{"kind": "folder", "source": "...", "user": "..."}`. Without a valid token the word lists are skipped and the rest is still imported.
+
+**Chinese (0.9.22).** With gpt-transcribe, the Chinese language setting sends `zh-cn` and `en`, as the Android keyboard's Chinese mode does, so English words inside Chinese speech stay English.
 
 **A style for each app (0.9.21).** In **Settings > Tidy-up > Style for each app**, choose the style dictations into an app start in (Telegram in Friends, ChatGPT in AI prompt): a built-in style, one from your word lists, one made on this PC, or Raw, and a level if you want one. A style picked on the recording bar still wins for that dictation. The setting is saved as an edit to your word lists that stays on this PC for now, and it wins over the word lists' own rule for that app; removing it brings their rule back. The format is in [`../pack/README.md`](../pack/README.md#style-references-in-app-rules).
 
@@ -128,6 +158,7 @@ The app calls no VoiceLnq, Whispering or Epicenter server: no telemetry, no upda
 | Only when the user clicks Find fixes in the Feedback window | The model chosen in Settings > Feedback (OpenAI or Anthropic, with the user's own key) | Suggests fixes to spellings and styles from that one dictation and the feedback |
 | Only when the user downloads a local model | `huggingface.co` (Parakeet: `istupakov/parakeet-tdt-0.6b-v3-onnx` at a pinned revision; Whisper: `ggerganov/whisper.cpp`; Moonshine: `UsefulSensors/moonshine`) | Model files |
 | With word lists in a GitHub repository: at start, hourly, on Refresh now and on Test connection | `api.github.com`, with the GitHub sign-in or the user's own token (kept in the OS keychain) | Reads the word-list repository; uploads this computer's word edits and its status file unless uploads are off |
+| With word lists on a sync server (0.9.22 and later): at start, hourly (every 5 minutes while it can't be reached or has more to send) and on Refresh now | The sync server's own address, with this computer's device token (kept in the OS keychain) | Reads the word lists; uploads this computer's word edits and its status file unless uploads are off |
 | Only when the user clicks Connect GitHub (0.9.20 and later), and when that sign-in is renewed | `github.com` (`/login/device/code`, `/login/oauth/access_token`) and `api.github.com` (the repositories the app is installed on) | Signs this computer in through the VoiceFlow Word Lists GitHub App |
 | Only with voice-activated recording | `cdn.jsdelivr.net` (`@ricky0123/vad-web` 0.0.24, `onnxruntime-web` 1.14.0) | Voice-detection model and runtime files |
 | Only when the user clicks a link | `github.com/yutungh/voicelnq`, provider sign-up and docs pages | Help |

@@ -51,5 +51,18 @@ export function languageParam(
 ): { language?: string; languages?: string[] } {
 	const code = outputLanguage.trim();
 	if (!code || code === 'auto') return {};
-	return supportsKeywords(model) ? { languages: [code] } : { language: code };
+	if (!supportsKeywords(model)) return { language: code };
+	return { languages: [...(GPT_TRANSCRIBE_LANGUAGES[code] ?? [code])] };
 }
+
+/**
+ * VoiceFlow 0.9.22: the `languages[]` a setting sends to gpt-transcribe when
+ * it is not just its own code. Chinese is Mandarin in Simplified characters
+ * (`zh-cn`, a regional code OpenAI documents for gpt-transcribe) with English
+ * alongside, as the Android keyboard's Chinese mode sends it: on invented
+ * mixed Chinese and English sentences it kept short English words that plain
+ * `zh` turned into Chinese.
+ */
+const GPT_TRANSCRIBE_LANGUAGES: Readonly<Record<string, readonly string[]>> = {
+	zh: ['zh-cn', 'en'],
+};

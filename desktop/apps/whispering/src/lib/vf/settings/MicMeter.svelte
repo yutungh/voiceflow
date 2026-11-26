@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { IS_MACOS } from '$lib/constants/platform';
 
 	/**
 	 * A live microphone level, as bars. It listens only while `active` is
@@ -50,7 +51,11 @@
 			acquired = await navigator.mediaDevices.getUserMedia({ audio: true });
 		} catch {
 			if (mine === generation)
-				onError?.("VoiceLnq can't use the microphone. Check that Windows lets apps use it.");
+				onError?.(
+					IS_MACOS
+						? "VoiceLnq can't use the microphone. Allow it in System Settings > Privacy & Security > Microphone."
+						: "VoiceLnq can't use the microphone. Check that Windows lets apps use it.",
+				);
 			return;
 		}
 		// VoiceFlow: the test ended (or the page closed) while the microphone

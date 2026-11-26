@@ -729,7 +729,8 @@ pub mod runtime {
                 if let Err(e) = opened {
                     let _ = recorder.close_session();
                     return Err(format!(
-                        "VoiceLnq couldn't open the microphone ({e}). Another app may be using it, Windows may be blocking it, or it may be unplugged."
+                        "VoiceLnq couldn't open the microphone ({e}). Another app may be using it, {os} may be blocking it, or it may be unplugged.",
+                        os = if cfg!(target_os = "macos") { "macOS" } else { "Windows" }
                     ));
                 }
                 Ok(StartedRecording { recording_id: recording_id.clone(), device })

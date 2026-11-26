@@ -84,6 +84,35 @@ pub fn set_github_token(app: &AppHandle, token: &str) -> Result<(), String> {
     entry.set_password(token).map_err(|e| e.to_string())
 }
 
+/// 0.9.22: a sync server's device token (`profile::gateway`). Its own entry
+/// (`gateway-token`), outside `PROVIDERS`: the webview can store or clear it
+/// but never read it back. Blocking: call it on a worker thread.
+fn gateway_entry(app: &AppHandle) -> Result<Entry, String> {
+    STORE.clone()?;
+    let service = app.config().identifier.clone();
+    Entry::new(&service, "gateway-token").map_err(|e| e.to_string())
+}
+
+pub fn gateway_token(app: &AppHandle) -> Result<Option<String>, String> {
+    match gateway_entry(app)?.get_password() {
+        Ok(value) if !value.is_empty() => Ok(Some(value)),
+        Ok(_) | Err(Error::NoEntry) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Stores the token; an empty value deletes it.
+pub fn set_gateway_token(app: &AppHandle, token: &str) -> Result<(), String> {
+    let entry = gateway_entry(app)?;
+    if token.is_empty() {
+        return match entry.delete_credential() {
+            Ok(()) | Err(Error::NoEntry) => Ok(()),
+            Err(e) => Err(e.to_string()),
+        };
+    }
+    entry.set_password(token).map_err(|e| e.to_string())
+}
+
 /// 0.9.20: the same entry, as the GitHub sign-in's store: a pasted token
 /// (raw, as 0.9.19 kept it) or the connected App's tokens
 /// (`profile::github_auth`). Blocking: use it on a worker thread.

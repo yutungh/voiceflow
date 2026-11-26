@@ -2,6 +2,7 @@
 	import { createQuery } from '@tanstack/svelte-query';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { IS_WINDOWS } from '$lib/constants/platform';
 	import { rpc } from '$lib/query';
 	import { secretStoreLabel } from '$lib/services/desktop/secrets';
 	import { asDeviceIdentifier } from '$lib/services/types';
@@ -111,7 +112,7 @@
 								e.currentTarget.value ? asDeviceIdentifier(e.currentTarget.value) : null,
 							)}
 					>
-						<option value="">Windows default</option>
+						<option value="">{IS_WINDOWS ? 'Windows default' : 'System default'}</option>
 						{#each devicesQuery.data ?? [] as device (device.id)}
 							<option value={device.id}>{device.label}</option>
 						{/each}

@@ -24,7 +24,7 @@
 		"macOS": {
 			"entitlements": "entitlements.plist",
 			"hardenedRuntime": true,
-			"minimumSystemVersion": "10.15",
+			"minimumSystemVersion": "11.0",
 			"signingIdentity": "-"
 		},
 		"linux": {
@@ -47,7 +47,7 @@
 		}
 	},
 	"productName": "VoiceFlow",
-	"version": "0.9.21",
+	"version": "0.9.22",
 	"identifier": "com.voiceflowkeyboard.desktop",
 	"plugins": {},
 	"app": {

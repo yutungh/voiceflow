@@ -100,6 +100,10 @@ export const settings = (() => {
 			string
 		>;
 	let secrets = $state.raw(emptySecrets());
+	// 0.9.22: bumped by every immediate write (the provisioning file), so a
+	// re-read that started before it never puts an older value back.
+	let secretsGeneration = 0;
+	let importingKeys = 0;
 	const pendingWrites = new Map<
 		ApiKeySettingKey,
 		ReturnType<typeof setTimeout>
@@ -121,11 +125,19 @@ export const settings = (() => {
 			key,
 			setTimeout(async () => {
 				pendingWrites.delete(key);
-				const { error } = await SecretsServiceLive.set(key, secrets[key]);
-				if (error) notifyKeychainError(error.message);
+				// 0.9.22: kept while it runs, so an immediate write waits for it.
+				const write = SecretsServiceLive.set(key, secrets[key]).then(({ error }) => {
+					if (error) notifyKeychainError(error.message);
+				});
+				inFlightWrites.set(key, write);
+				await write;
+				if (inFlightWrites.get(key) === write) inFlightWrites.delete(key);
 			}, 400),
 		);
 	}
+
+	/** 0.9.22: a debounced write already sent for this key, if any. */
+	const inFlightWrites = new Map<ApiKeySettingKey, Promise<void>>();
 
 	/** Loads keys from the store and migrates any left in localStorage. */
 	async function loadApiKeys() {
@@ -168,7 +180,8 @@ export const settings = (() => {
 	if (isDesktop) {
 		window.addEventListener('focus', async () => {
 			await apiKeysReady;
-			if (!useKeychain || pendingWrites.size > 0) return;
+			if (!useKeychain || pendingWrites.size > 0 || importingKeys > 0) return;
+			const generation = secretsGeneration;
 			const next = emptySecrets();
 			for (const key of API_KEY_SETTING_KEYS) {
 				const { data, error } = await SecretsServiceLive.get(key);
@@ -177,6 +190,8 @@ export const settings = (() => {
 			}
 			if (
 				pendingWrites.size === 0 &&
+				importingKeys === 0 &&
+				generation === secretsGeneration &&
 				API_KEY_SETTING_KEYS.some((k) => next[k] !== secrets[k])
 			) {
 				secrets = next;
@@ -310,6 +325,74 @@ export const settings = (() => {
 		updateKey<K extends keyof Settings>(key: K, value: Settings[K]) {
 			warnOwned({ [key]: value } as Partial<Settings>);
 			persist({ ...readMerged(), [key]: value });
+		},
+
+		/**
+		 * 0.9.22, the provisioning file: whether API keys go to an OS
+		 * credential store on this computer (once it has loaded).
+		 */
+		async keyStoreAvailable(): Promise<boolean> {
+			await apiKeysReady;
+			return useKeychain;
+		},
+
+		/**
+		 * 0.9.22, the provisioning file: writes one API key to the OS
+		 * credential store now (no debounce), replacing any write still
+		 * waiting for that key. True when the store took it. Never writes to
+		 * local storage.
+		 */
+		async writeApiKeyNow(key: ApiKeySettingKey, value: string): Promise<boolean> {
+			await apiKeysReady;
+			if (!useKeychain) return false;
+			const waiting = pendingWrites.get(key);
+			if (waiting) {
+				clearTimeout(waiting);
+				pendingWrites.delete(key);
+			}
+			importingKeys++;
+			try {
+				// An older write already on its way finishes first, never after.
+				await inFlightWrites.get(key);
+				const { error } = await SecretsServiceLive.set(key, value);
+				if (error) return false;
+				secretsGeneration++;
+				secrets = { ...secrets, [key]: value };
+				return true;
+			} finally {
+				importingKeys--;
+			}
+		},
+
+		/** 0.9.22: one API key as the OS credential store has it (undefined: unreadable). */
+		async readStoredApiKey(key: ApiKeySettingKey): Promise<string | null | undefined> {
+			await inFlightWrites.get(key);
+			if (pendingWrites.has(key)) return undefined;
+			const { data, error } = await SecretsServiceLive.get(key);
+			return error ? undefined : (data ?? null);
+		},
+
+		/**
+		 * 0.9.22, the provisioning file: writes this device's own values,
+		 * under any the word lists provide (their view is unchanged while
+		 * they are on). Not for API keys.
+		 */
+		async writeDeviceValues(values: Partial<Settings>): Promise<void> {
+			// After the keys' migration, so it can't race this write; API key
+			// fields (never in `values`) keep what is stored.
+			await apiKeysReady;
+			_settings.value = { ..._settings.value, ...values };
+		},
+
+		/** 0.9.22: this device's settings as saved in local storage, or null. */
+		readSavedValues(): Record<string, unknown> | null {
+			try {
+				const raw = window.localStorage.getItem('whispering-settings');
+				const parsed: unknown = raw ? JSON.parse(raw) : null;
+				return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+			} catch {
+				return null;
+			}
 		},
 
 		/** Whether a setting currently comes from the word lists (read-only here). */

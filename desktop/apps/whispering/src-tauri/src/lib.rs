@@ -45,7 +45,7 @@ use app_icon::app_icon;
 // VoiceFlow B + C2: word lists (household + personal profiles) on a shared folder.
 pub mod profile;
 use profile::{
-    profile_edits_changed, profile_github_set_token, profile_github_test, profile_list_users, profile_refresh,
+    profile_edits_changed, profile_gateway_set_token, profile_github_set_token, profile_github_test, profile_list_users, profile_refresh,
     profile_set_busy, profile_set_config,
     profile_state, github_connect_cancel, github_connect_start, github_connect_status, github_links, github_list_repos,
 };
@@ -264,6 +264,7 @@ pub async fn run() {
         profile_list_users,
         // 0.9.19: word lists in a private GitHub repository
         profile_github_set_token,
+        profile_gateway_set_token,
         profile_github_test,
         // 0.9.20: Connect GitHub (the VoiceFlow GitHub App, device flow)
         github_connect_start,
