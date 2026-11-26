@@ -1,0 +1,20 @@
+# Never commit a recording: audio lives outside the repository
+# (C:\vf\vocab-test by default, VOCAB_DATA_DIR to change it).
+*.wav
+*.flac
+*.mp3
+*.m4a
+*.ogg
+*.opus
+*.webm
+*.aac
+recordings/
+audio/
+runs/
+ledger.jsonl
+session.json
+
+# Keys stay in the repository root's .env.local, which is already ignored.
+.env*
+
+node_modules/
