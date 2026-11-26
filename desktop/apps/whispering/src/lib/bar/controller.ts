@@ -296,7 +296,7 @@ export const bar = {
 		machine.begin({
 			recordingId,
 			purpose,
-			app: { name: target.isSelf ? 'VoiceFlow' : target.appName, icon: appIcon(target, recordingId) },
+			app: { name: target.isSelf ? 'VoiceLnq' : target.appName, icon: appIcon(target, recordingId) },
 			style,
 			styles,
 			preferred: preferredFor(styles, snapshot),

@@ -69,7 +69,7 @@
 			<Card.Description class="leading-7">
 				Follow the steps below to re-enable VoiceFlow in your macOS
 				Accessibility settings. This often is needed after installing new
-				versions of VoiceFlow due to a macOS bug.
+				versions of VoiceLnq due to a macOS bug.
 			</Card.Description>
 		</Card.Header>
 		<Card.Content>

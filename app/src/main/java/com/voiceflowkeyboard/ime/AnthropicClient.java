@@ -339,7 +339,7 @@ final class AnthropicClient {
     private static String requiredApiKey(Context context) {
         String apiKey = Prefs.anthropicApiKey(context);
         if (apiKey == null || apiKey.trim().isEmpty()) {
-            throw new IllegalStateException("Add your Anthropic API key in VoiceFlow Keyboard settings.");
+            throw new IllegalStateException("Add your Anthropic API key in VoiceLnq Keyboard settings.");
         }
         return apiKey.trim();
     }

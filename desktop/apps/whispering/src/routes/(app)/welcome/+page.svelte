@@ -19,7 +19,7 @@
 	 * dictation with the start-or-stop keys, read from the box. 3: you're
 	 * ready, with the hold-to-talk tip. Shown once, on a fresh install.
 	 */
-	const SENTENCE = 'Hello VoiceFlow, this is my first dictation.';
+	const SENTENCE = 'Hello VoiceLnq, this is my first dictation.';
 
 	const initial = Number(page.url.searchParams.get('step') ?? '1');
 	let step = $state(initial >= 1 && initial <= 3 ? initial : 1);
@@ -77,7 +77,7 @@
 </script>
 
 <svelte:head>
-	<title>Set up VoiceFlow</title>
+	<title>Set up VoiceLnq</title>
 </svelte:head>
 
 <svelte:window onkeydown={onKey} />
@@ -93,7 +93,7 @@
 
 		{#if step === 1}
 			<Illo name="mic" size={120} />
-			<h1>Talk in any app. VoiceFlow types it.</h1>
+			<h1>Talk in any app. VoiceLnq types it.</h1>
 			<p class="lead">One quick test and you’re done. It takes about a minute.</p>
 			<div class="frbox">
 				<div class="srow">
@@ -137,7 +137,7 @@
 			</p>
 			{#if !hasKey}
 				<form class="frbox keyask" onsubmit={saveKey}>
-					<p><b>First, add your OpenAI key.</b> VoiceFlow uses it to turn speech into text. It is stored in {secretStoreLabel(
+					<p><b>First, add your OpenAI key.</b> VoiceLnq uses it to turn speech into text. It is stored in {secretStoreLabel(
 							settings.apiKeyStoreKind === 'loading' ? 'windows' : settings.apiKeyStoreKind,
 						)}.</p>
 					<div class="keyform">
@@ -200,7 +200,7 @@
 			<button class="btn text" type="button" onclick={finish}>Skip for now</button>
 		{:else}
 			<span></span>
-			<button class="btn pri" type="button" onclick={finish}><span>Start using VoiceFlow</span><Kc keys={['Enter']} /></button>
+			<button class="btn pri" type="button" onclick={finish}><span>Start using VoiceLnq</span><Kc keys={['Enter']} /></button>
 		{/if}
 	</div>
 </div>

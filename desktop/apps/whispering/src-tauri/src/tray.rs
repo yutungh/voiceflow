@@ -80,10 +80,10 @@ impl TrayState {
 
     fn show_recording(&self, recording: bool, waking: bool) -> tauri::Result<()> {
         let (bytes, status, tooltip) = match (recording, waking) {
-            (true, true) => (ICON_RECORDING, "Recording… (VoiceFlow is waking up…)", "VoiceFlow: recording, waking up…"),
-            (true, false) => (ICON_RECORDING, "Recording…", "VoiceFlow: recording"),
-            (false, true) => (ICON_IDLE, "VoiceFlow is waking up…", "VoiceFlow is waking up…"),
-            (false, false) => (ICON_IDLE, "Ready", "VoiceFlow"),
+            (true, true) => (ICON_RECORDING, "Recording… (VoiceLnq is waking up…)", "VoiceLnq: recording, waking up…"),
+            (true, false) => (ICON_RECORDING, "Recording…", "VoiceLnq: recording"),
+            (false, true) => (ICON_IDLE, "VoiceLnq is waking up…", "VoiceLnq is waking up…"),
+            (false, false) => (ICON_IDLE, "Ready", "VoiceLnq"),
         };
         self.tray.set_icon(Some(Image::from_bytes(bytes)?))?;
         self.tray.set_tooltip(Some(tooltip))?;
@@ -142,7 +142,7 @@ pub fn show_waking(app: &AppHandle<Wry>, waking: bool) {
 /// Creates the tray icon and menu and puts their handles in app state.
 pub fn create(app: &AppHandle<Wry>) -> tauri::Result<()> {
     let status = MenuItem::with_id(app, ID_STATUS, "Ready", false, None::<&str>)?;
-    let open = MenuItem::with_id(app, ID_OPEN, "Open VoiceFlow", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, ID_OPEN, "Open VoiceLnq", true, None::<&str>)?;
 
     let mut themes = Vec::with_capacity(THEMES.len());
     for (value, label) in THEMES {
@@ -171,7 +171,7 @@ pub fn create(app: &AppHandle<Wry>) -> tauri::Result<()> {
         autostart_on,
         None::<&str>,
     )?;
-    let quit = MenuItem::with_id(app, ID_QUIT, "Quit VoiceFlow", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, ID_QUIT, "Quit VoiceLnq", true, None::<&str>)?;
 
     let menu = Menu::with_items(
         app,
@@ -188,7 +188,7 @@ pub fn create(app: &AppHandle<Wry>) -> tauri::Result<()> {
 
     let tray = TrayIconBuilder::with_id(TRAY_ID)
         .icon(Image::from_bytes(ICON_IDLE)?)
-        .tooltip("VoiceFlow")
+        .tooltip("VoiceLnq")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(on_menu_event)

@@ -1,4 +1,4 @@
-# VoiceFlow: notes for agents and contributors
+# VoiceLnq: notes for agents and contributors
 
 These rules apply to anyone working in this repository, human or AI agent. Working in `desktop/`? Read [`desktop/AGENTS.md`](desktop/AGENTS.md) too. Build, test and pull request steps are in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 

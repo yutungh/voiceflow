@@ -196,7 +196,7 @@ public class HistoryActivity extends Activity {
     private void copy(String text) {
         ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
         if (clipboard != null && text != null) {
-            clipboard.setPrimaryClip(ClipData.newPlainText("VoiceFlow", text));
+            clipboard.setPrimaryClip(ClipData.newPlainText("VoiceLnq", text));
             Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show();
         }
     }

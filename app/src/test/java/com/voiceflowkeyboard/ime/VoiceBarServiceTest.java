@@ -360,7 +360,7 @@ public class VoiceBarServiceTest {
         assertTrue(all, all.contains("Create text by voice"));
         assertTrue(all, all.contains("Edit this text by voice"));
         assertTrue(all, all.contains("Fix spelling"));
-        assertTrue(all, all.contains("VoiceFlow settings"));
+        assertTrue(all, all.contains("VoiceLnq settings"));
     }
 
     // -------------------------------------------------- typing works exactly as before

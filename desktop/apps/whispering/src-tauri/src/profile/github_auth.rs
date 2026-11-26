@@ -290,9 +290,9 @@ fn oauth_json(response: &HttpResponse) -> Result<Value, AuthError> {
 
 fn config_error(code: &str) -> AuthError {
     AuthError::Config(match code {
-        "device_flow_disabled" => "VoiceFlow's GitHub App doesn't allow this way of signing in. Use an access token (Advanced) for now.".into(),
+        "device_flow_disabled" => "VoiceLnq's GitHub App doesn't allow this way of signing in. Use an access token (Advanced) for now.".into(),
         "incorrect_client_credentials" | "unsupported_grant_type" | "incorrect_device_code" => {
-            "GitHub refused VoiceFlow's sign-in request. Use an access token (Advanced) for now.".into()
+            "GitHub refused VoiceLnq's sign-in request. Use an access token (Advanced) for now.".into()
         }
         _ => "GitHub refused the sign-in. Use an access token (Advanced) for now.".into(),
     })
@@ -466,7 +466,7 @@ pub enum AccessError {
 }
 
 pub const RECONNECT_MESSAGE: &str =
-    "VoiceFlow's connection to GitHub has ended. Press Connect GitHub in Settings > Word lists; using the last good copy.";
+    "VoiceLnq's connection to GitHub has ended. Press Connect GitHub in Settings > Word lists; using the last good copy.";
 
 impl AccessError {
     pub fn message(&self) -> String {
@@ -483,7 +483,7 @@ impl AccessError {
     pub fn short(&self) -> String {
         match self {
             AccessError::Missing => "Press Connect GitHub (or add an access token) first.".into(),
-            AccessError::Reconnect => "VoiceFlow's connection to GitHub has ended. Press Connect GitHub to connect again.".into(),
+            AccessError::Reconnect => "VoiceLnq's connection to GitHub has ended. Press Connect GitHub to connect again.".into(),
             AccessError::Replaced => "The GitHub connection changed meanwhile. Try again.".into(),
             AccessError::Store(e) => format!("Couldn't read the GitHub sign-in from this computer's credential store ({e})."),
             AccessError::Retry(e) => e.message(),
@@ -519,7 +519,7 @@ pub struct Vault {
 pub static VAULT: LazyLock<Vault> = LazyLock::new(Vault::default);
 
 const UNSAVED_WARNING: &str =
-    "The new GitHub sign-in couldn't be saved in this computer's credential store; if VoiceFlow restarts, press Connect GitHub again.";
+    "The new GitHub sign-in couldn't be saved in this computer's credential store; if VoiceLnq restarts, press Connect GitHub again.";
 
 impl Vault {
     fn load(state: &mut VaultState, store: &dyn Store) -> Result<(), AccessError> {
@@ -898,7 +898,7 @@ fn get_json(http: &dyn Transport, url: String, token: &str) -> Result<Value, Lis
     match response.status {
         200..=299 => serde_json::from_slice(&response.body).map_err(|_| ListError::Other("GitHub's answer couldn't be read.".into())),
         401 => Err(ListError::Unauthorized),
-        403 | 429 => Err(ListError::Other("GitHub asked VoiceFlow to slow down; try again in a few minutes.".into())),
+        403 | 429 => Err(ListError::Other("GitHub asked VoiceLnq to slow down; try again in a few minutes.".into())),
         s => Err(ListError::Other(format!("GitHub answered with an error (HTTP {s})."))),
     }
 }

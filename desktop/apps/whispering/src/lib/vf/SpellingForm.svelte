@@ -56,7 +56,7 @@
 </script>
 
 <form class="pop" aria-label="Fix a spelling" onsubmit={save}>
-	<div class="pop-h"><Tile icon="pencil-simple" /><b>Teach VoiceFlow a spelling</b></div>
+	<div class="pop-h"><Tile icon="pencil-simple" /><b>Teach VoiceLnq a spelling</b></div>
 	<label for="sp-heard">It heard</label>
 	<input id="sp-heard" class="inp" bind:value={from} autocomplete="off" required />
 	<label for="sp-to">Always write it as</label>

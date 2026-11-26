@@ -115,13 +115,13 @@
 	>
 		<Sheet.Header class="sr-only">
 			<Sheet.Title>Menu</Sheet.Title>
-			<Sheet.Description>Go to a page of VoiceFlow.</Sheet.Description>
+			<Sheet.Description>Go to a page of VoiceLnq.</Sheet.Description>
 		</Sheet.Header>
 		<AppSidebar size="drawer" onNavigate={() => (drawerOpen = false)}>
 			{#snippet header()}
 				<div class="mb-2.5 flex h-[42px] items-center gap-2.5 pl-1">
 					<img src="/apple-touch-icon.png" alt="" class="size-7 rounded-[7px]" />
-					<span class="font-display text-[15px] font-semibold">VoiceFlow</span>
+					<span class="font-display text-[15px] font-semibold">VoiceLnq</span>
 					<Button
 						variant="ghost"
 						class="ml-auto gap-1.5 text-[15px]"

@@ -1,11 +1,11 @@
-# VoiceFlow repository layout
+# VoiceLnq repository layout
 
-This repository holds the whole VoiceFlow family: the Android keyboard, the desktop dictation app, and the vocabulary pack they share.
+This repository holds the whole VoiceLnq family: the Android keyboard, the desktop dictation app, and the vocabulary pack they share.
 
 | Path | What | Licence |
 |---|---|---|
-| `/` (Gradle project, `app/`, `scripts/`, `Research/`) | VoiceFlow Android keyboard. It stays at the root for now. | MIT (`LICENSE`) |
-| `desktop/` | VoiceFlow Desktop for Windows and macOS, a fork of Whispering 7.11. | AGPL-3.0 (version 3 only, as upstream declares) |
+| `/` (Gradle project, `app/`, `scripts/`, `Research/`) | VoiceLnq Android keyboard. It stays at the root for now. | MIT (`LICENSE`) |
+| `desktop/` | VoiceLnq Desktop for Windows and macOS, a fork of Whispering 7.11. | AGPL-3.0 (version 3 only, as upstream declares) |
 | `pack/` | The shared vocabulary pack: schema and synthetic test vectors | MIT (`pack/LICENSE`) |
 | `docs/desktop/` | Desktop spec, research notes and design work | Documentation |
 

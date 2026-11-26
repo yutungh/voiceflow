@@ -358,7 +358,7 @@
 					maxlength={20000}
 					disabled={step === 'sending'}
 				></textarea>
-				<span class="sub small">Edit it into what you wanted. VoiceFlow takes this as the right text.</span>
+				<span class="sub small">Edit it into what you wanted. VoiceLnq takes this as the right text.</span>
 			{:else if setup?.subject?.deliveredText}
 				<button class="btn text sm start" type="button" onclick={openWanted}>
 					<Icon name="pencil-simple" class="i sm" />Add what it should have said
@@ -483,7 +483,7 @@
 												<option value="everywhere">in every app</option>
 											</select>
 										{:else}
-											in every app (VoiceFlow doesn’t know this dictation’s app)
+											in every app (VoiceLnq doesn’t know this dictation’s app)
 										{/if}
 									</span>
 									{#if fix.requires?.length && !applied}

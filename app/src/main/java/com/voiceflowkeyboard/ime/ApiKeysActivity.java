@@ -50,7 +50,7 @@ public class ApiKeysActivity extends Activity {
                 1f
         ));
 
-        TextView note = Ui.text(this, "Add provider keys here first. VoiceFlow only enables provider features after the key is saved.", 14, false, Ui.MUTED);
+        TextView note = Ui.text(this, "Add provider keys here first. VoiceLnq only enables provider features after the key is saved.", 14, false, Ui.MUTED);
         note.setPadding(0, 0, 0, dp(8));
         root.addView(note);
 

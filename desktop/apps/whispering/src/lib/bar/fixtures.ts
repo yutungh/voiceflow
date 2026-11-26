@@ -249,7 +249,7 @@ function demoBase(name: string, now: number): DictationState | null {
 				app: { name: '1Password', icon: null },
 				error: {
 					kind: 'refused',
-					title: 'VoiceFlow is off in 1Password',
+					title: 'VoiceLnq is off in 1Password',
 					detail: 'Nothing was recorded.',
 				},
 				actions: ['dismiss'],

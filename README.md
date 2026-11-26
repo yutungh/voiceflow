@@ -1,14 +1,16 @@
-# VoiceFlow
+# VoiceLnq
 
 **Open-source dictation for your computer and your Android phone that spells your own words right.**
 
-You speak in any app and VoiceFlow types it, spelling names and jargon the way your word list says. The list is a few plain files you own. Edit them yourself or let an AI job fill them from your notes, then sync them through a private GitHub repository or a small server you run. You bring your own API keys, and there is no VoiceFlow account.
+VoiceLnq was called VoiceFlow until November 2026.
 
-![VoiceFlow while dictating: the desktop recording bar with style chips and an expression slider, next to the Android keyboard's style panel](docs/images/hero.png)
+You speak in any app and VoiceLnq types it, spelling names and jargon the way your word list says. The list is a few plain files you own. Edit them yourself or let an AI job fill them from your notes, then sync them through a private GitHub repository or a small server you run. You bring your own API keys, and there is no VoiceLnq account.
+
+![VoiceLnq while dictating: the desktop recording bar with style chips and an expression slider, next to the Android keyboard's style panel](docs/images/hero.png)
 
 > **No published downloads yet.** Both apps are built from source for now ([Getting started](#getting-started)). To hear when installers and APKs land, **Star** and **Watch → Custom → Releases** this repository.
 
-<!-- Blog post about the experiment behind VoiceFlow: add the link here once it is published. -->
+<!-- Blog post about the experiment behind VoiceLnq: add the link here once it is published. -->
 
 ## The two apps
 
@@ -107,18 +109,18 @@ The word list is a few JSON files: words everyone in a household shares, words a
 There are no published downloads yet, so you build each app from source. Clone with long paths on (needed on Windows):
 
 ```sh
-git clone -c core.longpaths=true https://github.com/yutungh/voiceflow
+git clone -c core.longpaths=true https://github.com/yutungh/voicelnq
 ```
 
 - **Desktop:** you need Bun, Rust and, on Windows, the Visual Studio C++ build tools. Steps: [`desktop/README.md`](desktop/README.md#build-and-run). On first run it asks for your OpenAI key.
-- **Android keyboard:** you need JDK 17 and the Android SDK (platform 35). Run `./gradlew assembleDebug` (`.\gradlew.bat assembleDebug` on Windows), install the APK with `adb`, then enable **VoiceFlow Keyboard** in Android's keyboard settings. Steps: [`docs/android/README.md`](docs/android/README.md#build).
+- **Android keyboard:** you need JDK 17 and the Android SDK (platform 35). Run `./gradlew assembleDebug` (`.\gradlew.bat assembleDebug` on Windows), install the APK with `adb`, then enable **VoiceLnq Keyboard** in Android's keyboard settings. Steps: [`docs/android/README.md`](docs/android/README.md#build).
 - **Word lists** are optional. Both apps work without them.
 
 **Stay in the loop:** Star and **Watch → Custom → Releases** to hear when downloads land.
 
 ## Privacy
 
-You use your own API keys, and requests go straight from your device to the provider you chose. Nothing passes through a VoiceFlow server, and neither app sends telemetry.
+You use your own API keys, and requests go straight from your device to the provider you chose. Nothing passes through a VoiceLnq server, and neither app sends telemetry.
 
 | What | Where it goes |
 |---|---|
@@ -146,7 +148,7 @@ Next:
 - **Per-app built-in styles,** such as a casual style in chat apps and a formal one in email.
 - **A new tidy-up default** that stops over-correcting sound-alike words (the fixes measured in [`bench/vocab`](bench/vocab/results/tidy-fixes/summary.md)).
 
-Not there yet: VoiceFlow has no MCP server.
+Not there yet: VoiceLnq has no MCP server.
 
 ## Contributing
 
@@ -154,7 +156,7 @@ Issues and pull requests are welcome. Start with [`CONTRIBUTING.md`](CONTRIBUTIN
 
 ## Credits
 
-- **The desktop app is a fork of [Whispering](https://github.com/EpicenterHQ/epicenter)** 7.11.0 by Braden Wong, part of the Epicenter project (AGPL-3.0, version 3 only). VoiceFlow is not affiliated with or endorsed by the Whispering project. What changed is in [`desktop/NOTICE`](desktop/NOTICE) and [`desktop/CHANGELOG.md`](desktop/CHANGELOG.md).
+- **The desktop app is a fork of [Whispering](https://github.com/EpicenterHQ/epicenter)** 7.11.0 by Braden Wong, part of the Epicenter project (AGPL-3.0, version 3 only). VoiceLnq is not affiliated with or endorsed by the Whispering project. What changed is in [`desktop/NOTICE`](desktop/NOTICE) and [`desktop/CHANGELOG.md`](desktop/CHANGELOG.md).
 - **Chinese pinyin dictionary:** [Wanxiang](https://github.com/amzxyz/rime-wanxiang) (万象拼音) by amzxyz, CC BY 4.0, adapted (changes listed in [`third_party/README.md`](third_party/README.md)).
 - **English word frequencies:** SymSpell (MIT, Wolf Garbe), built from Google Books Ngram (CC BY 3.0) and SCOWL/ESDB (Kevin Atkinson).
 - **Offline speech on Android:** Vosk and sherpa-onnx.
@@ -162,7 +164,7 @@ Issues and pull requests are welcome. Start with [`CONTRIBUTING.md`](CONTRIBUTIN
 
 Pinned revisions and licence texts for the bundled data and artwork are in [`third_party/`](third_party/README.md), and the Android app shows them under Settings > Open-source credits.
 
-VoiceFlow is not affiliated with Typeless, Voiceflow, Apple, Google, Anthropic or OpenAI.
+VoiceLnq is not affiliated with Typeless, Voiceflow, Apple, Google, Anthropic or OpenAI.
 
 ## Licences
 

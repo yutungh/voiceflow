@@ -50,7 +50,7 @@
 			acquired = await navigator.mediaDevices.getUserMedia({ audio: true });
 		} catch {
 			if (mine === generation)
-				onError?.("VoiceFlow can't use the microphone. Check that Windows lets apps use it.");
+				onError?.("VoiceLnq can't use the microphone. Check that Windows lets apps use it.");
 			return;
 		}
 		// VoiceFlow: the test ended (or the page closed) while the microphone

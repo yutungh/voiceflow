@@ -500,7 +500,7 @@ final class OpenAiClient {
     private static String requiredApiKey(Context context) {
         String apiKey = Prefs.openAiApiKey(context);
         if (apiKey == null || apiKey.trim().isEmpty()) {
-            throw new IllegalStateException("Add your OpenAI API key in VoiceFlow Keyboard settings.");
+            throw new IllegalStateException("Add your OpenAI API key in VoiceLnq Keyboard settings.");
         }
         return apiKey.trim();
     }

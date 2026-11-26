@@ -721,7 +721,7 @@
 </script>
 
 <svelte:head>
-	<title>VoiceFlow recording bar</title>
+	<title>VoiceLnq recording bar</title>
 </svelte:head>
 
 {#snippet wave()}

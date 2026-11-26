@@ -1,6 +1,6 @@
 # Feedback: from "that was wrong" to a fix (`voiceflow-feedback` v1)
 
-The speaker says what went wrong with one dictation ("it's Kestrel, not Castrel", "you kept my tangent", "too formal for this chat"). A VoiceFlow app asks a model once, checks the answer, and offers two separate things:
+The speaker says what went wrong with one dictation ("it's Kestrel, not Castrel", "you kept my tangent", "too formal for this chat"). A VoiceLnq app asks a model once, checks the answer, and offers two separate things:
 
 - **Fix**: the corrected text for this one message.
 - **Remember**: at most three lasting fixes. Each one the speaker ticks becomes an ordinary edit file (`voiceflow-op`), so every device that reads the word lists gets it, and Undo is a tombstone like any other edit.
@@ -93,11 +93,11 @@ Undo writes a tombstone for the edit; undoing the undo writes a tombstone for th
 
 ## 5. Test vectors
 
-[`../vectors/feedback.json`](../vectors/feedback.json): answers and what a client must make of them (refused, or the checked proposals and the count dropped), and style changes with the edit they become. VoiceFlow Desktop runs them in `src/lib/feedback/pack-vectors.test.ts`; the Android app runs them when it gets feedback (plan phase 6).
+[`../vectors/feedback.json`](../vectors/feedback.json): answers and what a client must make of them (refused, or the checked proposals and the count dropped), and style changes with the edit they become. VoiceLnq Desktop runs them in `src/lib/feedback/pack-vectors.test.ts`; the Android app runs them when it gets feedback (plan phase 6).
 
 ## v2: several problems at once
 
-From VoiceFlow Desktop 0.9.16. One feedback can name up to four problems ("it wrote Zebbo, and it was too formal"). For each, the model says which **layer** failed and offers that problem's own fixes. v1 stays readable: a v1 answer is one problem whose layer follows its diagnosis (`mishearing` → `transcriber`, `tidy-up-rewrite` → `style-prompt`, `style-mismatch` → `app-context`).
+From VoiceLnq Desktop 0.9.16. One feedback can name up to four problems ("it wrote Zebbo, and it was too formal"). For each, the model says which **layer** failed and offers that problem's own fixes. v1 stays readable: a v1 answer is one problem whose layer follows its diagnosis (`mishearing` → `transcriber`, `tidy-up-rewrite` → `style-prompt`, `style-mismatch` → `app-context`).
 
 ### What the model is given (added to v1's request)
 
@@ -191,4 +191,4 @@ Not part of the exchange, but what makes a later before/after check faithful: th
 
 ### Test vectors
 
-[`../vectors/feedback-v2.json`](../vectors/feedback-v2.json): `answers` (parsing, limits and drop codes), `observations` (stage texts and the observations computed), `ladder` (word lists, an asked step and the entry it becomes) and `evidence` (a proposal in a layer on a dictation, kept or not). VoiceFlow Desktop runs them in `src/lib/feedback/pack-vectors-v2.test.ts`.
+[`../vectors/feedback-v2.json`](../vectors/feedback-v2.json): `answers` (parsing, limits and drop codes), `observations` (stage texts and the observations computed), `ladder` (word lists, an asked step and the entry it becomes) and `evidence` (a proposal in a layer on a dictation, kept or not). VoiceLnq Desktop runs them in `src/lib/feedback/pack-vectors-v2.test.ts`.

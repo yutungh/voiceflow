@@ -231,7 +231,7 @@ describe('validateNewCorrection', () => {
 		});
 		expect(result).toEqual({
 			ok: false,
-			message: 'VoiceFlow already writes “zefira” as “Zephyra”.',
+			message: 'VoiceLnq already writes “zefira” as “Zephyra”.',
 		});
 	});
 

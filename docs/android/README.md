@@ -1,4 +1,4 @@
-# VoiceFlow Android keyboard: reference
+# VoiceLnq Android keyboard: reference
 
 The full reference for the Android keyboard in this repository: what it does, how to build and install it, providers, styles and privacy. The [main README](../../README.md) has the overview. The keyboard is MIT-licensed ([`LICENSE`](../../LICENSE)) and lives at the repository root (`app/`).
 
@@ -150,11 +150,11 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 Then:
 
-1. Open **VoiceFlow Keyboard**.
+1. Open **VoiceLnq Keyboard**.
 2. Grant microphone permission.
 3. Add your provider API keys if using cloud transcription or cleanup.
 4. Choose your voice input model and transform model.
-5. Open Android keyboard settings and enable **VoiceFlow Keyboard**.
+5. Open Android keyboard settings and enable **VoiceLnq Keyboard**.
 6. Choose it from the keyboard picker.
 
 ## Local Install With Your Own Keys
@@ -199,7 +199,7 @@ Provider support:
 - Deepgram: transcription only.
 - Offline Parakeet: transcription only, high-accuracy English transcription through sherpa-onnx, with a large local model downloaded on first use.
 - Offline Vosk: transcription only, compact local fallback model downloaded on first use.
-- Offline fallback: when OpenAI, Grok / xAI, or Deepgram is selected for voice input and the phone has no validated internet connection, VoiceFlow records with installed Offline Parakeet first, then installed Offline Vosk.
+- Offline fallback: when OpenAI, Grok / xAI, or Deepgram is selected for voice input and the phone has no validated internet connection, VoiceLnq records with installed Offline Parakeet first, then installed Offline Vosk.
 
 ## Voice Styles
 

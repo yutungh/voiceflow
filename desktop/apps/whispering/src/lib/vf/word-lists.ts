@@ -26,7 +26,7 @@ const issueTitle: Record<string, string> = {
 	offline: 'Can’t reach your word lists',
 	auth: 'GitHub didn’t accept the token',
 	'not-found': 'GitHub can’t find your word-list repository',
-	'rate-limited': 'GitHub asked VoiceFlow to wait',
+	'rate-limited': 'GitHub asked VoiceLnq to wait',
 	empty: 'Your word-list repository is empty',
 	truncated: 'Your word-list repository has too many files',
 };

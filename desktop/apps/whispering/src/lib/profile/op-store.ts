@@ -334,7 +334,7 @@ export async function saveWord(
 	if (word.priority !== undefined) term.priority = word.priority;
 	if (word.apps?.length) term.apps = word.apps.map((a) => (a === EVERY_APP ? a : a.toLowerCase()));
 	const op = parseOp({ ...newBase(), type: 'term', term });
-	if (!op || op.type !== 'term') return { ok: false, message: 'That word isn’t one VoiceFlow can save.' };
+	if (!op || op.type !== 'term') return { ok: false, message: 'That word isn’t one VoiceLnq can save.' };
 	try {
 		await writeOp(op);
 	} catch (error) {
@@ -366,7 +366,7 @@ export async function saveAppStyle(
 		...(candidate.expression !== undefined ? { expression: candidate.expression } : {}),
 	});
 	if (!op || op.type !== 'app-style')
-		return { ok: false, message: 'That style change isn’t one VoiceFlow can save.' };
+		return { ok: false, message: 'That style change isn’t one VoiceLnq can save.' };
 	try {
 		await writeOp(op);
 	} catch (error) {
@@ -406,7 +406,7 @@ export async function replaceAppStyle(candidate: {
 		...(candidate.expression !== undefined ? { expression: candidate.expression } : {}),
 	});
 	if (!op || op.type !== 'app-style')
-		return { ok: false, message: 'That app or style isn’t one VoiceFlow can save.' };
+		return { ok: false, message: 'That app or style isn’t one VoiceLnq can save.' };
 	try {
 		await writeOpFile(op);
 	} catch (error) {

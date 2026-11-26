@@ -176,7 +176,7 @@ public class WordSourceActivity extends Activity {
         TextView help = Ui.text(this, "A fine-grained token for this one repository with Contents: Read-only "
                 + "(this phone only reads the lists). "
                 + "Saving it replaces a GitHub connection on this phone. It is kept encrypted on this phone. "
-                + "Steps: docs/GITHUB-SYNC.md in the VoiceFlow repository.", 12f, false, Ui.SUBTLE);
+                + "Steps: docs/GITHUB-SYNC.md in the VoiceLnq repository.", 12f, false, Ui.SUBTLE);
         help.setPadding(0, dp(8), 0, 0);
         advanced.addView(help);
         fields.addView(advanced);
@@ -278,7 +278,7 @@ public class WordSourceActivity extends Activity {
             return;
         }
         if ("reconnect".equals(kind)) {
-            connectBox.addView(Ui.text(this, "VoiceFlow's connection to GitHub has ended. Connect again to keep your word lists up to date.",
+            connectBox.addView(Ui.text(this, "VoiceLnq's connection to GitHub has ended. Connect again to keep your word lists up to date.",
                     13f, false, Ui.TEXT));
         }
         TextView connect = Ui.topAction(this, "reconnect".equals(kind) ? "Connect GitHub again" : "Connect GitHub", true);

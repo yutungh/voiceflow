@@ -74,12 +74,12 @@ public class SettingsActivity extends Activity {
         if (PAGE_HOME.equals(page)) {
             requestAudioPermission();
         }
-        setTitle("VoiceFlow");
+        setTitle("VoiceLnq");
         installRequested = getIntent().getBooleanExtra(EXTRA_INSTALL_UPDATE, false);
         setContentView(buildContent());
         created = true;
         if (getIntent().getBooleanExtra(EXTRA_JUST_UPDATED, false)) {
-            Toast.makeText(this, "Updated to VoiceFlow " + SelfUpdater.installedVersionName(this), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Updated to VoiceLnq " + SelfUpdater.installedVersionName(this), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -214,7 +214,7 @@ public class SettingsActivity extends Activity {
             LinearLayout.LayoutParams spinnerParams = new LinearLayout.LayoutParams(dp(28), dp(28));
             spinnerParams.setMargins(0, 0, dp(14), 0);
             row.addView(spinner, spinnerParams);
-            title = "Updating VoiceFlow…";
+            title = "Updating VoiceLnq…";
             detail = "If Google Play Protect asks, tap Install. The app restarts in the new version.";
         } else if (progress == UpdatePolicy.Progress.HELD) {
             LinearLayout.LayoutParams tileParams = new LinearLayout.LayoutParams(dp(32), dp(32));
@@ -228,7 +228,7 @@ public class SettingsActivity extends Activity {
             tileParams.setMargins(0, 0, dp(12), 0);
             row.addView(Ui.tile(this, R.drawable.ph_download_simple, Ui.Tile.ACCENT), tileParams);
             title = "Update ready";
-            detail = "VoiceFlow" + version + " is downloaded and checked.";
+            detail = "VoiceLnq" + version + " is downloaded and checked.";
             action = "Install";
         }
         labels.addView(Ui.text(this, title, 15f, true, Ui.TEXT));
@@ -301,7 +301,7 @@ public class SettingsActivity extends Activity {
         LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(dp(34), dp(34));
         logoParams.setMargins(0, 0, dp(12), 0);
         brand.addView(Ui.tile(this, R.drawable.ph_waveform, Ui.Tile.ACCENT), logoParams);
-        TextView name = Ui.text(this, "VoiceFlow", 22f, true, Ui.TEXT);
+        TextView name = Ui.text(this, "VoiceLnq", 22f, true, Ui.TEXT);
         name.setLetterSpacing(-0.02f);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             name.setAccessibilityHeading(true);
@@ -706,7 +706,7 @@ public class SettingsActivity extends Activity {
         CheckBox mobileData = new CheckBox(this);
         mobileData.setChecked(Prefs.updatesOnMobileData(this));
         updates.addView(checkboxRow("Allow updates on mobile data",
-                "Off: updates download on Wi-Fi only. When one is ready you get a quiet notice; it installs when you open VoiceFlow.",
+                "Off: updates download on Wi-Fi only. When one is ready you get a quiet notice; it installs when you open VoiceLnq.",
                 mobileData, () -> Prefs.setUpdatesOnMobileData(this, mobileData.isChecked())));
         column.addView(updates);
     }
@@ -1113,7 +1113,7 @@ public class SettingsActivity extends Activity {
     }
 
     private String activeKeyboardSummary() {
-        return isVoiceFlowActive() ? "VoiceFlow" : "Choose keyboard";
+        return isVoiceFlowActive() ? "VoiceLnq" : "Choose keyboard";
     }
 
     private boolean isVoiceFlowActive() {

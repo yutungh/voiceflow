@@ -400,7 +400,7 @@ public class TranscriptDetailActivity extends Activity {
             Toast.makeText(this, "Nothing to copy", Toast.LENGTH_SHORT).show();
             return;
         }
-        clipboard.setPrimaryClip(ClipData.newPlainText("VoiceFlow transcript", text.trim()));
+        clipboard.setPrimaryClip(ClipData.newPlainText("VoiceLnq transcript", text.trim()));
         Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show();
     }
 

@@ -108,7 +108,7 @@ export const settings = (() => {
 	function notifyKeychainError(description: string) {
 		rpc.notify.error.execute({
 			title: "Couldn't save your API key",
-			description: `${description} The key works until VoiceFlow closes; enter it again if it is missing next time.`,
+			description: `${description} The key works until VoiceLnq closes; enter it again if it is missing next time.`,
 			persist: true,
 		});
 	}

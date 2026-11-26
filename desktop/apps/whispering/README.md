@@ -607,7 +607,7 @@ Whispering showcases the power of modern web development as a comprehensive exam
 - [Turborepo](https://turborepo.org): Monorepo management
 - [Rust](https://www.rust-lang.org): Native desktop features
 - [Vercel](https://vercel.com): Hosting platform
-- Sounds: VoiceFlow's own, synthesised by `desktop/tools/sounds/generate.mjs` (CC0 1.0). Upstream's Zapsplat.com effects are no longer included.
+- Sounds: VoiceLnq's own, synthesised by `desktop/tools/sounds/generate.mjs` (CC0 1.0). Upstream's Zapsplat.com effects are no longer included.
 
 #### Browser Extension
 

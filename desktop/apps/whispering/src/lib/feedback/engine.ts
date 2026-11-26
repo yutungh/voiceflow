@@ -57,7 +57,7 @@ export type FixResult = {
 export type FixOutcome = { ok: true; result: FixResult } | { ok: false; message: string };
 
 const DROP_REASONS: Record<DropCode, string> = {
-	malformed: 'A suggestion didn’t match what VoiceFlow can safely change, so it was left out.',
+	malformed: 'A suggestion didn’t match what VoiceLnq can safely change, so it was left out.',
 	layer: 'A suggestion didn’t fit the problem it was given for, so it was left out.',
 	limit: 'A suggestion was past the limit (three word fixes and one style change per feedback), so it was left out.',
 	'issue-limit': 'Only the first four problems are looked at, so a fix for a later one was left out.',
@@ -189,7 +189,7 @@ export function noFixNote(issue: FixIssue): string {
 		case 'delivery-privacy':
 			return 'Noted. Paste and privacy problems don’t change your word lists or styles.';
 		case 'uncertain':
-			return 'VoiceFlow isn’t sure what went wrong here, so nothing lasting is suggested.';
+			return 'VoiceLnq isn’t sure what went wrong here, so nothing lasting is suggested.';
 		default:
 			return `No lasting fix suggested${issue.noFixReason ? `: ${issue.noFixReason}` : '.'}`;
 	}

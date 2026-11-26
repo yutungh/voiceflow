@@ -5,7 +5,7 @@ upstream revision and hashed, together with the licence text its terms require
 us to retain. Nothing under `app/src/main/assets/` is hand-written — each asset
 is generated from a source in this directory by a script in `scripts/`.
 
-VoiceFlow Keyboard is MIT-licensed. That constrains what may be vendored: only
+VoiceLnq Keyboard is MIT-licensed. That constrains what may be vendored: only
 permissive sources, never GPL/AGPL (an APK is one conveyed binary — there is no
 dynamic-linking escape hatch on Android), and never ShareAlike *data* even where
 the surrounding code is permissive.
@@ -83,7 +83,7 @@ pinned (commit or SHA-256) in that script, and each build writes them to
 | Android NDK r28c | zip SHA-256 `dfb20d39…5aa552f` | build tool only |
 
 All permissive; no GPL or LGPL code is linked (marisa-trie is dual BSD/LGPL
-and is used under BSD-2). The JNI bridge is VoiceFlow's own
+and is used under BSD-2). The JNI bridge is VoiceLnq's own
 (`app/src/main/cpp`, MIT); no code from Trime (GPL-3) or fcitx5-android
 (LGPL) is used. The licence texts ship in the app
 (`app/src/main/assets/licenses/Rime-NOTICES.txt`, shown under Open-source
