@@ -72,11 +72,19 @@ describe('keywords[] from the vocabulary (VoiceFlow 0.9.11)', () => {
 describe('the language field (VoiceFlow 0.9.15)', () => {
 	test('languages[] for gpt-transcribe, the singular language for other models, nothing for Auto', () => {
 		expect(languageParam('gpt-transcribe', 'en')).toEqual({ languages: ['en'] });
-		expect(languageParam('gpt-transcribe-2026-10', 'zh')).toEqual({ languages: ['zh'] });
+		expect(languageParam('gpt-transcribe-2026-10', 'ja')).toEqual({ languages: ['ja'] });
 		expect(languageParam('gpt-4o-transcribe', 'en')).toEqual({ language: 'en' });
 		expect(languageParam('whisper-1', 'en')).toEqual({ language: 'en' });
 		expect(languageParam('gpt-transcribe', 'auto')).toEqual({});
 		expect(languageParam('whisper-1', 'auto')).toEqual({});
+	});
+
+	test('0.9.22: Chinese sends zh-cn and en to gpt-transcribe, as the Android keyboard does', () => {
+		expect(languageParam('gpt-transcribe', 'zh')).toEqual({ languages: ['zh-cn', 'en'] });
+		expect(languageParam('gpt-transcribe-2026-10', 'zh')).toEqual({ languages: ['zh-cn', 'en'] });
+		// Other models keep the singular code.
+		expect(languageParam('gpt-4o-transcribe', 'zh')).toEqual({ language: 'zh' });
+		expect(languageParam('whisper-1', 'zh')).toEqual({ language: 'zh' });
 	});
 
 	test('the request carries one languages[] part and no language', async () => {
