@@ -31,6 +31,14 @@ const issueTitle: Record<string, string> = {
 	truncated: 'Your word-list repository has too many files',
 };
 
+/** 0.9.20: a refused sign-in reads by how this PC reaches GitHub. */
+function authTitle(state: ProfileState, issue: string | undefined): string | undefined {
+	if (issue !== 'auth' || state.config.kind !== 'github') return undefined;
+	if (state.githubAuth === 'app' || state.githubAuth === 'reconnect') return 'Connect GitHub again';
+	if (!state.githubAuth) return 'Connect GitHub to read your word lists';
+	return undefined;
+}
+
 const plural = (n: number, one: string, many: string) =>
 	`${n} ${n === 1 ? one : many}`;
 
@@ -68,7 +76,7 @@ export function syncSummary(
 		const why = report.sourceIssue && report.sourceIssue !== 'offline' ? report.errors[0] : undefined;
 		return {
 			tone: 'warn',
-			title: issueTitle[report.sourceIssue ?? 'offline'] ?? 'Can’t reach your word lists',
+			title: authTitle(state, report.sourceIssue) ?? issueTitle[report.sourceIssue ?? 'offline'] ?? 'Can’t reach your word lists',
 			detail: why ? `${why} ${copy}` : copy,
 		};
 	}

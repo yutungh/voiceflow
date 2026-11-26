@@ -16,6 +16,7 @@
 //! about changes on the `profile://changed` event.
 
 pub mod github;
+pub mod github_auth;
 pub mod merge;
 pub mod model;
 pub mod source;
@@ -30,6 +31,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::Notify;
 
 use github::{GitHubSource, ReqwestTransport, TestReport};
+use github_auth::{AccessError, Credential, ReqwestOAuth, VAULT};
 use merge::Snapshot;
 use source::FolderSource;
 use sync::{Config, Outcome, Paths, SyncReport};
@@ -70,6 +72,10 @@ pub struct ProfileState {
     pub status: Status,
     /// 0.9.19: a GitHub token is stored (the token itself never leaves Rust).
     pub github_token: bool,
+    /// 0.9.20: how this computer reaches GitHub: `""` (not set up), `app`
+    /// (Connect GitHub), `pat` (a pasted token) or `reconnect` (the
+    /// connection ended).
+    pub github_auth: String,
 }
 
 #[derive(Default)]
@@ -158,42 +164,76 @@ async fn refresh_online(app: &AppHandle, service: &ProfileService) {
         let _io = SHARE_IO.lock().unwrap_or_else(|e| e.into_inner());
         let Some(repo) = paths.github.clone() else {
             let mut folder = FolderSource::new(&paths.source);
-            return (sync::check(&paths, &mut folder, &version, &now), None);
+            return (sync::check(&paths, &mut folder, &version, &now), None::<&'static str>);
         };
-        let token = match crate::secrets::github_token(&worker_app) {
-            Ok(Some(token)) => token,
-            Ok(None) => {
-                let message = "Add your GitHub token in Settings > Word lists; using the last good copy.";
-                return (offline_with(&paths, &now, message, "auth"), Some(false));
+        let store = crate::secrets::GithubStore(worker_app.clone());
+        let kind = |store: &crate::secrets::GithubStore| VAULT.kind(store, sync::now_unix()).ok();
+        let oauth = match ReqwestOAuth::new(&version) {
+            Ok(o) => o,
+            Err(e) => return (offline_with(&paths, &now, &format!("{e}; using the last good copy."), "offline"), kind(&store)),
+        };
+        // 0.9.20: the connected App's token (refreshed when it runs out soon)
+        // or the pasted one.
+        let mut access = match VAULT.access(&store, &oauth, sync::now_unix()) {
+            Ok(a) => a,
+            Err(e) => return (offline_with(&paths, &now, &e.message(), e.issue()), kind(&store)),
+        };
+        let mut puts_used = 0;
+        let mut retried = false;
+        loop {
+            let transport = match ReqwestTransport::new(&version) {
+                Ok(t) => t,
+                Err(e) => return (offline_with(&paths, &now, &format!("{e}; using the last good copy."), "offline"), kind(&store)),
+            };
+            let mut source = GitHubSource::new(
+                github::Options {
+                    repo: repo.clone(),
+                    user: paths.user.clone(),
+                    device: paths.device.clone(),
+                    token: access.token.clone(),
+                    upload: !read_only,
+                    meta_path: paths.github_meta(),
+                    // A second run keeps the first one's deadline and uploads.
+                    deadline,
+                    now: sync::now_unix(),
+                },
+                Box::new(transport),
+            )
+            .with_puts_used(puts_used);
+            let mut outcome = sync::check(&paths, &mut source, &version, &now);
+            if let Some(warning) = &access.warning {
+                outcome.report.errors.push(warning.clone());
             }
-            Err(e) => {
-                let message = format!("Couldn't read the GitHub token from this computer's credential store ({e}); using the last good copy.");
-                return (offline_with(&paths, &now, &message, "auth"), None);
+            // A refused App token: refreshed once (unless someone else
+            // already did) and the check run once more. A pasted token
+            // is never refreshed.
+            if !access.app || !source.auth_refused() {
+                return (outcome, kind(&store));
             }
-        };
-        let transport = match ReqwestTransport::new(&version) {
-            Ok(t) => t,
-            Err(e) => return (offline_with(&paths, &now, &format!("{e}; using the last good copy."), "offline"), Some(true)),
-        };
-        let mut source = GitHubSource::new(
-            github::Options {
-                repo,
-                user: paths.user.clone(),
-                device: paths.device.clone(),
-                token,
-                upload: !read_only,
-                meta_path: paths.github_meta(),
-                deadline,
-                now: sync::now_unix(),
-            },
-            Box::new(transport),
-        );
-        (sync::check(&paths, &mut source, &version, &now), Some(true))
+            if retried {
+                VAULT.refused_again(&store, &access);
+                if VAULT.kind(&store, sync::now_unix()).ok() == Some("reconnect") {
+                    outcome.report.errors.insert(0, github_auth::RECONNECT_MESSAGE.to_string());
+                }
+                return (outcome, kind(&store));
+            }
+            retried = true;
+            puts_used = source.puts_used();
+            match VAULT.after_unauthorized(&store, &oauth, &access, sync::now_unix()) {
+                Ok(next) => access = next,
+                Err(AccessError::Replaced) => return (outcome, kind(&store)),
+                Err(e) => {
+                    outcome.report.errors.insert(0, e.message());
+                    return (outcome, kind(&store));
+                }
+            }
+        }
     });
     let failure = match tokio::time::timeout(SHARE_TIMEOUT, task).await {
-        Ok(Ok((outcome, token))) => {
-            if let (Some(stored), Ok(mut state)) = (token, service.state.lock()) {
-                state.github_token = stored;
+        Ok(Ok((outcome, auth))) => {
+            if let (Some(auth), Ok(mut state)) = (auth, service.state.lock()) {
+                state.github_token = !auth.is_empty();
+                state.github_auth = auth.to_string();
             }
             Ok(outcome)
         }
@@ -251,11 +291,12 @@ pub fn start(app: &AppHandle) {
             let reader = handle.clone();
             tauri::async_runtime::spawn(async move {
                 let probe = reader.clone();
-                let stored = tokio::task::spawn_blocking(move || crate::secrets::github_token(&probe).map(|t| t.is_some())).await;
-                if let Ok(Ok(stored)) = stored {
+                let stored = tokio::task::spawn_blocking(move || VAULT.kind(&crate::secrets::GithubStore(probe), sync::now_unix())).await;
+                if let Ok(Ok(auth)) = stored {
                     let service = reader.state::<ProfileService>();
                     if let Ok(mut state) = service.state.lock() {
-                        state.github_token = stored;
+                        state.github_token = !auth.is_empty();
+                        state.github_auth = auth.to_string();
                     }
                     emit(&reader, &service);
                 }
@@ -419,39 +460,61 @@ pub async fn profile_list_users(source: String) -> Vec<String> {
     }
 }
 
-/// Stores the GitHub token in the OS credential store (an empty value
-/// removes it) and checks the word lists again. The token is never sent back.
+fn set_auth(app: &AppHandle, auth: &str) {
+    let service = app.state::<ProfileService>();
+    if let Ok(mut state) = service.state.lock() {
+        state.github_token = !auth.is_empty();
+        state.github_auth = auth.to_string();
+    }
+    emit(app, &service);
+}
+
+/// Stores a pasted GitHub token in the OS credential store, in place of a
+/// GitHub connection (an empty value removes whichever is stored: this is
+/// also Disconnect), and checks the word lists again. The token is never
+/// sent back.
 #[tauri::command]
 pub async fn profile_github_set_token(app: AppHandle, token: String) -> Result<ProfileState, String> {
     let token = token.trim().to_string();
     if !token.is_empty() && !github::valid_token(&token) {
         return Err("That doesn't look like a GitHub token. A fine-grained token starts with github_pat_.".into());
     }
-    let stored = !token.is_empty();
+    let auth = if token.is_empty() { "" } else { "pat" };
     let writer = app.clone();
-    tokio::task::spawn_blocking(move || crate::secrets::set_github_token(&writer, &token))
-        .await
-        .map_err(|e| e.to_string())??;
-    let service = app.state::<ProfileService>();
-    if let Ok(mut state) = service.state.lock() {
-        state.github_token = stored;
+    tokio::task::spawn_blocking(move || {
+        let credential = (!token.is_empty()).then(|| Credential::Pat(token));
+        VAULT.replace(&crate::secrets::GithubStore(writer), credential)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    if auth.is_empty() {
+        github_auth::ATTEMPTS.cancel_all();
     }
+    set_auth(&app, auth);
+    let service = app.state::<ProfileService>();
     service.wake.notify_one();
     emit(&app, &service);
     Ok(service.snapshot_state())
 }
 
+/// The stored credential's token for a one-off request (Test connection,
+/// the repository list), refreshed when it runs out soon.
+fn stored_access(app: &AppHandle, oauth: &ReqwestOAuth) -> Result<github_auth::Access, String> {
+    VAULT.access(&crate::secrets::GithubStore(app.clone()), oauth, sync::now_unix()).map_err(|e| e.short())
+}
+
 /// Settings > Word lists > Test connection: reads the repository, its
 /// branch and the user's layers, and writes nothing. `token` empty: the
-/// stored one (an unsaved token is used for this test only, never kept).
+/// stored credential (an unsaved token is used for this test only, never kept).
 #[tauri::command]
 pub async fn profile_github_test(app: AppHandle, repo: String, branch: String, user: String, token: String) -> Result<TestReport, String> {
     let dir = app_data(&app)?;
     let version = app.package_info().version.to_string();
     let task = tokio::task::spawn_blocking(move || -> Result<TestReport, String> {
-        let token = match token.trim() {
-            "" => crate::secrets::github_token(&app)?.ok_or("Add the GitHub token first.")?,
-            typed if github::valid_token(typed) => typed.to_string(),
+        let oauth = ReqwestOAuth::new(&version)?;
+        let stored = match token.trim() {
+            "" => Some(stored_access(&app, &oauth)?),
+            typed if github::valid_token(typed) => None,
             _ => return Err("That doesn't look like a GitHub token. A fine-grained token starts with github_pat_.".into()),
         };
         // A wait GitHub asked for on these word lists also holds for the test.
@@ -467,7 +530,23 @@ pub async fn profile_github_test(app: AppHandle, repo: String, branch: String, u
         let meta_path = probe.github_repo().map(|_| Paths::new(&dir, &probe).github_meta());
         let not_before = meta_path.as_ref().map(|p| github::load_meta(p).not_before).unwrap_or(0);
         let transport = ReqwestTransport::new(&version)?;
-        let report = github::test_connection(&transport, github::API, &token, &repo, &branch, &user, sync::now_unix(), not_before);
+        let run = |token: &str| github::test_connection(&transport, github::API, token, &repo, &branch, &user, sync::now_unix(), not_before);
+        let mut report = run(stored.as_ref().map(|a| a.token.as_str()).unwrap_or(token.trim()));
+        // A refused App token: refreshed once (unless already rotated) and tested again.
+        if let Some(access) = stored.as_ref().filter(|a| a.app && report.auth_refused) {
+            let store = crate::secrets::GithubStore(app.clone());
+            match VAULT.after_unauthorized(&store, &oauth, access, sync::now_unix()) {
+                Ok(next) => {
+                    report = run(&next.token);
+                    if report.auth_refused {
+                        VAULT.refused_again(&store, &next);
+                        report.message = AccessError::Reconnect.short();
+                    }
+                }
+                Err(e) => report.message = e.short(),
+            }
+            set_auth(&app, VAULT.kind(&store, sync::now_unix()).unwrap_or(""));
+        }
         // A wait GitHub asked for here holds for the next check too.
         if let (Some(until), Some(path)) = (report.not_before, &meta_path) {
             let mut meta = github::load_meta(path);
@@ -477,6 +556,110 @@ pub async fn profile_github_test(app: AppHandle, repo: String, branch: String, u
             }
         }
         Ok(report)
+    });
+    match tokio::time::timeout(SHARE_TIMEOUT, task).await {
+        Ok(Ok(result)) => result,
+        Ok(Err(e)) => Err(e.to_string()),
+        Err(_) => Err("GitHub didn't answer in time.".into()),
+    }
+}
+
+/// Where Settings sends the user on GitHub (the VoiceFlow App's pages).
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GithubLinks {
+    pub install_url: String,
+    pub authorizations_url: String,
+    pub device_url: String,
+}
+
+#[tauri::command]
+pub fn github_links() -> GithubLinks {
+    GithubLinks {
+        install_url: github_auth::install_url(),
+        authorizations_url: github_auth::AUTHORIZATIONS_URL.into(),
+        device_url: github_auth::DEVICE_URL.into(),
+    }
+}
+
+/// Connect GitHub: asks GitHub for a code and waits for the user to enter
+/// it on github.com in the background. The page reads the attempt with
+/// `github_connect_status`; the device code and the tokens stay here.
+#[tauri::command]
+pub async fn github_connect_start(app: AppHandle) -> Result<github_auth::ConnectState, String> {
+    let version = app.package_info().version.to_string();
+    let task = tokio::task::spawn_blocking(move || -> Result<github_auth::ConnectState, String> {
+        let oauth = ReqwestOAuth::new(&version)?;
+        let code = github_auth::request_code(&oauth, github_auth::CLIENT_ID).map_err(|e| e.message())?;
+        let (view, cancelled) = github_auth::ATTEMPTS.begin(&code, sync::now_unix());
+        let id = view.id;
+        let worker = app.clone();
+        std::thread::Builder::new()
+            .name("vf-github-connect".into())
+            .spawn(move || {
+                let outcome = github_auth::wait_for_user(&oauth, github_auth::CLIENT_ID, &code, &cancelled, &github_auth::RealClock::new());
+                let connected = matches!(outcome, github_auth::Outcome::Connected(_));
+                let store = crate::secrets::GithubStore(worker.clone());
+                github_auth::ATTEMPTS.finish(id, outcome, |tokens| VAULT.replace(&store, Some(Credential::App(tokens))));
+                if connected {
+                    set_auth(&worker, VAULT.kind(&store, sync::now_unix()).unwrap_or(""));
+                    let service = worker.state::<ProfileService>();
+                    service.wake.notify_one();
+                    emit(&worker, &service);
+                }
+            })
+            .map_err(|e| e.to_string())?;
+        Ok(view)
+    });
+    match tokio::time::timeout(Duration::from_secs(30), task).await {
+        Ok(Ok(result)) => result,
+        Ok(Err(e)) => Err(e.to_string()),
+        Err(_) => Err("GitHub didn't answer in time. Try again.".into()),
+    }
+}
+
+#[tauri::command]
+pub fn github_connect_status(id: u64) -> Option<github_auth::ConnectState> {
+    github_auth::ATTEMPTS.status(id)
+}
+
+#[tauri::command]
+pub fn github_connect_cancel(id: u64) {
+    github_auth::ATTEMPTS.cancel(id);
+}
+
+/// The repositories the connected App reaches, for the picker. Empty: the
+/// App isn't installed on any repository this account can use yet.
+#[tauri::command]
+pub async fn github_list_repos(app: AppHandle) -> Result<Vec<github_auth::RepoChoice>, String> {
+    let version = app.package_info().version.to_string();
+    let task = tokio::task::spawn_blocking(move || -> Result<Vec<github_auth::RepoChoice>, String> {
+        let oauth = ReqwestOAuth::new(&version)?;
+        let access = stored_access(&app, &oauth)?;
+        if !access.app {
+            return Err("Choosing from a list needs Connect GitHub; with an access token, type the repository.".into());
+        }
+        let transport = ReqwestTransport::new(&version)?;
+        match github_auth::list_repos(&transport, github::API, &access.token) {
+            Ok(repos) => Ok(repos),
+            Err(github_auth::ListError::Other(e)) => Err(e),
+            Err(github_auth::ListError::Unauthorized) => {
+                let store = crate::secrets::GithubStore(app.clone());
+                let next = VAULT.after_unauthorized(&store, &oauth, &access, sync::now_unix()).map_err(|e| {
+                    set_auth(&app, VAULT.kind(&store, sync::now_unix()).unwrap_or(""));
+                    e.short()
+                })?;
+                match github_auth::list_repos(&transport, github::API, &next.token) {
+                    Ok(repos) => Ok(repos),
+                    Err(github_auth::ListError::Other(e)) => Err(e),
+                    Err(github_auth::ListError::Unauthorized) => {
+                        VAULT.refused_again(&store, &next);
+                        set_auth(&app, VAULT.kind(&store, sync::now_unix()).unwrap_or(""));
+                        Err(AccessError::Reconnect.short())
+                    }
+                }
+            }
+        }
     });
     match tokio::time::timeout(SHARE_TIMEOUT, task).await {
         Ok(Ok(result)) => result,

@@ -215,6 +215,10 @@ impl Transport for ReqwestTransport {
     fn send(&self, request: &HttpRequest, token: &str) -> Result<HttpResponse, HttpError> {
         use reqwest::header::{HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, IF_NONE_MATCH};
         use std::io::Read;
+        // The token goes to GitHub's API and nowhere else.
+        if !request.url.starts_with(&format!("{API}/")) {
+            return Err(HttpError::Network("not GitHub's API".into()));
+        }
         let method = reqwest::Method::from_bytes(request.method.as_bytes()).map_err(|_| HttpError::Network("bad method".into()))?;
         let mut auth = HeaderValue::from_str(&format!("Bearer {token}")).map_err(|_| HttpError::Network("the token has characters a header can't carry".into()))?;
         auth.set_sensitive(true);
@@ -411,6 +415,9 @@ pub struct GitHubSource {
     /// Requests stop for the rest of this check (rate limit, refused token).
     stopped: Option<String>,
     uploads_refused: bool,
+    /// GitHub answered 401 to a request in this check (0.9.20: a connected
+    /// App's token is then refreshed once and the check run again).
+    auth_refused: bool,
     issue: Option<&'static str>,
     puts: usize,
     last_write: Option<Instant>,
@@ -454,6 +461,7 @@ impl GitHubSource {
             started: Instant::now(),
             stopped: None,
             uploads_refused: false,
+            auth_refused: false,
             issue: None,
             puts: 0,
             last_write: None,
@@ -464,6 +472,22 @@ impl GitHubSource {
 
     pub fn meta(&self) -> &Meta {
         &self.meta
+    }
+
+    /// A check run again (after a refreshed token) keeps the first run's
+    /// upload allowance: it never gets a second set of uploads.
+    pub fn with_puts_used(mut self, used: usize) -> Self {
+        self.puts = used;
+        self
+    }
+
+    pub fn puts_used(&self) -> usize {
+        self.puts
+    }
+
+    /// GitHub refused the token (401) during this check.
+    pub fn auth_refused(&self) -> bool {
+        self.auth_refused
     }
 
     fn remaining(&self) -> Duration {
@@ -517,6 +541,7 @@ impl GitHubSource {
         }
         Err(match response.status {
             401 => {
+                self.auth_refused = true;
                 let message = "GitHub didn't accept the token (it may have expired or been revoked). Add a new one in Settings > Word lists.".to_string();
                 self.stopped = Some(message);
                 Problem::Auth
@@ -890,14 +915,19 @@ pub struct TestReport {
     /// lists' other state, so the next check waits too. Not sent to the page.
     #[serde(skip)]
     pub not_before: Option<i64>,
+    /// GitHub refused the token (401). Not sent to the page.
+    #[serde(skip)]
+    pub auth_refused: bool,
 }
 
 /// Reads the repository, its branch and this user's layers; writes nothing.
 /// `branch` empty: the repository's default branch.
 pub fn test_connection(http: &dyn Transport, api: &str, token: &str, repo: &str, branch: &str, user: &str, now: i64, not_before: i64) -> TestReport {
     let limited: std::cell::Cell<Option<i64>> = std::cell::Cell::new(None);
-    let mut report = run_test(http, api, token, repo, branch, user, now, not_before, &limited);
+    let refused = std::cell::Cell::new(false);
+    let mut report = run_test(http, api, token, repo, branch, user, now, not_before, &limited, &refused);
     report.not_before = limited.get();
+    report.auth_refused = refused.get();
     report
 }
 
@@ -912,6 +942,7 @@ fn run_test(
     now: i64,
     not_before: i64,
     limited: &std::cell::Cell<Option<i64>>,
+    refused: &std::cell::Cell<bool>,
 ) -> TestReport {
     let mut report = TestReport::default();
     if not_before > now {
@@ -952,6 +983,9 @@ fn run_test(
         if let Some(until) = rate_limit_until(&response, now.saturating_add(started.elapsed().as_secs() as i64)) {
             limited.set(Some(until));
             return Err("GitHub asked VoiceFlow to slow down; try again later.".into());
+        }
+        if response.status == 401 {
+            refused.set(true);
         }
         Err(match response.status {
             401 => "GitHub didn't accept the token. Check that it was copied whole and hasn't expired.".to_string(),
@@ -1642,6 +1676,68 @@ mod tests {
     fn live_private_repo() {
         let repo = std::env::var("VOICEFLOW_GITHUB_TEST_REPO").expect("VOICEFLOW_GITHUB_TEST_REPO");
         let token = std::env::var("VOICEFLOW_GITHUB_TEST_TOKEN").expect("VOICEFLOW_GITHUB_TEST_TOKEN");
+        live_round_trip(&repo, &token);
+    }
+
+    /// 0.9.20 Connect GitHub, for real: the device flow (someone enters the
+    /// code, written to `VOICEFLOW_CONNECT_CODE_FILE`, on github.com), the
+    /// repository list, a forced refresh (the old pair stops working), then
+    /// the same read-and-write round trip as above with the App's token.
+    /// Needs `VOICEFLOW_GITHUB_TEST_REPO`, with the App installed on it.
+    /// Tokens are never printed.
+    #[test]
+    #[ignore]
+    fn live_connect_github() {
+        use crate::profile::github_auth::{self as auth, Access, Credential, Store, Vault};
+        use std::sync::atomic::AtomicBool;
+        let repo = std::env::var("VOICEFLOW_GITHUB_TEST_REPO").expect("VOICEFLOW_GITHUB_TEST_REPO");
+        let code_file = std::env::var("VOICEFLOW_CONNECT_CODE_FILE").expect("VOICEFLOW_CONNECT_CODE_FILE");
+        let oauth = auth::ReqwestOAuth::new("0.9.20-test").unwrap();
+        let code = auth::request_code(&oauth, auth::CLIENT_ID).expect("a code");
+        fs::write(&code_file, format!("{}\n{}\n", code.user_code, code.verification_uri)).unwrap();
+        let outcome = auth::wait_for_user(&oauth, auth::CLIENT_ID, &code, &AtomicBool::new(false), &auth::RealClock::new());
+        let auth::Outcome::Connected(tokens) = outcome else { panic!("not connected: {outcome:?}") };
+        assert!(tokens.refresh_token.starts_with("ghr_"), "expiring tokens with a refresh token");
+        assert!(tokens.access_expires_at - sync_now() > 7 * 3600, "an 8-hour token");
+        println!("connected; access token lasts {} s", tokens.access_expires_at - sync_now());
+
+        struct Mem(Mutex<Option<String>>);
+        impl Store for Mem {
+            fn load(&self) -> Result<Option<String>, String> {
+                Ok(self.0.lock().unwrap().clone())
+            }
+            fn save(&self, value: &str) -> Result<(), String> {
+                *self.0.lock().unwrap() = (!value.is_empty()).then(|| value.to_string());
+                Ok(())
+            }
+        }
+        let store = Mem(Mutex::new(None));
+        let vault = Vault::default();
+        vault.replace(&store, Some(Credential::App(tokens.clone()))).unwrap();
+        let first: Access = vault.access(&store, &oauth, sync_now()).unwrap();
+
+        let http = ReqwestTransport::new("0.9.20-test").unwrap();
+        let repos = auth::list_repos(&http, API, &first.token).expect("the repository list");
+        println!("repositories the app reaches: {}", repos.len());
+        assert!(repos.iter().any(|r| r.full_name.eq_ignore_ascii_case(&repo)), "the app is installed on {repo}");
+
+        // A forced refresh: the stored pair is made to look nearly expired.
+        let mut aged = tokens.clone();
+        aged.access_expires_at = sync_now() + 60;
+        vault.replace(&store, Some(Credential::App(aged))).unwrap();
+        let fresh = vault.access(&store, &oauth, sync_now()).expect("a refresh");
+        assert_ne!(fresh.token, first.token, "a new access token");
+        let stored = Credential::decode(&store.load().unwrap().unwrap()).unwrap();
+        let Credential::App(rotated) = stored else { panic!() };
+        assert_ne!(rotated.refresh_token, tokens.refresh_token, "the refresh token rotated");
+        let old = test_connection(&http, API, &first.token, &repo, "main", "sam", sync_now(), 0);
+        println!("old access token after the refresh: ok={} refused={}", old.ok, old.auth_refused);
+
+        live_round_trip(&repo, &fresh.token);
+    }
+
+    fn live_round_trip(repo: &str, token: &str) {
+        let (repo, token) = (repo.to_string(), token.to_string());
         let http = ReqwestTransport::new("0.9.19-test").unwrap();
         let tested = test_connection(&http, API, &token, &repo, "main", "sam", sync_now(), 0);
         assert!(tested.ok, "{}", tested.message);
