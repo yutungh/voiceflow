@@ -36,7 +36,7 @@ use super::github::{valid_token, HttpError, HttpRequest, HttpResponse, Transport
 
 /// The VoiceFlow GitHub App computers connect to (Contents: read and write).
 /// Public values: a device-flow App has no secret in the app.
-pub const CLIENT_ID: &str = "Iv23liVoiceFlowRWxxxx";
+pub const CLIENT_ID: &str = "Iv23liVu0ypF3zlpDwKj";
 /// The App's name in its github.com/apps/<slug> address.
 pub const APP_SLUG: &str = "voiceflow-word-lists";
 /// Where the App is installed on a repository.

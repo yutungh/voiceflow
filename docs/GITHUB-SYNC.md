@@ -8,7 +8,7 @@ The word-list format is in [`pack/README.md`](../pack/README.md); the rules for 
 |---|---|
 | **VoiceFlow Desktop** | From **0.9.19** (Windows and Mac). **Connect GitHub** from **0.9.20**; 0.9.19 uses an [access token](#advanced-use-an-access-token-instead). |
 | **Android keyboard** | **Not released yet.** The phone side is built and waiting to ship; until then the phone keeps its own word list. [Phone setup](#5-set-up-the-phone-once-released) describes what is coming. |
-| **Tested how?** | The repository reads and writes were tested against a real private repository on GitHub: reading, a re-check with nothing changed, an edit file added by another device, an upload repeated after a lost answer, a status-file conflict, a refused token and no network, using a **classic** token. **Connect GitHub** is covered by unit tests against a fake of GitHub's sign-in; see [Limits](#limits) for what has been tried for real. |
+| **Tested how?** | The repository reads and writes were tested against a real private repository on GitHub: reading, a re-check with nothing changed, an edit file added by another device, an upload repeated after a lost answer, a status-file conflict, a refused token and no network, using a **classic** token. **Connect GitHub** was tried for real too, on a computer: the code entered on github.com, the repository list, a refresh of the sign-in, then the same reads and writes with the app's sign-in. See [Limits](#limits). |
 
 ## What you get
 
@@ -185,7 +185,7 @@ With tokens, **the repository's owner makes every token,** one per device, inclu
 
 ## Limits
 
-- **Connect GitHub, tried for real:** see the pull request that added it. A fine-grained token made on GitHub's website has **not** been tested yet (the integration tests used a classic token with the same access); if **Test connection** fails with one, check the repository is selected under **Repository access** and **Contents** is set.
+- **Connect GitHub on a phone:** tried with unit tests only so far. A fine-grained token made on GitHub's website has **not** been tested yet (the integration tests used a classic token with the same access); if **Test connection** fails with one, check the repository is selected under **Repository access** and **Contents** is set.
 - **Phones:** not released yet ([section 5](#5-set-up-the-phone-once-released)).
 - **Up to an hour:** a change on GitHub reaches a device at its next hourly check, or at **Refresh now**.
 - **History grows:** each word added in the app is one commit, and each computer writes its status when something changed and otherwise once a day.
