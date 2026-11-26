@@ -29,9 +29,9 @@ import java.util.List;
  *   <li>This phone only: its own list, as before.</li>
  *   <li>Sync server: the vf-sync gateway it was enrolled with (enrolment stays adb-only).</li>
  *   <li>Private GitHub repository (docs/GITHUB-SYNC.md): <b>Connect GitHub</b> signs the
- *       phone in to the read-only VoiceFlow GitHub App with a code (Copy code, Open GitHub),
- *       then lists the repositories the App is installed on. A pasted read-only token stays
- *       as an Advanced choice. Either is sealed in the Android Keystore.</li>
+ *       phone in to the VoiceFlow Word Lists GitHub App (the same App computers use) with a
+ *       code (Copy code, Open GitHub), then lists the repositories the App is installed on. A
+ *       pasted token stays as an Advanced choice. Either is sealed in the Android Keystore.</li>
  * </ul>
  * The gateway keeps delivering app updates and the phone's status whichever source is
  * chosen. Nothing here writes to GitHub. The wait for the code runs on its own thread
@@ -173,7 +173,8 @@ public class WordSourceActivity extends Activity {
         advanced.setOrientation(LinearLayout.VERTICAL);
         token = input("github_pat_...", "", true);
         advanced.addView(field("Access token", token));
-        TextView help = Ui.text(this, "A fine-grained token for this one repository with Contents: Read-only. "
+        TextView help = Ui.text(this, "A fine-grained token for this one repository with Contents: Read-only "
+                + "(this phone only reads the lists). "
                 + "Saving it replaces a GitHub connection on this phone. It is kept encrypted on this phone. "
                 + "Steps: docs/GITHUB-SYNC.md in the VoiceFlow repository.", 12f, false, Ui.SUBTLE);
         help.setPadding(0, dp(8), 0, 0);
@@ -231,7 +232,7 @@ public class WordSourceActivity extends Activity {
         forget.setVisibility(kind.isEmpty() && SyncStore.gitHub(this) == null ? View.GONE : View.VISIBLE);
         GitHubAuth.Attempt attempt = GitHubAuth.current();
         if (attempt != null && "waiting".equals(attempt.state)) {
-            connectBox.addView(Ui.text(this, "Enter this code on GitHub, then approve VoiceFlow Word Lists (read-only):",
+            connectBox.addView(Ui.text(this, "Enter this code on GitHub, then approve VoiceFlow Word Lists:",
                     13f, false, Ui.MUTED));
             TextView code = Ui.text(this, attempt.userCode, 30f, true, Ui.TEXT);
             code.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
@@ -268,8 +269,8 @@ public class WordSourceActivity extends Activity {
         }
         if ("app".equals(kind)) {
             connectBox.addView(Ui.text(this, "Connected to GitHub", 15f, true, Ui.TEXT));
-            connectBox.addView(Ui.text(this, "Through the read-only VoiceFlow Word Lists app: nothing to copy or renew. "
-                    + "Forget GitHub disconnects this phone.", 12f, false, Ui.SUBTLE));
+            connectBox.addView(Ui.text(this, "Through the VoiceFlow Word Lists app: nothing to copy or renew. "
+                    + "This phone only reads the lists. Forget GitHub disconnects this phone.", 12f, false, Ui.SUBTLE));
             TextView manage = Ui.topAction(this, "Manage on GitHub", false);
             manage.setPadding(0, dp(8), 0, 0);
             manage.setOnClickListener(v -> openLink(GitHubApp.AUTHORIZATIONS_URL));
@@ -287,7 +288,7 @@ public class WordSourceActivity extends Activity {
         String why = attempt != null && attempt.message != null && !attempt.message.isEmpty()
                 && !"connected".equals(attempt.state) ? attempt.message : null;
         connectBox.addView(Ui.text(this, why != null ? why
-                : "Signs this phone in to GitHub with the read-only VoiceFlow Word Lists app. No token to make or paste.",
+                : "Signs this phone in to GitHub with the VoiceFlow Word Lists app, the one your computers use. No token to make or paste.",
                 12f, false, why != null ? Ui.TEXT : Ui.SUBTLE));
     }
 
@@ -398,7 +399,7 @@ public class WordSourceActivity extends Activity {
             return;
         }
         if (repos.isEmpty()) {
-            repoList.addView(Ui.text(this, "VoiceFlow Word Lists (read-only) isn't installed on any of your repositories yet. "
+            repoList.addView(Ui.text(this, "VoiceFlow Word Lists isn't installed on any of your repositories yet. "
                     + "Install it on your word-list repository (choose Only select repositories), then check again. "
                     + "Someone else's repository: its owner installs the app and adds you.", 13f, false, Ui.TEXT));
             LinearLayout buttons = new LinearLayout(this);

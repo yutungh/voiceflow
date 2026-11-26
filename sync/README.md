@@ -128,7 +128,7 @@ Other actions the receiver understands: `RESET_STYLES` and `STYLE_DIGEST`, used 
 
 ### 6. Connect the desktop app
 
-The desktop app does not use the gateway or a token. It reads the data folder itself. In **Settings > Word lists**, turn on **Use word lists**, enter the folder (a path on the PC, or the server's share of the same folder, for example `\\server\voiceflow` or `/Volumes/voiceflow`) and your user name under **Whose words**. So the desktop needs either a profile folder it can open, or none at all (it works without word lists), and the phone needs the gateway. (Without a gateway, a [private GitHub repository](../docs/GITHUB-SYNC.md) can hold the word lists for the desktop app now, and for the phone once its GitHub support is released.) If the gateway's data folder is on another machine, share it with the PC (SMB or a synced folder) and give the PC write access to `profiles/<user>/` and `status/<user>/` only.
+The desktop app does not use the gateway or a token. It reads the data folder itself. In **Settings > Word lists**, turn on **Use word lists**, enter the folder (a path on the PC, or the server's share of the same folder, for example `\\server\voiceflow` or `/Volumes/voiceflow`) and your user name under **Whose words**. So the desktop needs either a profile folder it can open, or none at all (it works without word lists), and the phone needs the gateway. (Without a gateway, a [private GitHub repository](../docs/GITHUB-SYNC.md) can hold the word lists for the desktop app and, from 0.9.2, the phone.) If the gateway's data folder is on another machine, share it with the PC (SMB or a synced folder) and give the PC write access to `profiles/<user>/` and `status/<user>/` only.
 
 ### 7. Revoke a device
 

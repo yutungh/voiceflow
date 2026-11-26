@@ -7,7 +7,7 @@ The word-list format is in [`pack/README.md`](../pack/README.md); the rules for 
 | | |
 |---|---|
 | **VoiceFlow Desktop** | From **0.9.19** (Windows and Mac). **Connect GitHub** from **0.9.20**; 0.9.19 uses an [access token](#advanced-use-an-access-token-instead). |
-| **Android keyboard** | **Not released yet.** The phone side is built and waiting to ship; until then the phone keeps its own word list. [Phone setup](#5-set-up-the-phone-once-released) describes what is coming. |
+| **Android keyboard** | From **0.9.2**, with **Connect GitHub**. The phone reads the lists; it doesn't upload edits yet. [Phone setup](#5-set-up-the-phone). |
 | **Tested how?** | The repository reads and writes were tested against a real private repository on GitHub: reading, a re-check with nothing changed, an edit file added by another device, an upload repeated after a lost answer, a status-file conflict, a refused token and no network, using a **classic** token. **Connect GitHub** was tried for real too, on a computer: the code entered on github.com, the repository list, a refresh of the sign-in, then the same reads and writes with the app's sign-in. See [Limits](#limits). |
 
 ## What you get
@@ -16,7 +16,8 @@ The word-list format is in [`pack/README.md`](../pack/README.md); the rules for 
 - **Offline is fine:** each device keeps a last good copy of every list and dictates with it.
 - **A history of every change:** who or what changed a word, when, and a way to undo it.
 - **AI updates by commit:** an agent on your computer edits a file and pushes; VoiceFlow picks it up within the hour.
-- **Nothing to copy or renew:** **Connect GitHub** signs each computer in with the VoiceFlow app on GitHub; VoiceFlow renews the sign-in by itself.
+- **Nothing to copy or renew:** **Connect GitHub** signs each computer and phone in with the VoiceFlow app on GitHub; VoiceFlow renews the sign-in by itself.
+- **One app for every device:** computers and phones use the same app, so you install one app on the repository.
 - **A cost of one request an hour** when nothing changed (GitHub doesn't count it against your limit).
 
 ## 1. Make the repository
@@ -54,7 +55,7 @@ VoiceFlow reaches GitHub through a GitHub app, **VoiceFlow Word Lists**. Install
 
 You can also start from VoiceFlow: when the app isn't installed anywhere yet, **Settings > Word lists** says so and links to this page.
 
-**Phones** will use a second app, **VoiceFlow Word Lists (read-only)**, with **Contents: read-only**, so a lost phone can never change your lists ([section 5](#5-set-up-the-phone-once-released)).
+**Phones** use the same app: install it once and both your computers and your phone can connect ([section 5](#5-set-up-the-phone)). A phone only reads the lists today.
 
 ## 3. Set up VoiceFlow Desktop
 
@@ -75,19 +76,21 @@ VoiceFlow checks when it starts, every hour, and when you press **Refresh now** 
 
 Everyone's lists can live in one repository, each person under their own name, with one shared household file. The order is **household < generated < personal < words added in the app**: a later one wins when two use the same `id`.
 
-- **The owner installs the app once** ([section 2](#2-install-the-voiceflow-app-on-the-repository)) and adds the others to the repository (**Settings > Collaborators** on GitHub). Each person then presses **Connect GitHub** on their own computer with their own GitHub account. VoiceFlow can only do what both the app and that person may do in the repository.
+- **The owner installs the app once** ([section 2](#2-install-the-voiceflow-app-on-the-repository)) and adds the others to the repository (**Settings > Collaborators** on GitHub). Each person then presses **Connect GitHub** on their own computer or phone with their own GitHub account. VoiceFlow can only do what both the app and that person may do in the repository.
 - **Everyone connected can read every list in the repository,** and a computer can change any file in it. Share a repository only with people who may see each other's words.
 - **One writer per file:** a person (or their AI) writes their own `profile.json`, one person keeps the household file, and only VoiceFlow writes `ops/` and `status/`.
 
-## 5. Set up the phone (once released)
+<a id="5-set-up-the-phone-once-released"></a>
 
-The Android keyboard's GitHub support is built but **not released yet**. When it ships:
+## 5. Set up the phone
 
-1. On GitHub, install **VoiceFlow Word Lists (read-only)** on the word-list repository, the same way as [section 2](#2-install-the-voiceflow-app-on-the-repository) ([github.com/apps/voiceflow-word-lists-read-only](https://github.com/apps/voiceflow-word-lists-read-only)).
+From VoiceFlow keyboard **0.9.2**:
+
+1. Make sure **VoiceFlow Word Lists** is installed on the word-list repository ([section 2](#2-install-the-voiceflow-app-on-the-repository)). It is the same app your computers use; there is nothing else to install.
 2. In the VoiceFlow keyboard app, open **Settings > Word lists source** and choose **Private GitHub repository**.
-3. Tap **Connect GitHub**, then **Copy code** and **Open GitHub**, enter the code and authorize. Back in the app, pick the repository, enter your name and tap **Test connection** and **Save**.
+3. Tap **Connect GitHub**, then **Copy code** and **Open GitHub**, enter the code and authorize **VoiceFlow Word Lists**. Back in the app, pick the repository, enter your name and tap **Test connection** and **Save**.
 
-The phone reads the lists when the keyboard opens (at most every 15 minutes) and every hour, keeps a last good copy, and writes nothing to the repository: its app may only read. A phone that uses the sync gateway keeps using it unless you switch it here.
+The phone reads the lists when the keyboard opens (at most every 15 minutes) and every hour, and keeps a last good copy. Today it only reads: it writes nothing to the repository, and words you add on the phone stay on the phone. A phone that uses the sync gateway keeps using it unless you switch it here.
 
 ## 6. Let an AI agent update the words
 
@@ -145,17 +148,17 @@ Fill in the parts in angle brackets.
 ## Privacy
 
 - **The lists are stored on GitHub's servers,** in your account. A private repository is visible to you and the people you add to it; when GitHub itself may access private repositories is set out in its [Terms of Service](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (section E) and [privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement). Never make the repository public: **Test connection** warns if it is.
-- **The VoiceFlow app has no server.** Signing in happens between your computer and GitHub; the app's sign-in never passes through anyone else. The app can only reach the repositories you installed it on.
+- **The VoiceFlow app has no server.** Signing in happens between your computer or phone and GitHub; the app's sign-in never passes through anyone else. The app can only reach the repositories you installed it on.
 - **Words are sent with each dictation:** up to 20 go to your speech-to-text provider, and a longer list to your tidy-up model when a tidy-up style runs.
 - **Keep the lists to names and terms:** no secrets, addresses, numbers or health details. Deleted words stay in the repository's history.
 - **What VoiceFlow writes:** edit files (the words and spellings you add in the app) and one status file per computer with counts and errors, never what you said. Commit messages are like `VoiceFlow: add edit pc1a2b3c4d-…` and `VoiceFlow: update status pc1a2b3c4d`, with no words in them.
 
 ## If a computer or phone is lost
 
-1. On GitHub, open **Settings > Applications > Authorized GitHub Apps** ([github.com/settings/apps/authorizations](https://github.com/settings/apps/authorizations)) and click **Revoke** next to **VoiceFlow Word Lists** (a computer) or **VoiceFlow Word Lists (read-only)** (a phone). Every device of yours connected through that app stops at once, so press **Connect GitHub** again on the ones you still have.
+1. On GitHub, open **Settings > Applications > Authorized GitHub Apps** ([github.com/settings/apps/authorizations](https://github.com/settings/apps/authorizations)) and click **Revoke** next to **VoiceFlow Word Lists**. Every computer and phone of yours connected through the app stops at once, so press **Connect GitHub** again on the ones you still have.
 2. Check the repository's **Commits** for changes you don't recognise, and revert them.
 
-What a lost device can do: a computer's sign-in can read and change the files in the repositories the app is installed on, and nothing else of yours; a phone's can only read them. Neither reaches your other repositories or your account settings. A device that used an [access token](#advanced-use-an-access-token-instead) instead: delete that token on GitHub (**Settings > Developer settings > Personal access tokens > Fine-grained tokens**).
+What a lost device can do: its sign-in, a computer's or a phone's, can read and change the files in the repositories the app is installed on, and nothing else of yours (the phone app itself only reads, but the sign-in allows what the app allows). It doesn't reach your other repositories or your account settings. A device that used an [access token](#advanced-use-an-access-token-instead) instead: delete that token on GitHub (**Settings > Developer settings > Personal access tokens > Fine-grained tokens**).
 
 <a id="2-make-an-access-token-for-each-device"></a>
 
@@ -172,7 +175,7 @@ If you'd rather not install the app, or use VoiceFlow 0.9.19, give each device a
 7. **Repository access:** **Only select repositories**, then pick your word-list repository in **Selected repositories**.
 8. **Permissions:** under **Repository permissions**, set **Contents** to:
    - **Read and write** for a computer (it uploads the words you fix and its status);
-   - **Read-only** for a phone (the phone writes nothing).
+   - **Read-only** is enough for a phone (it only reads the lists today).
 
    GitHub adds **Metadata: Read-only** by itself. Grant nothing else.
 9. Click **Generate token** and copy it (it starts with `github_pat_`). GitHub shows it only once. Paste it straight into VoiceFlow; don't save it in a file or a chat.
@@ -186,7 +189,7 @@ With tokens, **the repository's owner makes every token,** one per device, inclu
 ## Limits
 
 - **Connect GitHub on a phone:** tried with unit tests only so far. A fine-grained token made on GitHub's website has **not** been tested yet (the integration tests used a classic token with the same access); if **Test connection** fails with one, check the repository is selected under **Repository access** and **Contents** is set.
-- **Phones:** not released yet ([section 5](#5-set-up-the-phone-once-released)).
+- **Phones only read:** a phone doesn't upload the words added on it yet ([section 5](#5-set-up-the-phone)).
 - **Up to an hour:** a change on GitHub reaches a device at its next hourly check, or at **Refresh now**.
 - **History grows:** each word added in the app is one commit, and each computer writes its status when something changed and otherwise once a day.
 - **Size:** each list file is at most 1 MB and each edit file 64 KB. If the repository grows past what GitHub lists at once (100,000 files or 7 MB of listing), VoiceFlow stops reading it and keeps the last good copy: keep only the word lists in this repository.

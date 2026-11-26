@@ -21,9 +21,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 /**
- * Connect GitHub (docs/GITHUB-SYNC.md): the phone signs in to the read-only VoiceFlow
- * GitHub App ({@link GitHubApp}) with GitHub's device flow, so nobody makes or pastes a
- * token.
+ * Connect GitHub (docs/GITHUB-SYNC.md): the phone signs in to the VoiceFlow Word Lists
+ * GitHub App ({@link GitHubApp}, the same App computers use) with GitHub's device flow, so
+ * nobody makes or pastes a token.
  *
  * <ul>
  *   <li>{@code POST github.com/login/device/code} gives a code the user enters at

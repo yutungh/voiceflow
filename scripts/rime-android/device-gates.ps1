@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Runs the Rime device gates (from 0.9.0; 0.9.1 by default) over adb on one plugged-in phone and writes the results.
+  Runs the Rime device gates (from 0.9.0; 0.9.2 by default) over adb on one plugged-in phone and writes the results.
 
 .DESCRIPTION
   The checks run inside the app (RimeGateActivity, guarded by the DUMP permission only the adb
@@ -15,13 +15,18 @@
     16 KB    zipalign -c -P 16 on the installed APK                           aligned
 
   It never changes her data: nothing is learned (the soak runs with learning off) and nothing is
-  cleared. The replay fixture is a first-day user's, so run it right after installing the release (-ExpectedVersion, 0.9.1 by default), before
+  cleared. The replay fixture is a first-day user's, so run it right after installing the release (-ExpectedVersion, 0.9.2 by default), before
   she has typed with Rime. Installs only when -Apk is given.
+
+  -Gates runs some of them only (all by default), for example the fast ones after an update:
+  -Gates cold,replay,pages. Gates left out are not run and do not count as failures.
 
 .EXAMPLE
   ./scripts/rime-android/device-gates.ps1 -OutDir C:\gates
 .EXAMPLE
-  ./scripts/rime-android/device-gates.ps1 -Serial R5CX... -Apk VoiceFlow-keyboard-0.9.1.apk -SoakSeconds 900
+  ./scripts/rime-android/device-gates.ps1 -Serial R5CX... -Apk VoiceFlow-keyboard-0.9.2.apk -SoakSeconds 900
+.EXAMPLE
+  ./scripts/rime-android/device-gates.ps1 -Serial R5CX... -Gates cold,replay,pages
 #>
 [CmdletBinding()]
 param(
@@ -31,10 +36,19 @@ param(
     [string]$Apk = "",
     [string]$Adb = "",
     [string]$Package = "com.voiceflowkeyboard.ime",
-    [string]$ExpectedVersion = "0.9.1"
+    [string]$ExpectedVersion = "0.9.2",
+    [string[]]$Gates = @("cold", "replay", "latency", "memory", "pages", "soak", "16kb")
 )
 
 $ErrorActionPreference = "Stop"
+
+# -Gates cold,replay,pages arrives as one array; "cold,replay" in quotes as one string.
+$Gates = @($Gates | ForEach-Object { $_ -split "," } | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ })
+$known = @("cold", "replay", "latency", "memory", "pages", "soak", "16kb")
+foreach ($g in $Gates) { if ($known -notcontains $g) { Write-Host "STOP: unknown gate '$g' (known: $($known -join ', '))"; exit 2 } }
+# 16 KB judges whether the library loads, which is the pages gate.
+if ($Gates -contains "16kb" -and $Gates -notcontains "pages") { $Gates += "pages" }
+function Test-Gate([string]$name) { return $Gates -contains $name }
 
 function Find-Tool([string]$name, [string[]]$candidates) {
     foreach ($c in $candidates) { if ($c -and (Test-Path $c)) { return (Resolve-Path $c).Path } }
@@ -122,41 +136,52 @@ function Get-Pid { (Invoke-Adb @("shell", "pidof", $Package)).Trim() }
 $results = [ordered]@{}
 
 # Cold start: the first run after install copies the data; the gate is the start after that.
-$first = Invoke-Gate "cold" 180 -Fresh
-$results["cold-first-start"] = $first
-$colds = @()
-foreach ($i in 1..3) { $colds += Invoke-Gate "cold" 120 -Fresh }
-$coldMs = @($colds | ForEach-Object { $_.startToFirstCandidatesMs } | Sort-Object)
-$results["cold"] = [ordered]@{
-    runs = $colds
-    medianStartToFirstCandidatesMs = $coldMs[1]
-    pass = (@($colds | Where-Object { -not $_.dataWasInstalled }).Count -eq 0) -and ($coldMs[1] -lt 500)
+$first = $null
+if (Test-Gate "cold") {
+    $first = Invoke-Gate "cold" 180 -Fresh
+    $results["cold-first-start"] = $first
+    $colds = @()
+    foreach ($i in 1..3) { $colds += Invoke-Gate "cold" 120 -Fresh }
+    $coldMs = @($colds | ForEach-Object { $_.startToFirstCandidatesMs } | Sort-Object)
+    $results["cold"] = [ordered]@{
+        runs = $colds
+        medianStartToFirstCandidatesMs = $coldMs[1]
+        pass = (@($colds | Where-Object { -not $_.dataWasInstalled }).Count -eq 0) -and ($coldMs[1] -lt 500)
+    }
 }
 
-$results["replay"] = Invoke-Gate "replay" 300
-$results["latency"] = Invoke-Gate "latency" 600
-$results["pages"] = Invoke-Gate "pages" 120
-$memory = Invoke-Gate "memory" 180
-$memInfo = Invoke-Adb @("shell", "dumpsys", "meminfo", $Package)
-$memory | Add-Member -NotePropertyName dumpsysTotalPss -NotePropertyValue ([regex]::Match($memInfo, "TOTAL PSS:\s+(\d+)").Groups[1].Value) -Force
-$results["memory"] = $memory
+if (Test-Gate "replay") { $results["replay"] = Invoke-Gate "replay" 300 }
+if (Test-Gate "latency") { $results["latency"] = Invoke-Gate "latency" 600 }
+if (Test-Gate "pages") { $results["pages"] = Invoke-Gate "pages" 120 }
+$memory = $null
+if (Test-Gate "memory") {
+    $memory = Invoke-Gate "memory" 180
+    $memInfo = Invoke-Adb @("shell", "dumpsys", "meminfo", $Package)
+    $memory | Add-Member -NotePropertyName dumpsysTotalPss -NotePropertyValue ([regex]::Match($memInfo, "TOTAL PSS:\s+(\d+)").Groups[1].Value) -Force
+    $results["memory"] = $memory
+}
 
 # Soak: the same process must survive it, with no crash or ANR logged.
-Invoke-Adb @("logcat", "-b", "crash", "-c") | Out-Null
-Invoke-Adb @("logcat", "-b", "events", "-c") | Out-Null
-$pidBefore = Get-Pid
-$soak = Invoke-Gate "soak" ($SoakSeconds + 180) @{ seconds = $SoakSeconds; learn = $false }
-$pidAfter = Get-Pid
-$crashes = Invoke-Adb @("logcat", "-b", "crash", "-d")
-$anrs = (Invoke-Adb @("logcat", "-b", "events", "-d")) -split "`n" | Where-Object { $_ -match "am_anr" -and $_ -match [regex]::Escape($Package) }
-$crashLines = ($crashes -split "`n" | Where-Object { $_ -match [regex]::Escape($Package) })
-$soak | Add-Member -NotePropertyName samePid -NotePropertyValue ($pidBefore -and $pidBefore -eq $pidAfter) -Force
-$soak | Add-Member -NotePropertyName crashLines -NotePropertyValue @($crashLines).Count -Force
-$soak | Add-Member -NotePropertyName anrs -NotePropertyValue @($anrs).Count -Force
-$soak.pass = [bool]$soak.pass -and $soak.samePid -and (@($crashLines).Count -eq 0) -and (@($anrs).Count -eq 0)
-$results["soak"] = $soak
+$soak = $null
+if (Test-Gate "soak") {
+    Invoke-Adb @("logcat", "-b", "crash", "-c") | Out-Null
+    Invoke-Adb @("logcat", "-b", "events", "-c") | Out-Null
+    $pidBefore = Get-Pid
+    $soak = Invoke-Gate "soak" ($SoakSeconds + 180) @{ seconds = $SoakSeconds; learn = $false }
+    $pidAfter = Get-Pid
+    $crashes = Invoke-Adb @("logcat", "-b", "crash", "-d")
+    $anrs = (Invoke-Adb @("logcat", "-b", "events", "-d")) -split "`n" | Where-Object { $_ -match "am_anr" -and $_ -match [regex]::Escape($Package) }
+    $crashLines = ($crashes -split "`n" | Where-Object { $_ -match [regex]::Escape($Package) })
+    $soak | Add-Member -NotePropertyName samePid -NotePropertyValue ($pidBefore -and $pidBefore -eq $pidAfter) -Force
+    $soak | Add-Member -NotePropertyName crashLines -NotePropertyValue @($crashLines).Count -Force
+    $soak | Add-Member -NotePropertyName anrs -NotePropertyValue @($anrs).Count -Force
+    $soak.pass = [bool]$soak.pass -and $soak.samePid -and (@($crashLines).Count -eq 0) -and (@($anrs).Count -eq 0)
+    $results["soak"] = $soak
+}
 
 # 16 KB: the installed APK's native libraries must be stored page-aligned for 16 KB.
+$aligned = $null
+if (Test-Gate "16kb") {
 $apkPath = ((Invoke-Adb @("shell", "pm", "path", $Package)) -split "`n" | Where-Object { $_ -like "package:*base.apk" } | Select-Object -First 1)
 $aligned = $null
 $zipalign = $null
@@ -172,11 +197,12 @@ if ($apkPath -and $zipalign -and (Test-Path $zipalign)) {
 }
 $results["16kb"] = [ordered]@{ pageSize = $pageSize; zipalignChecked = ($aligned -ne $null); aligned = $aligned
     loadsHere = $results["pages"].pass; pass = ($aligned -ne $false) -and [bool]$results["pages"].pass }
+}
 
 # ---------------------------------------------------------------- report
 $summary = [ordered]@{
     phone = "$model, Android $release (API $api)"; serial = $Serial; pageSize = $pageSize; app = "$Package $version"
-    ranAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"); results = $results
+    ranAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"); gates = $Gates; results = $results
 }
 New-Item -ItemType Directory -Force $OutDir | Out-Null
 $file = Join-Path $OutDir ("rime-gates-" + ($model -replace '[^A-Za-z0-9]', '') + "-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".json")
@@ -195,6 +221,7 @@ $lines = [ordered]@{
 }
 $allPass = $true
 foreach ($key in $lines.Keys) {
+    if (-not (Test-Gate $key)) { continue }
     $pass = [bool]$results[$key].pass
     if ($key -ne "memory" -and -not $pass) { $allPass = $false }
     $numbers = $lines[$key]
@@ -203,4 +230,5 @@ foreach ($key in $lines.Keys) {
 }
 Write-Host ""
 Write-Host "results: $file"
-if ($allPass) { Write-Host "ALL GATES PASS"; exit 0 } else { Write-Host "GATES FAILED"; exit 1 }
+$which = if ($Gates.Count -eq $known.Count) { "ALL GATES" } else { "GATES RUN ($($Gates -join ', '))" }
+if ($allPass) { Write-Host "$which PASS"; exit 0 } else { Write-Host "GATES FAILED"; exit 1 }

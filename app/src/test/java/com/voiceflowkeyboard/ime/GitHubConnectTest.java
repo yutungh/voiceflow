@@ -518,4 +518,13 @@ public class GitHubConnectTest {
         assertNotEquals(t.toJson(), t.needingReconnect().toJson());
         assertTrue(GitHubApp.installUrl().startsWith("https://github.com/apps/" + GitHubApp.SLUG));
     }
+
+    @Test
+    public void phonesUseTheSameAppAsComputers() {
+        // One App for computers and phones (desktop github_auth.rs: CLIENT_ID, APP_SLUG), so a
+        // user installs one App on the word-list repository.
+        assertEquals("Iv23liVu0ypF3zlpDwKj", GitHubApp.CLIENT_ID);
+        assertEquals("voiceflow-word-lists", GitHubApp.SLUG);
+        assertEquals("https://github.com/apps/voiceflow-word-lists/installations/new", GitHubApp.installUrl());
+    }
 }

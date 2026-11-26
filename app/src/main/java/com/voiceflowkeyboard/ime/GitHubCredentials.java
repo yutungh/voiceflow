@@ -4,9 +4,9 @@ import android.content.Context;
 
 /**
  * The phone's one GitHub credential, sealed in the Android Keystore ({@link TokenVault})
- * under {@code github_token_sealed}: either a pasted read-only token (the Advanced path,
- * kept raw as before) or the read-only App's tokens from Connect GitHub (a small JSON
- * record, {@link GitHubAuth.Tokens}).
+ * under {@code github_token_sealed}: either a pasted token (the Advanced path, kept raw as
+ * before) or the VoiceFlow Word Lists App's tokens from Connect GitHub (a small JSON record,
+ * {@link GitHubAuth.Tokens}). The phone only reads with either today.
  *
  * <ul>
  *   <li>The App's access token lasts 8 hours; it is refreshed on demand, ten minutes before
