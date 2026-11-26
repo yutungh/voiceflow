@@ -1,5 +1,5 @@
 Licences of the Rime engine and the libraries built into libvfrime.so (VoiceFlow 0.9.0).
-Source revisions: scripts/rime-android/build.sh in https://github.com/yutungh/voiceflow
+Source revisions: scripts/rime-android/build.sh in https://github.com/yutungh/voicelnq
 
 ==============================================================================
 librime 1.17.0 (rime/librime) - BSD 3-Clause

@@ -400,7 +400,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let builder = WebviewWindowBuilder::new(app, BAR_WINDOW, WebviewUrl::App("bar".into()));
     // VoiceFlow: the same WebView2 switches as every window (webview_args.rs).
     let window = crate::webview_args::keep_awake(app, builder)
-        .title("VoiceFlow recording bar")
+        .title("VoiceLnq recording bar")
         .inner_size(INITIAL_SIZE.0, INITIAL_SIZE.1)
         .visible(false)
         .transparent(true)

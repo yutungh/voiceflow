@@ -1,6 +1,6 @@
 # vf-sync: the sync gateway
 
-A small HTTP service that serves a VoiceFlow profile folder (the layout in [`../pack/README.md`](../pack/README.md)) to phones and other devices, with one token per device. It runs behind a reverse proxy that terminates HTTPS. MIT, like `pack/`.
+A small HTTP service that serves a VoiceLnq profile folder (the layout in [`../pack/README.md`](../pack/README.md)) to phones and other devices, with one token per device. It runs behind a reverse proxy that terminates HTTPS. MIT, like `pack/`.
 
 - **No merging and no database.** Devices merge for themselves. Every request reads the files as they are on disk at that moment, so files written by other tools (a PC over SMB, a script) show up at once.
 - **No dependencies.** Node 22 and its standard library only.
@@ -14,13 +14,13 @@ This is the whole path, from nothing to a phone syncing. The gateway is optional
 
 - A computer that stays on: a home server, a NAS that runs Docker, a small VPS or a Raspberry Pi. It needs Docker, or Node.js 22 or newer.
 - A host name that points at it, and HTTPS with a certificate Android trusts (for example from Let's Encrypt). The phone refuses plain `http://`, a path after the host name and a login in the address.
-- The VoiceFlow keyboard 0.8.2 or newer on the phone, a USB cable and `adb` on the computer you plug it into.
+- The VoiceLnq keyboard 0.8.2 or newer on the phone, a USB cable and `adb` on the computer you plug it into.
 
 ### 1. Get the code and build it
 
 ```sh
-git clone -c core.longpaths=true https://github.com/yutungh/voiceflow
-cd voiceflow
+git clone -c core.longpaths=true https://github.com/yutungh/voicelnq
+cd voicelnq
 docker build -f sync/Dockerfile -t vf-sync:0.1.0 .      # from the repository root
 ```
 

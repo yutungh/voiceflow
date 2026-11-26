@@ -53,7 +53,7 @@ export type FeedbackDeps = {
 };
 
 export const FEEDBACK_HELD_PROBLEM =
-	"VoiceFlow couldn't tell which app you were in, so your feedback wasn't sent for transcription. Type it instead.";
+	"VoiceLnq couldn't tell which app you were in, so your feedback wasn't sent for transcription. Type it instead.";
 
 export async function captureFeedback(
 	{

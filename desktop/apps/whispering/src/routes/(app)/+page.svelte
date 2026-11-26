@@ -140,7 +140,7 @@
 </script>
 
 <svelte:head>
-	<title>VoiceFlow</title>
+	<title>VoiceLnq</title>
 </svelte:head>
 
 <svelte:window onkeydown={onKey} />
@@ -244,7 +244,7 @@
 					<div>
 						<h2 class="eh">Your dictations will show up here</h2>
 						<p class="sub">
-							Each one shows the text VoiceFlow pasted, the app it went to, and which words it fixed.
+							Each one shows the text VoiceLnq pasted, the app it went to, and which words it fixed.
 						</p>
 						<ol class="howto">
 							<li><span class="n">1</span><span>Click where you want to type, in any app</span></li>

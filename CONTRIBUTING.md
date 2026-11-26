@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve VoiceFlow Keyboard.
+Thanks for helping improve VoiceLnq Keyboard.
 
 This project is intended to be a practical open-source base for Android voice dictation keyboards. Keep changes understandable, privacy-conscious, and useful for people who want to build or test the app themselves.
 
@@ -20,7 +20,7 @@ Requirements:
 
 - JDK 17
 - Android SDK with platform 35 and build-tools 35.0.0 (Android Studio installs both), found through `local.properties` (`sdk.dir=...`) or the `ANDROID_HOME` environment variable. See the Build section of the [Android reference](docs/android/README.md#build).
-- Windows: clone with `git clone -c core.longpaths=true https://github.com/yutungh/voiceflow`.
+- Windows: clone with `git clone -c core.longpaths=true https://github.com/yutungh/voicelnq`.
 - Desktop app: see [desktop/README.md](desktop/README.md). Sync server: see [sync/README.md](sync/README.md).
 
 Build:

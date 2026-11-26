@@ -127,7 +127,7 @@ public final class InstallResultReceiver extends BroadcastReceiver {
                 context, versionCode, confirm, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification notification = new Notification.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_mic_24)
-                .setContentTitle("VoiceFlow update ready")
+                .setContentTitle("VoiceLnq update ready")
                 .setContentText("Tap to finish installing the new version.")
                 .setContentIntent(tap)
                 .setAutoCancel(true)

@@ -43,7 +43,7 @@
 	async function save(e: SubmitEvent) {
 		e.preventDefault();
 		if (!title.trim()) return (error = 'Give the style a name.');
-		if (!prompt.trim()) return (error = 'Say how VoiceFlow should tidy your words.');
+		if (!prompt.trim()) return (error = 'Say how VoiceLnq should tidy your words.');
 		if (!model.trim()) return (error = 'Choose a model.');
 		saving = true;
 		const next = withStyleFields(style, {
@@ -68,7 +68,7 @@
 	<Dialog.Content class="vf sm:max-w-[560px]">
 		<Dialog.Header>
 			<Dialog.Title>{isNew ? 'New style' : `Edit ${style.title || 'style'}`}</Dialog.Title>
-			<Dialog.Description>How VoiceFlow tidies your words with this style.</Dialog.Description>
+			<Dialog.Description>How VoiceLnq tidies your words with this style.</Dialog.Description>
 		</Dialog.Header>
 		<form class="sform" onsubmit={save}>
 			<label for="st-name">Name</label>

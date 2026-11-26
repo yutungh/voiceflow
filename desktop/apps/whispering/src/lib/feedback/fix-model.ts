@@ -174,7 +174,7 @@ export function providerAndModel(choice: FixChoice): string {
 
 /** The one line under Find fixes. */
 export function findFixesLine(choice: FixChoice): string {
-	return `Sends this dictation's text and your note to ${providerAndModel(choice)} with your own API key, to suggest fixes to your spellings and styles. Nothing is sent to VoiceFlow.`;
+	return `Sends this dictation's text and your note to ${providerAndModel(choice)} with your own API key, to suggest fixes to your spellings and styles. Nothing is sent to VoiceLnq.`;
 }
 
 /**

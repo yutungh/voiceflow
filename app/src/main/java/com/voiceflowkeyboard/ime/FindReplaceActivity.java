@@ -358,7 +358,7 @@ public class FindReplaceActivity extends Activity {
         }
         if (shown == 0) {
             TextView empty = Ui.text(this, replacements.isEmpty() && shared.isEmpty()
-                    ? "No words yet. Add a name or a word VoiceFlow should spell your way."
+                    ? "No words yet. Add a name or a word VoiceLnq should spell your way."
                     : "No words match.", 14f, false, Ui.SUBTLE);
             empty.setPadding(dp(16), dp(18), dp(16), dp(18));
             card.addView(empty);
@@ -455,7 +455,7 @@ public class FindReplaceActivity extends Activity {
                 where = "It is on the household list, shared with everyone at home.";
                 break;
             case WordLayer.EDIT:
-                where = "It was added in VoiceFlow on one of your devices.";
+                where = "It was added in VoiceLnq on one of your devices.";
                 break;
             default:
                 where = "It is on your own synced list.";

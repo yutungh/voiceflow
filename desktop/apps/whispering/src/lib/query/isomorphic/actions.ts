@@ -1243,7 +1243,7 @@ async function transcribeAndDeliver({
 		);
 		notify.error.execute({
 			id: transcribeToastId,
-			title: "VoiceFlow couldn't turn your words into text",
+			title: "VoiceLnq couldn't turn your words into text",
 			description: `${reason} Your audio is saved in History.`,
 			// 0.9.11: hides by itself; Home and History keep the problem.
 			persist: false,
@@ -2253,7 +2253,7 @@ async function onNativeStopped(event: NativeOf<'stopped'>) {
 		await deleteNativeAudio(event.recording.filePath);
 		notify.info.execute({
 			title: 'Voice feedback not saved',
-			description: 'VoiceFlow restarted while you were recording it.',
+			description: 'VoiceLnq restarted while you were recording it.',
 		});
 		return;
 	}

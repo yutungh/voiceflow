@@ -177,7 +177,7 @@ export function createCpalRecorderService(): RecorderService {
 			if (initRecordingSessionError)
 				return RecorderServiceErr({
 					message:
-						"VoiceFlow couldn't open the microphone. Another app may be using it, Windows may be blocking it, or it may be unplugged.",
+						"VoiceLnq couldn't open the microphone. Another app may be using it, Windows may be blocking it, or it may be unplugged.",
 				});
 
 			sendStatus({
@@ -189,7 +189,7 @@ export function createCpalRecorderService(): RecorderService {
 			if (startRecordingError)
 				return RecorderServiceErr({
 					message:
-						"VoiceFlow couldn't start listening. Check your microphone and try again.",
+						"VoiceLnq couldn't start listening. Check your microphone and try again.",
 				});
 
 			return Ok(deviceOutcome);

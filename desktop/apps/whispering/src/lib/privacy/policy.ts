@@ -433,7 +433,7 @@ export function copiedWhy(decision: PasteDecision): string | null {
 		case 'unresolved':
 			return 'No window was in front to paste into.';
 		case 'self':
-			return 'VoiceFlow itself was in front.';
+			return 'VoiceLnq itself was in front.';
 		case 'shell':
 			return SURFACE_WORDS[decision.surface ?? 'desktop'];
 		case 'blocked-app':
@@ -443,9 +443,9 @@ export function copiedWhy(decision: PasteDecision): string | null {
 		case 'moved':
 			return 'Another window was in front than when you pressed Stop.';
 		case 'elevated':
-			return `${app} runs as administrator, so VoiceFlow can't paste into it.`;
+			return `${app} runs as administrator, so VoiceLnq can't paste into it.`;
 		case 'elevation-unknown':
-			return `VoiceFlow couldn't tell whether it may paste into ${app}.`;
+			return `VoiceLnq couldn't tell whether it may paste into ${app}.`;
 		case 'target-gone':
 			return 'The window you dictated into is closed.';
 		case 'sent-anyway':
@@ -453,7 +453,7 @@ export function copiedWhy(decision: PasteDecision): string | null {
 		case 'target-changed':
 			return 'Another window came to the front just before the paste.';
 		case 'keys-failed':
-			return "VoiceFlow couldn't send the paste keys.";
+			return "VoiceLnq couldn't send the paste keys.";
 	}
 }
 
@@ -495,13 +495,13 @@ export function recordNotice(decision: RecordDecision): {
 			return {
 				title: `Not recording: ${app} is on the block list.`,
 				description:
-					'VoiceFlow never records in password managers, authenticators or sign-in prompts.',
+					'VoiceLnq never records in password managers, authenticators or sign-in prompts.',
 			};
 		case 'password-field':
 			return {
 				title: `Not recording: ${app} looks like a password field.`,
 				description:
-					'VoiceFlow never records into a password field. Nothing was recorded or sent.',
+					'VoiceLnq never records into a password field. Nothing was recorded or sent.',
 			};
 		default:
 			return null;

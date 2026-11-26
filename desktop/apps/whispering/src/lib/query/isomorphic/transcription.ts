@@ -37,7 +37,7 @@ function heldRecordingErr() {
 	return WhisperingErr({
 		title: 'This dictation is held on this PC',
 		description:
-			"VoiceFlow couldn't confirm the app it was dictated into, so it was not sent. Use Send anyway on the recording to send it.",
+			"VoiceLnq couldn't confirm the app it was dictated into, so it was not sent. Use Send anyway on the recording to send it.",
 	});
 }
 

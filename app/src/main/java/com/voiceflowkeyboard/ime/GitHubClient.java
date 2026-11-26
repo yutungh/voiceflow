@@ -371,7 +371,7 @@ final class GitHubClient implements WordSource {
             case "github-404":
                 return "GitHub can't find the repository or branch with this token. Check the names, and that the token was made for this repository.";
             case "github-wait":
-                return "GitHub asked VoiceFlow to wait; try again later.";
+                return "GitHub asked VoiceLnq to wait; try again later.";
             case "github-too-many-files":
                 return "The repository has too many files for GitHub to list at once; keep only the word lists in it.";
             case "github-no-profiles":

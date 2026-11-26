@@ -176,11 +176,11 @@ export function parseFixResponse(raw: string, delivered: string): ParseResult {
 		return { ok: false, message: 'The answer was not a JSON object.' };
 	const v = value as Record<string, unknown>;
 	if (typeof v.diagnosis !== 'string' || !(DIAGNOSES as readonly string[]).includes(v.diagnosis))
-		return { ok: false, message: 'The answer had no diagnosis VoiceFlow knows.' };
+		return { ok: false, message: 'The answer had no diagnosis VoiceLnq knows.' };
 	const diagnosis = v.diagnosis as Diagnosis;
 	const explanation = oneLine(v.explanation ?? '', MAX_EXPLANATION);
 	if (explanation === null)
-		return { ok: false, message: 'The answer’s explanation had characters VoiceFlow refuses.' };
+		return { ok: false, message: 'The answer’s explanation had characters VoiceLnq refuses.' };
 	if (typeof v.corrected_text !== 'string')
 		return { ok: false, message: 'The answer had no corrected text.' };
 	const correctedText = v.corrected_text.replace(/\r\n?/g, '\n');
@@ -471,7 +471,7 @@ export function parseFixResponseV2(raw: string, delivered: string, wanted?: stri
 	const v = value as Record<string, unknown>;
 	const explanation = oneLine(v.explanation ?? '', MAX_EXPLANATION);
 	if (explanation === null)
-		return { ok: false, message: 'The answer’s explanation had characters VoiceFlow refuses.' };
+		return { ok: false, message: 'The answer’s explanation had characters VoiceLnq refuses.' };
 	if (typeof v.corrected_text !== 'string') return { ok: false, message: 'The answer had no corrected text.' };
 	const correctedText = v.corrected_text.replace(/\r\n?/g, '\n');
 	if (CONTROL.test(correctedText))
@@ -547,7 +547,7 @@ export function parseFixResponseV2(raw: string, delivered: string, wanted?: stri
 			proposals.push({ ...p, issue: index });
 		}
 	}
-	if (issues.length === 0) return { ok: false, message: 'The answer named no problem VoiceFlow can read.' };
+	if (issues.length === 0) return { ok: false, message: 'The answer named no problem VoiceLnq can read.' };
 	return {
 		ok: true,
 		value: {

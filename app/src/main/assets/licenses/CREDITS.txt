@@ -1,5 +1,5 @@
-VoiceFlow Keyboard is open source under the MIT licence:
-https://github.com/yutungh/voiceflow
+VoiceLnq Keyboard is open source under the MIT licence:
+https://github.com/yutungh/voicelnq
 
 It ships data and artwork made by others, under these terms.
 
@@ -13,7 +13,7 @@ were removed and ü written v; only the most frequent words were kept (plus
 chat-shaped phrases); a short list of everyday chat words was given more
 weight. The data is provided as is, with no warranties.
 The Rime engine (0.9.0) uses the same three dictionaries unchanged, compiled
-into Rime's binary format, plus a VoiceFlow table that lists those everyday
+into Rime's binary format, plus a VoiceLnq table that lists those everyday
 chat words again with their Wanxiang readings at 20 times their weight.
 
 Chinese input engine: Rime (librime 1.17.0), https://github.com/rime/librime,

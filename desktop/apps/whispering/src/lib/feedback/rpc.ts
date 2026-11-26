@@ -15,7 +15,7 @@ async function call<T>(request: FeedbackRequest): Promise<Reply<T>> {
 	let stop: (() => void) | null = null;
 	const answer = new Promise<Reply<T>>((resolve) => {
 		const timer = setTimeout(
-			() => resolve({ ok: false, message: 'VoiceFlow didn’t answer. Open VoiceFlow and try again.' }),
+			() => resolve({ ok: false, message: 'VoiceLnq didn’t answer. Open VoiceLnq and try again.' }),
 			TIMEOUT_MS,
 		);
 		void listen<{ reqId: string; reply: Reply<T> }>(FEEDBACK_RESPONSE_EVENT, (event) => {

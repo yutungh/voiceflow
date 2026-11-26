@@ -9,4 +9,4 @@ import noticeText from '../../../../../NOTICE?raw';
 export { licenseText, noticeText };
 
 /** Where the corresponding source is published (AGPL section 6). */
-export const SOURCE_URL = 'https://github.com/yutungh/voiceflow';
+export const SOURCE_URL = 'https://github.com/yutungh/voicelnq';

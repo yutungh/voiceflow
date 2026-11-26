@@ -25,7 +25,7 @@ export function registerAccessibilityPermission() {
 			toast.warning('Accessibility Permission Issue', {
 				id: accessibilityToastId,
 				description:
-					'VoiceFlow needs accessibility permissions. This often requires removing and re-adding the app after updates.',
+					'VoiceLnq needs accessibility permissions. This often requires removing and re-adding the app after updates.',
 				duration: Number.POSITIVE_INFINITY,
 				action: {
 					label: 'View Guide',
@@ -65,7 +65,7 @@ export function registerMicrophonePermission() {
 			// Toast if permission not granted
 			toast.info('Microphone Permission Required', {
 				id: microphoneToastId,
-				description: 'VoiceFlow needs microphone access to record audio',
+				description: 'VoiceLnq needs microphone access to record audio',
 				duration: Number.POSITIVE_INFINITY,
 				action: {
 					label: 'Enable Permission',

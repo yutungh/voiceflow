@@ -20,9 +20,9 @@ pub const HIDDEN_ARG: &str = "--hidden";
 const CLOSE_NOTICE_MARKER: &str = "close-to-tray-notice-shown";
 
 #[cfg(target_os = "macos")]
-const CLOSE_NOTICE: &str = "VoiceFlow is still running in the menu bar. Quit from its icon.";
+const CLOSE_NOTICE: &str = "VoiceLnq is still running in the menu bar. Quit from its icon.";
 #[cfg(not(target_os = "macos"))]
-const CLOSE_NOTICE: &str = "VoiceFlow is still running in the taskbar corner. Quit from its icon.";
+const CLOSE_NOTICE: &str = "VoiceLnq is still running in the taskbar corner. Quit from its icon.";
 
 /// True when the command line asks VoiceFlow to start hidden.
 pub fn launched_hidden<I, S>(args: I) -> bool
@@ -93,7 +93,7 @@ fn show_close_notice_once<R: Runtime>(app: &AppHandle<R>) {
     match app
         .notification()
         .builder()
-        .title("VoiceFlow")
+        .title("VoiceLnq")
         .body(CLOSE_NOTICE)
         .show()
     {

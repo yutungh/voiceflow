@@ -164,9 +164,9 @@ pub struct DeviceOutcome {
 pub fn choose_device(devices: &[String], preferred: Option<&str>) -> Result<DeviceOutcome, String> {
     let Some(first) = devices.first() else {
         return Err(if preferred.is_some() {
-            "VoiceFlow couldn't find the selected microphone. Make sure it's connected and try again.".into()
+            "VoiceLnq couldn't find the selected microphone. Make sure it's connected and try again.".into()
         } else {
-            "VoiceFlow couldn't find any microphone. Make sure one is connected and try again.".into()
+            "VoiceLnq couldn't find any microphone. Make sure one is connected and try again.".into()
         });
     };
     match preferred {
@@ -729,7 +729,7 @@ pub mod runtime {
                 if let Err(e) = opened {
                     let _ = recorder.close_session();
                     return Err(format!(
-                        "VoiceFlow couldn't open the microphone ({e}). Another app may be using it, Windows may be blocking it, or it may be unplugged."
+                        "VoiceLnq couldn't open the microphone ({e}). Another app may be using it, Windows may be blocking it, or it may be unplugged."
                     ));
                 }
                 Ok(StartedRecording { recording_id: recording_id.clone(), device })

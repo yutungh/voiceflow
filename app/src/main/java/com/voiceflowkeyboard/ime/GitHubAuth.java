@@ -138,9 +138,9 @@ final class GitHubAuth {
 
     private static AuthException config(String code) {
         if ("device_flow_disabled".equals(code)) {
-            return new AuthException("VoiceFlow's GitHub app doesn't allow this way of signing in. Use an access token (Advanced) for now.", true);
+            return new AuthException("VoiceLnq's GitHub app doesn't allow this way of signing in. Use an access token (Advanced) for now.", true);
         }
-        return new AuthException("GitHub refused VoiceFlow's sign-in request. Use an access token (Advanced) for now.", true);
+        return new AuthException("GitHub refused VoiceLnq's sign-in request. Use an access token (Advanced) for now.", true);
     }
 
     // ---------------------------------------------------------------- requests
@@ -580,7 +580,7 @@ final class GitHubAuth {
             }
             if (code != 200) {
                 throw new IOException(code == 403 || code == 429
-                        ? "GitHub asked VoiceFlow to slow down; try again in a few minutes."
+                        ? "GitHub asked VoiceLnq to slow down; try again in a few minutes."
                         : "GitHub answered with an error (HTTP " + code + ").");
             }
             try (InputStream in = connection.getInputStream()) {
