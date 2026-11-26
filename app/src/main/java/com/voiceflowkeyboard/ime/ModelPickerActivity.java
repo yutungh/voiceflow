@@ -121,6 +121,11 @@ public class ModelPickerActivity extends Activity {
                 providers.addView(divider());
             }
         }
+        if (transcription) {
+            TextView fixes = Ui.text(this, SpeechModels.CORRECTIONS_NOTE + " Each style can pick its own speech model in Settings > Styles.", 13, false, Ui.MUTED);
+            fixes.setPadding(0, dp(12), 0, 0);
+            root.addView(fixes);
+        }
     }
 
     private View providerRow(String provider) {
@@ -218,6 +223,10 @@ public class ModelPickerActivity extends Activity {
             renderModelsList(provider, DeepgramClient.defaultTranscriptionModels(), "Deepgram Nova models are recommended for pre-recorded dictation.");
             return;
         }
+        if (transcription && Prefs.PROVIDER_SONIOX.equals(provider)) {
+            renderModelsList(provider, defaultModels(provider), "Soniox's async model for recorded dictation. Good with Chinese and English mixed.");
+            return;
+        }
         if (apiKey == null || apiKey.trim().isEmpty()) {
             renderModelsList(provider, defaultModels(provider), "Add a " + Prefs.providerLabel(provider) + " key to refresh live model availability.");
             return;
@@ -275,7 +284,12 @@ public class ModelPickerActivity extends Activity {
 
     private View modelRow(String provider, String model) {
         boolean current = provider.equals(currentProvider()) && model.equalsIgnoreCase(currentModel());
-        return row(model, current ? "Current" : modelDescription(model), current ? "Selected" : ">", v -> selectModel(model));
+        String subtitle = current ? "Current" : modelDescription(model);
+        if (transcription) {
+            // 0.9.3: what this model does with the word list, true to what the app sends.
+            subtitle += ". " + SpeechModels.wordListNotice(provider, model);
+        }
+        return row(model, subtitle, current ? "Selected" : ">", v -> selectModel(model));
     }
 
     private LinearLayout row(String title, String subtitle, String accessory, View.OnClickListener listener) {
@@ -388,6 +402,16 @@ public class ModelPickerActivity extends Activity {
         if (!supported) {
             return capability(provider);
         }
+        if (transcription) {
+            String model = modelForProvider(provider);
+            String notice = (SpeechModels.isRecommended(provider, Prefs.defaultTranscriptionModel(provider)) ? "Recommended. " : "")
+                    + SpeechModels.wordListNotice(provider, model);
+            return providerSubtitleBase(provider, current) + ". " + notice;
+        }
+        return providerSubtitleBase(provider, current);
+    }
+
+    private String providerSubtitleBase(String provider, boolean current) {
         if (current) {
             return "Current: " + currentModel();
         }
@@ -411,7 +435,7 @@ public class ModelPickerActivity extends Activity {
         if (Prefs.PROVIDER_ANTHROPIC.equals(provider)) {
             return "Transform only";
         }
-        if (Prefs.PROVIDER_DEEPGRAM.equals(provider)) {
+        if (Prefs.PROVIDER_DEEPGRAM.equals(provider) || Prefs.PROVIDER_SONIOX.equals(provider)) {
             return "Transcription only";
         }
         if (Prefs.PROVIDER_OFFLINE_VOSK.equals(provider)) {
@@ -437,6 +461,11 @@ public class ModelPickerActivity extends Activity {
             }
             if (Prefs.PROVIDER_DEEPGRAM.equals(provider)) {
                 return DeepgramClient.defaultTranscriptionModels();
+            }
+            if (Prefs.PROVIDER_SONIOX.equals(provider)) {
+                List<String> soniox = new ArrayList<>();
+                soniox.add(SonioxClient.MODEL);
+                return soniox;
             }
             if (Prefs.PROVIDER_OFFLINE_VOSK.equals(provider)) {
                 return OfflineVoskClient.defaultTranscriptionModels();
@@ -499,6 +528,7 @@ public class ModelPickerActivity extends Activity {
                 Prefs.PROVIDER_XAI,
                 Prefs.PROVIDER_ANTHROPIC,
                 Prefs.PROVIDER_DEEPGRAM,
+                Prefs.PROVIDER_SONIOX,
                 Prefs.PROVIDER_OFFLINE_PARAKEET,
                 Prefs.PROVIDER_OFFLINE_VOSK
         };
@@ -527,6 +557,9 @@ public class ModelPickerActivity extends Activity {
         }
         if (lower.contains("nova")) {
             return "Deepgram speech-to-text";
+        }
+        if (lower.startsWith("stt-async")) {
+            return "Soniox speech-to-text for recordings";
         }
         if (lower.contains("vosk")) {
             return "Small local offline speech-to-text";
