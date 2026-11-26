@@ -93,14 +93,17 @@ Write-Host "app        $Package $version"
 function Invoke-Gate([string]$action, [int]$timeoutSeconds, [hashtable]$extras = @{}, [switch]$Fresh) {
     if ($Fresh) { Invoke-Adb @("shell", "am", "force-stop", $Package) | Out-Null; Start-Sleep -Milliseconds 800 }
     Invoke-Adb @("logcat", "-c") | Out-Null
-    $start = @("shell", "am", "start", "-n", "$Package/.RimeGateActivity", "--es", "action", $action)
+    # --activity-clear-task: the previous check's activity is still on top, and a plain start only
+    # brings its task to the front ("Activity not started"), so no new check would run. Clearing the
+    # task makes a new instance in the same process, which the soak's same-process check relies on.
+    $start = @("shell", "am", "start", "--activity-clear-task", "-n", "$Package/.RimeGateActivity", "--es", "action", $action)
     foreach ($key in $extras.Keys) {
         $value = $extras[$key]
         if ($value -is [bool]) { $start += @("--ez", $key, $value.ToString().ToLower()) }
         else { $start += @("--ei", $key, "$value") }
     }
     $launched = Invoke-Adb $start
-    if ($launched -match "Error|Exception") { return [pscustomobject]@{ action = $action; pass = $false; error = $launched } }
+    if ($launched -match "Error|Exception|Activity not started|intent has been delivered") { return [pscustomobject]@{ action = $action; pass = $false; error = $launched } }
     $deadline = (Get-Date).AddSeconds($timeoutSeconds)
     while ((Get-Date) -lt $deadline) {
         Start-Sleep -Seconds 2
@@ -187,14 +190,16 @@ $lines = [ordered]@{
     latency = "p50 $($results.latency.p50Ms) / p95 $($results.latency.p95Ms) / p99 $($results.latency.p99Ms) ms over $($results.latency.keys) keys; Classic answered $($results.latency.answeredByClassic)"
     memory  = "PSS $($memory.totalPssKb) kB (dumpsys $($memory.dumpsysTotalPss) kB), RSS $($memory.VmRSSKb) kB, file-backed $($memory.RssFileKb) kB"
     pages   = "page size $($results.pages.pageSize), loaded $($results.pages.libraryLoaded)"
-    soak    = "$($soak.steps) steps in $($soak.seconds) s, $(@($soak.violations).Count) violations, crashes $($soak.crashLines), ANRs $($soak.anrs), same process $($soak.samePid)"
+    soak    = "$($soak.steps) steps in $($soak.seconds) s, $(if ($null -ne $soak.violations) { @($soak.violations).Count } else { 'n/a' }) violations, crashes $($soak.crashLines), ANRs $($soak.anrs), same process $($soak.samePid)"
     "16kb"  = "zipalign -P 16: $aligned"
 }
 $allPass = $true
 foreach ($key in $lines.Keys) {
     $pass = [bool]$results[$key].pass
     if ($key -ne "memory" -and -not $pass) { $allPass = $false }
-    Write-Host ("{0,-10} {1,-5} {2}" -f $key, $(if ($pass) { "yes" } else { "NO" }), $lines[$key])
+    $numbers = $lines[$key]
+    if ($results[$key].error) { $numbers = "error: $($results[$key].error)" }
+    Write-Host ("{0,-10} {1,-5} {2}" -f $key, $(if ($pass) { "yes" } else { "NO" }), $numbers)
 }
 Write-Host ""
 Write-Host "results: $file"
