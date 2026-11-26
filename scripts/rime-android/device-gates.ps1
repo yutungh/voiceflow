@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Runs the Rime device gates (from 0.9.0; 0.9.2 by default) over adb on one plugged-in phone and writes the results.
+  Runs the Rime device gates (from 0.9.0; 0.9.3 by default) over adb on one plugged-in phone and writes the results.
 
 .DESCRIPTION
   The checks run inside the app (RimeGateActivity, guarded by the DUMP permission only the adb
@@ -24,7 +24,7 @@
 .EXAMPLE
   ./scripts/rime-android/device-gates.ps1 -OutDir C:\gates
 .EXAMPLE
-  ./scripts/rime-android/device-gates.ps1 -Serial R5CX... -Apk VoiceFlow-keyboard-0.9.2.apk -SoakSeconds 900
+  ./scripts/rime-android/device-gates.ps1 -Serial R5CX... -Apk VoiceFlow-keyboard-0.9.3.apk -SoakSeconds 900
 .EXAMPLE
   ./scripts/rime-android/device-gates.ps1 -Serial R5CX... -Gates cold,replay,pages
 #>
@@ -36,7 +36,7 @@ param(
     [string]$Apk = "",
     [string]$Adb = "",
     [string]$Package = "com.voiceflowkeyboard.ime",
-    [string]$ExpectedVersion = "0.9.2",
+    [string]$ExpectedVersion = "0.9.3",
     [string[]]$Gates = @("cold", "replay", "latency", "memory", "pages", "soak", "16kb")
 )
 
