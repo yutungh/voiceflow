@@ -114,7 +114,7 @@ cd src-tauri && cargo test --locked --lib   # Rust unit tests (after a build)
 ```
 
 - `apiKeys`: `openai`, `anthropic`, `groq`, `google`, `deepgram`, `elevenlabs`, `mistral`, `openrouter`.
-- `transformations.selectedTransformationId`: a built-in style's id, or `null` for Raw.
+- `transformations.selectedTransformationId`: a built-in style's id (`vf-builtin-<key>`).
 - `wordLists`: `{"kind": "gateway", ...}` (a sync server; the token is issued for the `device` id given, which this computer takes) or `{"kind": "folder", "source": "...", "user": "..."}`. Without a valid token the word lists are skipped and the rest is still imported.
 
 **Chinese (0.9.22).** With gpt-transcribe, the Chinese language setting sends `zh-cn` and `en`, as the Android keyboard's Chinese mode does, so English words inside Chinese speech stay English.

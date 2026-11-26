@@ -866,6 +866,7 @@ mod tests {
         let out = s.check();
         assert!(out.report.source_reachable);
         assert!(out.report.notices.iter().any(|n| n.contains("next check")), "{:?}", out.report.notices);
+        assert!(out.report.more_later, "the next check comes sooner");
         s.fake.0.lock().unwrap().budget = None;
         let out = s.check();
         assert_eq!(out.snapshot.terms.len(), 7, "{:?}", out.report.errors);

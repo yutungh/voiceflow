@@ -125,11 +125,19 @@ export const settings = (() => {
 			key,
 			setTimeout(async () => {
 				pendingWrites.delete(key);
-				const { error } = await SecretsServiceLive.set(key, secrets[key]);
-				if (error) notifyKeychainError(error.message);
+				// 0.9.22: kept while it runs, so an immediate write waits for it.
+				const write = SecretsServiceLive.set(key, secrets[key]).then(({ error }) => {
+					if (error) notifyKeychainError(error.message);
+				});
+				inFlightWrites.set(key, write);
+				await write;
+				if (inFlightWrites.get(key) === write) inFlightWrites.delete(key);
 			}, 400),
 		);
 	}
+
+	/** 0.9.22: a debounced write already sent for this key, if any. */
+	const inFlightWrites = new Map<ApiKeySettingKey, Promise<void>>();
 
 	/** Loads keys from the store and migrates any left in localStorage. */
 	async function loadApiKeys() {
@@ -344,6 +352,8 @@ export const settings = (() => {
 			}
 			importingKeys++;
 			try {
+				// An older write already on its way finishes first, never after.
+				await inFlightWrites.get(key);
 				const { error } = await SecretsServiceLive.set(key, value);
 				if (error) return false;
 				secretsGeneration++;
@@ -356,6 +366,8 @@ export const settings = (() => {
 
 		/** 0.9.22: one API key as the OS credential store has it (undefined: unreadable). */
 		async readStoredApiKey(key: ApiKeySettingKey): Promise<string | null | undefined> {
+			await inFlightWrites.get(key);
+			if (pendingWrites.has(key)) return undefined;
 			const { data, error } = await SecretsServiceLive.get(key);
 			return error ? undefined : (data ?? null);
 		},
@@ -365,10 +377,11 @@ export const settings = (() => {
 		 * under any the word lists provide (their view is unchanged while
 		 * they are on). Not for API keys.
 		 */
-		writeDeviceValues(values: Partial<Settings>) {
-			const next = { ..._settings.value, ...values };
-			if (useKeychain) for (const key of API_KEY_SETTING_KEYS) next[key] = '';
-			_settings.value = next;
+		async writeDeviceValues(values: Partial<Settings>): Promise<void> {
+			// After the keys' migration, so it can't race this write; API key
+			// fields (never in `values`) keep what is stored.
+			await apiKeysReady;
+			_settings.value = { ..._settings.value, ...values };
 		},
 
 		/** 0.9.22: this device's settings as saved in local storage, or null. */

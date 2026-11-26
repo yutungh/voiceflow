@@ -75,6 +75,7 @@ function fakes(over: { keyWriteFails?: boolean; keyReadsWrong?: boolean; setting
 		},
 		wordLists: {
 			deviceId: () => deviceId,
+			ensureDeviceId: () => (deviceId ??= 'pcnew00001'),
 			setDeviceId: (id) => {
 				log.push('device');
 				deviceId = id;
@@ -180,6 +181,27 @@ describe('the provisioning file: format and allowlist', () => {
 		expect(r.plan.wordLists).toBeNull();
 		expect(r.skipped).toEqual([{ field: 'wordLists', reason: 'no sync server token in the file yet' }]);
 		expect(Object.keys(r.plan.apiKeys)).toEqual(['openai']);
+	});
+
+	test('a pasted secret as a field name is never repeated', () => {
+		const r = parseProvision(file({ apiKeys: { openai: OPENAI, [OPENAI]: 'openai' } }), OPTIONS);
+		expect(r.ok).toBe(true);
+		if (r.ok) expect(r.ignored.join(' ')).not.toContain(OPENAI);
+		if (!r.ok) return;
+		expect(r.ignored).toEqual(['apiKeys.(a field)']);
+	});
+
+	test('the default style must be a built-in (Raw would be replaced by a new install default)', () => {
+		const r = parseProvision(file({ settings: { 'transformations.selectedTransformationId': null } }), OPTIONS);
+		expect(r.ok).toBe(false);
+	});
+
+	test('folder word lists on a fresh install get a device id', async () => {
+		const f = fakes();
+		const out = await run(JSON.stringify(file({ wordLists: { kind: 'folder', source: '/Volumes/words', user: 'alex' } })), f);
+		expect(out.status).toBe('applied');
+		expect(f.config()?.device).toBe('pcnew00001');
+		expect(f.config()?.kind).toBe('folder');
 	});
 
 	test('word-list addresses and names are checked', () => {

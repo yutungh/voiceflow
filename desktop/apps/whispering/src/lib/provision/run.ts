@@ -14,6 +14,7 @@ import type { Settings } from '$lib/settings/settings';
 import type { ApiKeySettingKey } from '$lib/services/desktop/secrets';
 import {
 	importProvision,
+	CLAIMED_FILE,
 	PROVISION_FILE,
 	RECEIPT_FILE,
 	type ImportOutcome,
@@ -36,7 +37,7 @@ async function parseOptions(): Promise<ParseOptions> {
 async function appDeps(): Promise<ProvisionDeps> {
 	const { settings } = await import('$lib/stores/settings.svelte');
 	const { wordLists } = await import('$lib/profile/service.svelte');
-	const { storedDeviceId, setDeviceId, hasLocalEdits } = await import('$lib/profile/op-store');
+	const { deviceId, storedDeviceId, setDeviceId, hasLocalEdits } = await import('$lib/profile/op-store');
 	await wordLists.start();
 	const keyOf = (provider: string) => `apiKeys.${provider}` as ApiKeySettingKey;
 	return {
@@ -51,6 +52,7 @@ async function appDeps(): Promise<ProvisionDeps> {
 		},
 		wordLists: {
 			deviceId: () => storedDeviceId(),
+			ensureDeviceId: () => deviceId(),
 			setDeviceId: (id) => setDeviceId(id),
 			hasLocalEdits: () => hasLocalEdits(),
 			setGatewayToken: (token) => wordLists.setGatewayToken(token),
@@ -134,9 +136,15 @@ export function importProvisionFileAtLaunch(): Promise<void> {
 		if (!window.__TAURI_INTERNALS__) return;
 		const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
 		if (getCurrentWebviewWindow().label !== 'main') return;
-		const { exists, readTextFile, remove } = await import('@tauri-apps/plugin-fs');
+		const { exists, readTextFile, remove, rename } = await import('@tauri-apps/plugin-fs');
 		const { join } = await import('@tauri-apps/api/path');
-		const file = await join(await configDir(), PROVISION_FILE);
+		const dir = await configDir();
+		const dropped = await join(dir, PROVISION_FILE);
+		// The file is claimed (renamed) before it is read, so a new one dropped
+		// in meanwhile is never removed unread; a claimed one left by an import
+		// that didn't finish is tried again.
+		const file = await join(dir, CLAIMED_FILE);
+		if (await exists(dropped)) await rename(dropped, file);
 		if (!(await exists(file))) return;
 		const text = await readTextFile(file);
 		const [deps, options] = await Promise.all([appDeps(), parseOptions()]);

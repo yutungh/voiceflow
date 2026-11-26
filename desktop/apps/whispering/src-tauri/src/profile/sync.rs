@@ -392,6 +392,7 @@ fn load_layer(
     layer: Layer,
     source: Option<&mut dyn Source>,
     revisions: &mut BTreeMap<String, Revision>,
+    deferred: &mut bool,
 ) -> (Option<ProfileFile>, LayerInfo) {
     let cached = || {
         read_limited(&paths.cache_layer(layer), MAX_PROFILE_BYTES)
@@ -471,7 +472,12 @@ fn load_layer(
                 None => return (None, layer_info(layer, "missing", None, None)),
             }
         }
-        Fetch::Deferred(e) | Fetch::Failed(e) => format!("{rel} couldn't be read: {e}"),
+        Fetch::Deferred(e) => {
+            // 0.9.22: left for the next check, which then comes sooner.
+            *deferred = true;
+            format!("{rel} couldn't be read: {e}")
+        }
+        Fetch::Failed(e) => format!("{rel} couldn't be read: {e}"),
     };
     let file = cached();
     let state = if file.is_some() { "cached" } else { "missing" };
@@ -715,10 +721,11 @@ pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &st
 
     let mut revisions = load_revisions(paths);
     let revisions_before = revisions.clone();
+    let mut layers_deferred = false;
     let mut layers = Vec::new();
     let mut infos = Vec::new();
     for layer in [Layer::Household, Layer::Generated, Layer::Personal] {
-        let (file, info) = load_layer(paths, layer, live!(), &mut revisions);
+        let (file, info) = load_layer(paths, layer, live!(), &mut revisions, &mut layers_deferred);
         if let Some(e) = &info.error {
             errors.push(e.clone());
         }
@@ -791,7 +798,7 @@ pub fn refresh_with(paths: &Paths, mut source: Option<&mut dyn Source>, now: &st
     local_files.extend(uploadable);
     issues.extend(held);
     let mut uploaded_now = 0;
-    let mut more_later = false;
+    let mut more_later = layers_deferred;
     let mut uploads_off = false;
     if let Some(source) = live!() {
         let remote = paths.ops_rel();

@@ -27,6 +27,8 @@ export const RECEIPT_SCHEMA = 'voicelnq-provision-receipt';
 /** The launch import's file, in the app's config folder. */
 export const PROVISION_FILE = 'provision.json';
 export const RECEIPT_FILE = 'provision.applied.json';
+/** The launch import's file once claimed (renamed before it is read). */
+export const CLAIMED_FILE = 'provision.importing.json';
 /** How long the launch import waits before its second read-back and removal. */
 export const SETTLE_MS = 15_000;
 
@@ -145,6 +147,16 @@ export function validGatewayUrl(value: unknown): value is string {
 	return /^https:\/\/[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:[0-9]{1,5})?$/.test(v);
 }
 
+/**
+ * An unknown field's name for the result and the receipt. A name that could
+ * be a pasted secret (long, odd characters, a key's prefix) is never repeated.
+ */
+function shownName(section: string, name: string): string {
+	const looksSecret = name.length > 40 || !/^[A-Za-z][A-Za-z0-9._-]*$/.test(name) || /^(sk|vfs1|github_pat|ghp|xox)[-_.]/i.test(name);
+	const shown = looksSecret ? '(a field)' : name;
+	return section ? `${section}.${shown}` : shown;
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -170,7 +182,7 @@ export function parseProvision(raw: unknown, options: ParseOptions): ParseResult
 	if (errors.length > 0) return { ok: false, errors, ignored };
 
 	for (const key of Object.keys(raw)) {
-		if (!['schema', 'version', 'apiKeys', 'settings', 'wordLists', 'comment'].includes(key)) ignored.push(key);
+		if (!['schema', 'version', 'apiKeys', 'settings', 'wordLists', 'comment'].includes(key)) ignored.push(shownName('', key));
 	}
 
 	const plan: ProvisionPlan = { apiKeys: {}, settings: {}, wordLists: null };
@@ -180,7 +192,7 @@ export function parseProvision(raw: unknown, options: ParseOptions): ParseResult
 		else
 			for (const [provider, value] of Object.entries(raw.apiKeys)) {
 				if (!(PROVISION_API_KEYS as readonly string[]).includes(provider)) {
-					ignored.push(`apiKeys.${provider}`);
+					ignored.push(shownName('apiKeys', provider));
 					continue;
 				}
 				if (!validApiKey(value)) errors.push(`apiKeys.${provider}`);
@@ -193,7 +205,7 @@ export function parseProvision(raw: unknown, options: ParseOptions): ParseResult
 		else
 			for (const [key, value] of Object.entries(raw.settings)) {
 				if (!(PROVISION_SETTINGS as readonly string[]).includes(key)) {
-					ignored.push(`settings.${key}`);
+					ignored.push(shownName('settings', key));
 					continue;
 				}
 				const setting = key as ProvisionSetting;
@@ -215,8 +227,9 @@ function settingValid(key: ProvisionSetting, value: unknown, options: ParseOptio
 	if (SHORTCUT_SETTINGS.includes(key)) {
 		if (value !== null && (typeof value !== 'string' || !validAccelerator(value))) return false;
 	} else if (key === 'transformations.selectedTransformationId') {
-		// Raw (null) or a built-in style: one that exists on every install.
-		if (value !== null && (typeof value !== 'string' || !options.knownStyleIds.includes(value))) return false;
+		// A built-in style: one that exists on every install. (Not Raw: a new
+		// install's own default would take its place.)
+		if (typeof value !== 'string' || !options.knownStyleIds.includes(value)) return false;
 	} else if (key === 'transcription.openai.model') {
 		if (typeof value !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$/.test(value)) return false;
 	} else if (typeof value !== 'string') {
@@ -238,7 +251,7 @@ function parseWordLists(raw: unknown, errors: string[], ignored: string[], skipp
 	if (!user || !NAME_RE.test(user) || user === 'household') errors.push('wordLists.user');
 	if (raw.kind === 'gateway') {
 		for (const k of Object.keys(raw))
-			if (!['kind', 'url', 'user', 'device', 'token', 'assistant'].includes(k)) ignored.push(`wordLists.${k}`);
+			if (!['kind', 'url', 'user', 'device', 'token', 'assistant'].includes(k)) ignored.push(shownName('wordLists', k));
 		const url = str('url');
 		const device = str('device');
 		const token = str('token') ?? '';
@@ -254,7 +267,7 @@ function parseWordLists(raw: unknown, errors: string[], ignored: string[], skipp
 	}
 	if (raw.kind === 'folder') {
 		for (const k of Object.keys(raw))
-			if (!['kind', 'source', 'user', 'assistant'].includes(k)) ignored.push(`wordLists.${k}`);
+			if (!['kind', 'source', 'user', 'assistant'].includes(k)) ignored.push(shownName('wordLists', k));
 		const source = str('source');
 		if (!source || source.length > 1024) errors.push('wordLists.source');
 		if (errors.some((e) => e.startsWith('wordLists'))) return null;
@@ -296,6 +309,8 @@ export type ProvisionDeps = {
 	wordLists: {
 		/** This install's device id, if it has one yet. */
 		deviceId: () => string | null;
+		/** This install's device id, made now if it has none. */
+		ensureDeviceId: () => string;
 		setDeviceId: (id: string) => void;
 		/** Edit files made on this computer exist (they carry its device id). */
 		hasLocalEdits: () => Promise<boolean>;
@@ -399,10 +414,7 @@ export async function applyProvision(plan: ProvisionPlan, deps: ProvisionDeps): 
 			}
 			set.push('wordLists.device', 'wordLists.token');
 		}
-		if (!device) {
-			failed.push({ field: 'wordLists.device', reason: 'this computer has no device id yet' });
-			return { ok: false, set, failed };
-		}
+		if (!device) device = deps.wordLists.ensureDeviceId();
 		const wanted = wordListConfigOf(w, device);
 		await deps.wordLists.setConfig(wanted);
 		if (!sameConfig(deps.wordLists.config(), wanted)) {
