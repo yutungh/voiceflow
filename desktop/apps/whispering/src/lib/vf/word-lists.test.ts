@@ -78,6 +78,16 @@ describe('syncSummary', () => {
 		expect(s.tone).toBe('ok');
 		expect(s.detail).toContain('GitHub refused uploads');
 	});
+	test('0.9.20: a refused sign-in reads by how this PC reaches GitHub', () => {
+		const refused = (githubAuth: ProfileState['githubAuth']) => {
+			const s = state({ report: report({ sourceReachable: false, syncedAt: undefined, sourceIssue: 'auth', errors: ['x'] }) });
+			return syncSummary({ ...s, config: { ...s.config, kind: 'github' }, githubAuth }).title;
+		};
+		expect(refused('app')).toBe('Connect GitHub again');
+		expect(refused('reconnect')).toBe('Connect GitHub again');
+		expect(refused('')).toBe('Connect GitHub to read your word lists');
+		expect(refused('pat')).toBe('GitHub didn’t accept the token');
+	});
 	test('a rejected file is named', () => {
 		const s = syncSummary(state({ report: report({ errors: ['profiles/sam/profile.json was not used: x'] }) }));
 		expect(s.tone).toBe('warn');
