@@ -123,6 +123,8 @@ final class WordLayer {
     final List<Term> terms;
     final List<Correction> corrections;
     final Set<String> styleIds;
+    /** 0.9.3: this layer's styles in file order (the phone offers them as styles to pick). */
+    final List<Style> styles;
     /** Defaults this layer sets: name to String or Integer. */
     final Map<String, Object> defaults;
     /** App rules: app id to its style reference ("" when none) and word references. */
@@ -138,13 +140,42 @@ final class WordLayer {
         }
     }
 
+    /**
+     * 0.9.3: a style a word list defines ({@code styles[]} in a v1 file). {@code model}
+     * is kept but the phone does not use it: a list may name a computer's model.
+     * {@code expression} is -1 when the file gives none.
+     */
+    static final class Style {
+        final String id;
+        final String label;
+        final String prompt;
+        final String model;
+        final int expression;
+        final String layer;
+
+        Style(String id, String label, String prompt, String model, int expression, String layer) {
+            this.id = id;
+            this.label = label;
+            this.prompt = prompt;
+            this.model = model == null ? "" : model;
+            this.expression = expression;
+            this.layer = layer;
+        }
+    }
+
     WordLayer(String layer, String updatedAt, List<Term> terms, List<Correction> corrections, Set<String> styleIds,
               Map<String, Object> defaults, Map<String, AppRule> apps) {
+        this(layer, updatedAt, terms, corrections, styleIds, new ArrayList<>(), defaults, apps);
+    }
+
+    WordLayer(String layer, String updatedAt, List<Term> terms, List<Correction> corrections, Set<String> styleIds,
+              List<Style> styles, Map<String, Object> defaults, Map<String, AppRule> apps) {
         this.layer = layer;
         this.updatedAt = updatedAt == null ? "" : updatedAt;
         this.terms = Collections.unmodifiableList(new ArrayList<>(terms));
         this.corrections = Collections.unmodifiableList(new ArrayList<>(corrections));
         this.styleIds = Collections.unmodifiableSet(new HashSet<>(styleIds));
+        this.styles = Collections.unmodifiableList(new ArrayList<>(styles));
         this.defaults = Collections.unmodifiableMap(new LinkedHashMap<>(defaults));
         this.apps = Collections.unmodifiableMap(new LinkedHashMap<>(apps));
     }
@@ -218,17 +249,22 @@ final class WordLayer {
             corrections.add(correction);
         }
         Set<String> styleIds = new HashSet<>();
+        List<Style> styles = new ArrayList<>();
         for (JSONObject item : objects(json, "styles")) {
             onlyKeys(item, STYLE_KEYS, "unknown-field");
             String id = requiredId(item);
-            requiredString(item, "label", 1, 40);
-            requiredString(item, "prompt", 1, 8000);
-            optString(item, "model", -1);
-            optInteger(item, "expression", 0, 4);
+            String label = requiredString(item, "label", 1, 40).trim();
+            String prompt = requiredString(item, "prompt", 1, 8000).trim();
+            String model = optString(item, "model", -1);
+            Integer expression = optInteger(item, "expression", 0, 4);
             optString(item, "note", 500);
             if (!styleIds.add(id)) {
                 throw new Rejected("duplicate-id");
             }
+            // 0.9.3: kept whole, so the phone can offer it. A label or prompt of only spaces
+            // is still accepted (0.9.2 did); it replaces a lower layer's style of that id and
+            // is then never offered (WordMerge).
+            styles.add(new Style(id, label, prompt, model, expression == null ? -1 : expression, expectedLayer));
         }
         Map<String, Object> defaults = new LinkedHashMap<>();
         if (json.has("defaults")) {
@@ -278,7 +314,8 @@ final class WordLayer {
             }
         }
         checkCorrectionsWithinFile(corrections);
-        return new WordLayer(expectedLayer, (String) json.opt("updatedAt"), terms, corrections, styleIds, defaults, apps);
+        return new WordLayer(expectedLayer, (String) json.opt("updatedAt"), terms, corrections, styleIds, styles, defaults,
+                apps);
     }
 
     private static Term parseTerm(JSONObject item, String layer) throws Rejected {
@@ -559,7 +596,7 @@ final class WordLayer {
         return (String) id;
     }
 
-    private static void requiredString(JSONObject item, String key, int min, int max) throws Rejected {
+    private static String requiredString(JSONObject item, String key, int min, int max) throws Rejected {
         Object value = item.opt(key);
         if (!(value instanceof String)) {
             throw new Rejected("missing-field");
@@ -568,6 +605,7 @@ final class WordLayer {
         if (length < min || length > max) {
             throw new Rejected("too-long");
         }
+        return (String) value;
     }
 
     /** The string at {@code key}, null when absent; {@code max} < 0 means no length limit. */

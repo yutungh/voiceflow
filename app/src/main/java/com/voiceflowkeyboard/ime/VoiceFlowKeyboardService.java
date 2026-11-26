@@ -479,7 +479,9 @@ public class VoiceFlowKeyboardService extends InputMethodService {
             // field is tracked on restarts too, so a later fresh start of the
             // same field is not mistaken for a new one.
             String key = fieldKey(attribute);
-            if (!restarting && !key.equals(languageFieldKey)) {
+            if (KeyboardOpening.isNewField(restarting, key, languageFieldKey)) {
+                // 0.9.3: "startInEnglish" now means "open on the opening keyboard":
+                // the last one chosen, unless Settings says always English.
                 startInEnglish = true;
             }
             languageFieldKey = key;
@@ -722,7 +724,8 @@ public class VoiceFlowKeyboardService extends InputMethodService {
     public void onWindowHidden() {
         cancelRecordingIfKeyboardShouldReset();
         hideKeyboardPicker();
-        // The keyboard opens in English next time (0.8.8), unless the window only
+        // The keyboard opens on its opening keyboard next time (0.8.8: English; 0.9.3:
+        // the last one chosen, KeyboardOpening), unless the window only
         // went away for a fold, unfold or turn. Recorded while a dictation is busy
         // too; it is applied when that dictation ends.
         if (!configurationJustChanged()) {
@@ -5285,6 +5288,10 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         }
         settlePinyin(PinyinSession.SettleReason.MODE_CHANGED);
         inputMode = next;
+        if (!applyingOpeningKeyboard) {
+            // 0.9.3: remembered for the next field (not in a password, email or web address field).
+            Prefs.setRememberedKeyboard(this, KeyboardOpening.remember(next, currentInputType()));
+        }
         symbolsMode = false;
         symbolPage = SymbolPage.PRIMARY;
         shift = false;
@@ -5408,10 +5415,26 @@ public class VoiceFlowKeyboardService extends InputMethodService {
         }
         startInEnglish = false;
         lastHideRequestMs = -1;
-        if (inputMode == InputMode.ENGLISH || composingPinyin()) {
+        // 0.9.3: the keyboard last chosen (KeyboardOpening), English in a Latin-only field.
+        InputMode opening = KeyboardOpening.choose(Prefs.keyboardOpenOn(this), currentInputType(),
+                chineseAvailable(), Prefs.rememberedKeyboard(this));
+        if (inputMode == opening || composingPinyin()) {
             return;
         }
-        setInputMode(InputMode.ENGLISH);
+        applyingOpeningKeyboard = true;
+        try {
+            setInputMode(opening);
+        } finally {
+            applyingOpeningKeyboard = false;
+        }
+    }
+
+    /** Set while the opening keyboard is applied: that is not her choosing a keyboard. */
+    private boolean applyingOpeningKeyboard;
+
+    private int currentInputType() {
+        EditorInfo info = getCurrentInputEditorInfo();
+        return info == null ? InputType.TYPE_CLASS_TEXT : info.inputType;
     }
 
     /**

@@ -355,8 +355,9 @@ public class NineKeyServiceTest {
         PinyinSession session = ReflectionHelpers.getField(service, "pinyinSession");
         assertTrue(session == null || !session.isComposing());
         assertEquals("", text());
-        // 0.8.8: and the new field starts in English.
-        assertEquals(InputMode.ENGLISH, ReflectionHelpers.getField(service, "inputMode"));
+        // 0.9.3: the new field opens on the keyboard last used (0.8.8 to 0.9.2: English,
+        // still the "Always English" setting, LanguageKeyServiceTest).
+        assertEquals(InputMode.CHINESE_KEYPAD, ReflectionHelpers.getField(service, "inputMode"));
     }
 
     @Test @Config(qualifiers = "w752dp-h835dp")

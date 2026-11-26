@@ -52,6 +52,11 @@ final class WordMerge {
          * into the prompt budget even when an edit elsewhere lists the same word.
          */
         final List<WordLayer.Term> phoneTerms;
+        /**
+         * 0.9.3: the word lists' styles, one per id (a higher layer's entry replaces a
+         * lower one's whole), in the order each id first appears.
+         */
+        final List<WordLayer.Style> styles;
 
         Snapshot(List<WordLayer.Term> terms, List<WordLayer.Correction> corrections, List<String> issues,
                  Map<String, Object> defaults) {
@@ -60,12 +65,18 @@ final class WordMerge {
 
         Snapshot(List<WordLayer.Term> terms, List<WordLayer.Correction> corrections, List<String> issues,
                  Map<String, Object> defaults, List<WordLayer.Term> phoneTerms) {
+            this(terms, corrections, issues, defaults, phoneTerms, Collections.emptyList());
+        }
+
+        Snapshot(List<WordLayer.Term> terms, List<WordLayer.Correction> corrections, List<String> issues,
+                 Map<String, Object> defaults, List<WordLayer.Term> phoneTerms, List<WordLayer.Style> styles) {
             this.phoneTerms = Collections.unmodifiableList(new ArrayList<>(phoneTerms));
+            this.styles = Collections.unmodifiableList(new ArrayList<>(styles));
             this.terms = Collections.unmodifiableList(new ArrayList<>(terms));
             this.corrections = Collections.unmodifiableList(new ArrayList<>(corrections));
             this.issues = Collections.unmodifiableList(new ArrayList<>(issues));
             this.defaults = Collections.unmodifiableMap(new LinkedHashMap<>(defaults));
-            this.id = computeId(this.terms, this.corrections, this.defaults);
+            this.id = computeId(this.terms, this.corrections, this.defaults, this.styles);
         }
 
         int promptChars() {
@@ -254,10 +265,14 @@ final class WordMerge {
         Set<String> styles = new HashSet<>(knownStyles);
         styles.add("raw");
         Map<String, WordLayer.AppRule> apps = new LinkedHashMap<>();
+        LinkedHashMap<String, WordLayer.Style> stylesById = new LinkedHashMap<>();
         for (WordLayer layer : ordered) {
             defaults.putAll(layer.defaults);
             styles.addAll(layer.styleIds);
             apps.putAll(layer.apps);
+            for (WordLayer.Style style : layer.styles) {
+                stylesById.put(style.id, style);
+            }
         }
         Object cleanupStyle = defaults.get("cleanupStyle");
         if (cleanupStyle instanceof String && !styles.contains(cleanupStyle)) {
@@ -292,7 +307,14 @@ final class WordMerge {
                 phoneTerms.addAll(layer.terms);
             }
         }
-        return new Snapshot(terms, accepted, new ArrayList<>(issues), defaults, phoneTerms);
+        // A style whose winning entry has a blank label or prompt is offered nowhere.
+        List<WordLayer.Style> offered = new ArrayList<>();
+        for (WordLayer.Style style : stylesById.values()) {
+            if (!style.label.isEmpty() && !style.prompt.isEmpty()) {
+                offered.add(style);
+            }
+        }
+        return new Snapshot(terms, accepted, new ArrayList<>(issues), defaults, phoneTerms, offered);
     }
 
     /**
@@ -365,7 +387,7 @@ final class WordMerge {
     }
 
     private static String computeId(List<WordLayer.Term> terms, List<WordLayer.Correction> corrections,
-                                    Map<String, Object> defaults) {
+                                    Map<String, Object> defaults, List<WordLayer.Style> styles) {
         StringBuilder canonical = new StringBuilder();
         for (WordLayer.Term t : terms) {
             canonical.append("t\u0001").append(t.id).append('\u0001').append(t.text).append('\u0001')
@@ -380,6 +402,12 @@ final class WordMerge {
         }
         for (Map.Entry<String, Object> e : new java.util.TreeMap<>(defaults).entrySet()) {
             canonical.append("d\u0001").append(e.getKey()).append('\u0001').append(e.getValue()).append('\n');
+        }
+        // 0.9.3: styles only when there are any, so a snapshot without them keeps its id.
+        for (WordLayer.Style s : styles) {
+            canonical.append("s\u0001").append(s.id).append('\u0001').append(s.label).append('\u0001').append(s.prompt)
+                    .append('\u0001').append(s.model).append('\u0001').append(s.expression).append('\u0001')
+                    .append(s.layer).append('\n');
         }
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonical.toString().getBytes(StandardCharsets.UTF_8));
