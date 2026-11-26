@@ -64,4 +64,37 @@ final class KeyboardLayerRules {
         // Opened by hand in a text field: card numbers want a space, codes a dash.
         return new String[]{SPACE, "-", "."};
     }
+
+    private static final String[] DIAL_LETTERS = {"", "", "ABC", "DEF", "GHI", "JKL", "MNO", "PQRS", "TUV", "WXYZ"};
+
+    /**
+     * Whether the number pad's digits carry the phone-dialer letters: in fields
+     * that take numbers alone (number, numeric PIN, phone). A text or date field
+     * whose pad was opened by hand gets plain digits.
+     */
+    static boolean showsDialLetters(int inputType) {
+        int inputClass = inputType & InputType.TYPE_MASK_CLASS;
+        return inputClass == InputType.TYPE_CLASS_NUMBER || inputClass == InputType.TYPE_CLASS_PHONE;
+    }
+
+    /** The letters under a number pad key, as on a phone dialer: "ABC" for 2, empty for 0, 1 and the rest. */
+    static String dialLetters(String key, int inputType) {
+        if (!showsDialLetters(inputType) || key.length() != 1) {
+            return "";
+        }
+        char digit = key.charAt(0);
+        return digit >= '0' && digit <= '9' ? DIAL_LETTERS[digit - '0'] : "";
+    }
+
+    /** What a screen reader says for a dialer digit: "2, A B C", or just the digit. */
+    static String dialDescription(String digit, String letters) {
+        if (letters.isEmpty()) {
+            return digit;
+        }
+        StringBuilder spoken = new StringBuilder(digit).append(',');
+        for (int i = 0; i < letters.length(); i++) {
+            spoken.append(' ').append(letters.charAt(i));
+        }
+        return spoken.toString();
+    }
 }

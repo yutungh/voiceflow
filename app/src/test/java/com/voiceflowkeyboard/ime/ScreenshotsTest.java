@@ -287,6 +287,44 @@ public class ScreenshotsTest {
         shootKeyboard("keyboard-symbols");
     }
 
+    /** Moves the keyboard to a new field of the given type, as tapping into it does. */
+    private void startField(int inputType) {
+        EditorInfo info = new EditorInfo();
+        info.inputType = inputType;
+        info.packageName = "com.example.bank";
+        info.fieldId = 8;
+        service.editor = info;
+        service.onStartInput(info, false);
+        service.onStartInputView(info, false);
+        idle();
+    }
+
+    /** A PIN field: the dialer letters under 2-9 (0.9.3). */
+    @Test public void keyboardNumpadPin() throws Exception {
+        startKeyboard();
+        startField(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        shootKeyboard("keyboard-numpad-pin");
+    }
+
+    @Test public void keyboardNumpadPhone() throws Exception {
+        startKeyboard();
+        startField(InputType.TYPE_CLASS_PHONE);
+        shootKeyboard("keyboard-numpad-phone");
+    }
+
+    /** The PIN pad with the largest system text size: the letters shrink with the digit to fit. */
+    @Test public void keyboardNumpadPinLargeText() throws Exception {
+        assumeFalse("screenshots run with -PvfShots=<dir>", DIR.isEmpty());
+        RuntimeEnvironment.setFontScale(2f);
+        try {
+            startKeyboard();
+            startField(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+            shootKeyboard("keyboard-numpad-pin-large-text");
+        } finally {
+            RuntimeEnvironment.setFontScale(1f);
+        }
+    }
+
     // ------------------------------------------------- nine-key pinyin (0.8.7)
 
     /** Chinese on, the nine-key layout chosen, its dictionary loaded. */
