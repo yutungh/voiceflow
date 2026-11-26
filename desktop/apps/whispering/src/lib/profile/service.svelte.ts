@@ -17,6 +17,9 @@ import { setProfilePrivacy } from '$lib/privacy/profile-blocklist';
 import { effectiveSnapshot, profileOverlay } from './ownership';
 import { createPins } from './pins';
 import type {
+	GithubConnectState,
+	GithubLinks,
+	GithubRepoChoice,
 	GithubTestReport,
 	ProfileConfig,
 	ProfileSnapshot,
@@ -116,6 +119,27 @@ export const wordLists = {
 		token: string;
 	}): Promise<GithubTestReport> {
 		return invoke<GithubTestReport>('profile_github_test', args);
+	},
+	/**
+	 * 0.9.20 Connect GitHub: asks GitHub for a code to show. The app waits
+	 * for it to be entered on github.com; read the attempt with
+	 * `connectStatus`. The device code and the tokens never reach the page.
+	 */
+	async connectStart(): Promise<GithubConnectState> {
+		return invoke<GithubConnectState>('github_connect_start');
+	},
+	async connectStatus(id: number): Promise<GithubConnectState | null> {
+		return invoke<GithubConnectState | null>('github_connect_status', { id });
+	},
+	async connectCancel(id: number): Promise<void> {
+		await invoke('github_connect_cancel', { id });
+	},
+	/** The repositories the connected GitHub App reaches. */
+	async listRepos(): Promise<GithubRepoChoice[]> {
+		return invoke<GithubRepoChoice[]>('github_list_repos');
+	},
+	async githubLinks(): Promise<GithubLinks> {
+		return invoke<GithubLinks>('github_links');
 	},
 	/** An edit file was saved: merge it now and upload it in the background. */
 	async editsChanged(): Promise<void> {

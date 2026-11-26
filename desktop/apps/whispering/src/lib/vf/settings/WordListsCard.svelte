@@ -3,7 +3,7 @@
 	import { untrack } from 'svelte';
 	import { deviceId } from '$lib/profile/op-store';
 	import { wordLists } from '$lib/profile/service.svelte';
-	import type { GithubTestReport } from '$lib/profile/types';
+	import type { GithubConnectState, GithubLinks, GithubRepoChoice, GithubTestReport } from '$lib/profile/types';
 	import Icon from '$lib/vf/Icon.svelte';
 	import { syncSummary } from '$lib/vf/word-lists';
 
@@ -14,11 +14,18 @@
 	 * manages the "from notes" list. Device settings, kept by the profile
 	 * service in the app's data folder; the GitHub token is kept in the OS
 	 * credential store and never comes back to this page.
+	 *
+	 * 0.9.20: Connect GitHub signs the computer in to the VoiceFlow GitHub
+	 * App (device flow): this page shows the code and a link, then a list of
+	 * the repositories the app is installed on. A pasted token stays as an
+	 * Advanced choice; whichever was set last is used.
 	 */
 
 	const isDesktop = !!window.__TAURI_INTERNALS__;
 	const current = $derived(wordLists.state?.config);
 	const tokenStored = $derived(!!wordLists.state?.githubToken);
+	// 0.9.20: '' | 'app' (Connect GitHub) | 'pat' (a pasted token) | 'reconnect'.
+	const auth = $derived(wordLists.state?.githubAuth ?? (tokenStored ? 'pat' : ''));
 	const summary = $derived(syncSummary(wordLists.state));
 
 	let enabled = $state(untrack(() => current?.enabled ?? false));
@@ -120,6 +127,99 @@
 		}
 	}
 
+	// ---- 0.9.20 Connect GitHub (the device flow runs in the app; this page
+	// only shows the code and reads how the attempt is going).
+	let attempt = $state<GithubConnectState | null>(null);
+	let starting = $state(false);
+	let copied = $state(false);
+	let connectError = $state<string | null>(null);
+	let repos = $state<GithubRepoChoice[] | null>(null);
+	let reposError = $state<string | null>(null);
+	let loadingRepos = $state(false);
+	let links = $state<GithubLinks | null>(null);
+	let timer: ReturnType<typeof setInterval> | undefined;
+
+	$effect(() => {
+		if (isDesktop) void wordLists.githubLinks().then((l) => (links = l)).catch(() => {});
+		return () => clearInterval(timer);
+	});
+
+	async function startConnect() {
+		connectError = null;
+		starting = true;
+		try {
+			attempt = await wordLists.connectStart();
+			clearInterval(timer);
+			timer = setInterval(watchAttempt, 1500);
+		} catch (err) {
+			connectError = err instanceof Error ? err.message : String(err);
+		} finally {
+			starting = false;
+		}
+	}
+
+	async function watchAttempt() {
+		if (!attempt) return clearInterval(timer);
+		const now = await wordLists.connectStatus(attempt.id).catch(() => null);
+		if (!now || now.state === 'waiting') return;
+		clearInterval(timer);
+		attempt = null;
+		if (now.state === 'connected') {
+			await loadRepos();
+		} else if (now.state !== 'cancelled') {
+			connectError = now.message ?? 'Connecting to GitHub didn’t finish. Try again.';
+		}
+	}
+
+	async function cancelConnect() {
+		if (attempt) await wordLists.connectCancel(attempt.id).catch(() => {});
+		clearInterval(timer);
+		attempt = null;
+	}
+
+	async function copyCode() {
+		if (!attempt) return;
+		try {
+			await navigator.clipboard.writeText(attempt.userCode);
+			copied = true;
+			setTimeout(() => (copied = false), 2000);
+		} catch {
+			// The code is on screen to type.
+		}
+	}
+
+	async function loadRepos() {
+		reposError = null;
+		loadingRepos = true;
+		try {
+			repos = await wordLists.listRepos();
+			// The one repository there is: chosen for you.
+			const only = repos.length === 1 ? repos[0] : undefined;
+			if (only && !repo.trim()) pick(only);
+		} catch (err) {
+			repos = null;
+			reposError = err instanceof Error ? err.message : String(err);
+		} finally {
+			loadingRepos = false;
+		}
+	}
+
+	function pick(r: GithubRepoChoice) {
+		repo = r.fullName;
+		branch = r.defaultBranch || 'main';
+		test = null;
+	}
+
+	async function disconnect() {
+		error = null;
+		try {
+			await wordLists.setGithubToken('');
+			repos = null;
+		} catch (err) {
+			error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
 	async function removeToken() {
 		error = null;
 		try {
@@ -180,24 +280,88 @@
 					spellcheck="false"
 				/>
 			{:else}
+				<span class="lbl">GitHub</span>
+				{#if auth === 'app' && !attempt}
+					<div class="srow tight">
+						<div><b>Connected to GitHub</b><span>Through the VoiceFlow Word Lists app: nothing to copy or renew</span></div>
+						<button class="btn text" type="button" onclick={disconnect}>Disconnect</button>
+					</div>
+				{:else if attempt}
+					<div class="connect" role="status">
+						<span class="sub small">Enter this code on GitHub, then approve <b>VoiceFlow Word Lists</b>:</span>
+						<div class="code" aria-label="Code to enter on GitHub">{attempt.userCode}</div>
+						<div class="acts">
+							<button class="btn text" type="button" onclick={copyCode}><Icon name="copy" /><span>{copied ? 'Copied' : 'Copy code'}</span></button>
+							<a class="btn pri" href={attempt.verificationUri} target="_blank" rel="noreferrer">Open GitHub</a>
+							<button class="btn text" type="button" onclick={cancelConnect}>Cancel</button>
+						</div>
+						<span class="sub small">Waiting for GitHub… This updates by itself. The code works for 15 minutes.</span>
+					</div>
+				{:else}
+					{#if auth === 'reconnect'}
+						<p class="err" role="alert"><Icon name="warning-circle" weight="fill" class="i sm" />VoiceFlow’s connection to GitHub has ended. Connect again to keep your word lists up to date.</p>
+					{/if}
+					<div class="acts">
+						<button class="btn pri" type="button" onclick={startConnect} disabled={starting}>
+							{starting ? 'Asking GitHub…' : auth === 'reconnect' ? 'Connect GitHub again' : 'Connect GitHub'}
+						</button>
+					</div>
+					<span class="sub small">Signs this computer in to GitHub with the VoiceFlow Word Lists app. No token to make or paste.</span>
+				{/if}
+				{#if connectError}
+					<p class="err" role="alert"><Icon name="warning-circle" weight="fill" class="i sm" />{connectError}</p>
+				{/if}
 				<label for="wl-repo">Repository</label>
-				<input id="wl-repo" class="inp" bind:value={repo} placeholder="your-name/voiceflow-words" autocomplete="off" spellcheck="false" />
+				<div class="row">
+					<input id="wl-repo" class="inp grow" bind:value={repo} placeholder="your-name/voiceflow-words" autocomplete="off" spellcheck="false" />
+					{#if auth === 'app'}
+						<button class="btn text" type="button" onclick={loadRepos} disabled={loadingRepos}>{loadingRepos ? 'Loading…' : 'Choose'}</button>
+					{/if}
+				</div>
+				{#if reposError}
+					<p class="err" role="alert"><Icon name="warning-circle" weight="fill" class="i sm" />{reposError}</p>
+				{:else if repos && repos.length === 0}
+					<div class="test bad" role="status">
+						<p><Icon name="warning-circle" weight="fill" class="i sm" />VoiceFlow Word Lists isn’t installed on any of your repositories yet.</p>
+						<p>
+							<a href={links?.installUrl} target="_blank" rel="noreferrer">Install it on your word-list repository</a>
+							(choose <b>Only select repositories</b>), then <button class="link" type="button" onclick={loadRepos}>check again</button>.
+						</p>
+						<p class="sub small">Someone else’s repository: its owner installs the app there and adds you to the repository.</p>
+					</div>
+				{:else if repos}
+					<div class="pick" role="listbox" aria-label="Your repositories">
+						{#each repos as r (r.fullName)}
+							<button type="button" role="option" aria-selected={repo === r.fullName} class:on={repo === r.fullName} onclick={() => pick(r)}>
+								<span>{r.fullName}</span>
+								<span class="chip" class:pub={!r.private}>{r.private ? 'Private' : 'Public'}</span>
+							</button>
+						{/each}
+						<span class="sub small">Not in the list? <a href={links?.installUrl} target="_blank" rel="noreferrer">Add it to the app on GitHub</a>, then press Choose again.</span>
+					</div>
+				{/if}
 				<label for="wl-branch">Branch</label>
 				<input id="wl-branch" class="inp" bind:value={branch} placeholder="main" autocomplete="off" spellcheck="false" />
-				<label for="wl-token">Access token</label>
-				<input
-					id="wl-token"
-					class="inp"
-					type="password"
-					bind:value={token}
-					placeholder={tokenStored ? 'Stored on this computer (type a new one to replace it)' : 'github_pat_…'}
-					autocomplete="off"
-					spellcheck="false"
-				/>
-				<span class="sub small">
-					A fine-grained token for this one repository, with Contents read and write. It is kept in this computer’s
-					credential store, never in a file. <a href="https://github.com/yutungh/voiceflow/blob/main/docs/GITHUB-SYNC.md#2-make-an-access-token-for-each-device" target="_blank" rel="noreferrer">How to make one</a>
-				</span>
+				<details class="adv" open={auth === 'pat'}>
+					<summary>Advanced: use an access token instead</summary>
+					<label for="wl-token">Access token</label>
+					<input
+						id="wl-token"
+						class="inp"
+						type="password"
+						bind:value={token}
+						placeholder={auth === 'pat' ? 'Stored on this computer (type a new one to replace it)' : 'github_pat_…'}
+						autocomplete="off"
+						spellcheck="false"
+					/>
+					<span class="sub small">
+						A fine-grained token for this one repository, with Contents read and write. Saving it replaces a GitHub
+						connection. It is kept in this computer’s credential store, never in a file. <a href="https://github.com/yutungh/voiceflow/blob/main/docs/GITHUB-SYNC.md#advanced-use-an-access-token-instead" target="_blank" rel="noreferrer">How to make one</a>
+					</span>
+					{#if auth === 'pat'}
+						<div class="acts"><button class="btn text" type="button" onclick={removeToken}>Remove token</button></div>
+					{/if}
+				</details>
 				<div class="srow tight">
 					<div><b>Upload this computer’s changes</b><span>Words and spellings you fix here, and this computer’s status</span></div>
 					<Switch checked={upload} onCheckedChange={(on) => (upload = on)} aria-label="Upload this computer’s changes" />
@@ -206,8 +370,8 @@
 					<button class="btn text" type="button" onclick={testConnection} disabled={testing || !repo.trim() || (!token.trim() && !tokenStored)}>
 						<Icon name="shield-check" /><span>{testing ? 'Testing…' : 'Test connection'}</span>
 					</button>
-					{#if tokenStored}
-						<button class="btn text" type="button" onclick={removeToken}>Remove token</button>
+					{#if auth === 'app'}
+						<a class="btn text" href={links?.authorizationsUrl} target="_blank" rel="noreferrer">Manage on GitHub</a>
 					{/if}
 				</div>
 				{#if testError}
@@ -326,5 +490,84 @@
 	.test ul {
 		margin: 4px 0 0 18px;
 		padding: 0;
+	}
+	.connect {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		padding: 10px 12px;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+	}
+	.connect .acts {
+		margin-top: 2px;
+	}
+	.code {
+		font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+		font-size: 26px;
+		font-weight: 700;
+		letter-spacing: 0.12em;
+		user-select: all;
+	}
+	.row {
+		display: flex;
+		gap: 8px;
+		align-items: center;
+	}
+	.row .grow {
+		flex: 1;
+		min-width: 0;
+	}
+	.pick {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		margin-top: 4px;
+		max-height: 220px;
+		overflow-y: auto;
+	}
+	.pick button {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 8px;
+		padding: 6px 10px;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		background: transparent;
+		color: var(--foreground);
+		text-align: left;
+		cursor: pointer;
+	}
+	.pick button.on {
+		border-color: var(--primary);
+	}
+	.chip {
+		font-size: 11px;
+		padding: 1px 6px;
+		border-radius: 999px;
+		border: 1px solid var(--border);
+		color: var(--subtle-foreground);
+	}
+	.chip.pub {
+		color: var(--warning, #b7791f);
+		border-color: var(--warning, #b7791f);
+	}
+	.adv {
+		margin-top: 8px;
+	}
+	.adv summary {
+		cursor: pointer;
+		font-size: 13px;
+		color: var(--subtle-foreground);
+	}
+	.link {
+		background: none;
+		border: 0;
+		padding: 0;
+		color: var(--primary);
+		text-decoration: underline;
+		cursor: pointer;
+		font: inherit;
 	}
 </style>

@@ -161,4 +161,35 @@ export type ProfileState = {
 	};
 	/** 0.9.19: a GitHub token is stored on this computer (never sent here). */
 	githubToken?: boolean;
+	/**
+	 * 0.9.20: how this computer reaches GitHub: '' (not set up), 'app'
+	 * (Connect GitHub), 'pat' (a pasted token) or 'reconnect' (the
+	 * connection ended).
+	 */
+	githubAuth?: '' | 'app' | 'pat' | 'reconnect';
+};
+
+/** 0.9.20: one Connect GitHub attempt (no device code, no token). */
+export type GithubConnectState = {
+	id: number;
+	state: 'waiting' | 'connected' | 'expired' | 'denied' | 'cancelled' | 'failed';
+	userCode: string;
+	verificationUri: string;
+	/** Unix seconds. */
+	expiresAt: number;
+	message?: string;
+};
+
+/** 0.9.20: a repository the connected GitHub App can use. */
+export type GithubRepoChoice = {
+	fullName: string;
+	private: boolean;
+	defaultBranch: string;
+};
+
+/** 0.9.20: the VoiceFlow GitHub App's pages. */
+export type GithubLinks = {
+	installUrl: string;
+	authorizationsUrl: string;
+	deviceUrl: string;
 };
