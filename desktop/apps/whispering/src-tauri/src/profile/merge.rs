@@ -527,8 +527,28 @@ pub fn merge(user: &str, layers: &[(Layer, Option<&ProfileFile>)], ops: &[Op]) -
     // VoiceFlow phase F: app-style edits (approved feedback fixes) set the
     // app rule's style and/or expression over the word lists', oldest first,
     // field by field. The checks below cover them like any other rule.
+    //
+    // 0.9.21 (Settings > Tidy-up > Style for each app): the merged rule also
+    // says which edits are in force for the app (`editIds`, oldest first: all
+    // of them, so removing the app's setting can retire every one, cached
+    // edits from other devices included) and what the word lists' own rule
+    // was under them (`listsRule`, null when they have none), so the app can
+    // say what removing the setting brings back. `editId` stays the newest.
+    let mut lists_rules: BTreeMap<String, Value> = BTreeMap::new();
     for op in &live {
         if let OpBody::AppStyle { app, style, expression } = &op.body {
+            if !lists_rules.contains_key(app) {
+                let under = apps.get(app).map_or(Value::Null, |rule| {
+                    let mut kept = serde_json::Map::new();
+                    for key in ["style", "expression"] {
+                        if let Some(value) = rule.get(key) {
+                            kept.insert(key.into(), value.clone());
+                        }
+                    }
+                    Value::Object(kept)
+                });
+                lists_rules.insert(app.clone(), under);
+            }
             let entry = apps
                 .entry(app.clone())
                 .or_insert_with(|| serde_json::json!({ "id": app }));
@@ -540,7 +560,16 @@ pub fn merge(user: &str, layers: &[(Layer, Option<&ProfileFile>)], ops: &[Op]) -
                     map.insert("expression".into(), Value::from(*expression));
                 }
                 map.insert("editId".into(), Value::String(op.id.clone()));
+                let ids = map.entry("editIds").or_insert_with(|| Value::Array(Vec::new()));
+                if let Value::Array(ids) = ids {
+                    ids.push(Value::String(op.id.clone()));
+                }
             }
+        }
+    }
+    for (app, under) in lists_rules {
+        if let Some(Value::Object(map)) = apps.get_mut(&app) {
+            map.insert("listsRule".into(), under);
         }
     }
     if let Some(style) = defaults.cleanup_style.clone() {
@@ -572,7 +601,9 @@ pub fn merge(user: &str, layers: &[(Layer, Option<&ProfileFile>)], ops: &[Op]) -
             }
         }
         if let Some(style) = app.get("style").and_then(Value::as_str) {
-            if style != "raw" && !styles.contains_key(style) {
+            // 0.9.21: a built-in style or one made on this PC is a style
+            // the app has, not a missing one (`device_style_ref`).
+            if style != "raw" && !styles.contains_key(style) && !device_style_ref(style) {
                 issues.push(issue(
                     "missing-style",
                     format!("App rule “{id}” uses a style that doesn't exist ({style})."),
@@ -698,6 +729,54 @@ fn apply_style_patch(s: &mut MergedStyle, p: &StylePatch) {
 }
 
 /// FNV-1a 64 over the merged content (issues excluded): same content, same id.
+/// VoiceFlow 0.9.21: the built-in styles an app rule may name by their fixed
+/// ids (`vf-builtin-<key>`; the same list as `BUILT_IN_STYLE_REFS` in
+/// `src/lib/profile/style-refs.ts`, and a test there checks this one).
+pub const BUILTIN_STYLE_REFS: &[&str] = &[
+    "vf-builtin-clean",
+    "vf-builtin-ai-prompt",
+    "vf-builtin-email",
+    "vf-builtin-work-chat",
+    "vf-builtin-notes",
+    "vf-builtin-concise",
+    "vf-builtin-friends",
+    "vf-builtin-work",
+    "vf-builtin-family",
+    "vf-builtin-partner",
+];
+
+/// VoiceFlow 0.9.21: whether an app rule's style names a style kept on the
+/// device rather than in the word lists: an exact built-in id, or a style
+/// made on a PC (`vf-pc-` and the style's id, each capital letter written
+/// as `.` and its lower case: `encodePcStyleRef` in `style-refs.ts`). Only a
+/// reference that decodes canonically counts, so a broken one is still
+/// reported as missing.
+pub fn device_style_ref(style: &str) -> bool {
+    if BUILTIN_STYLE_REFS.contains(&style) {
+        return true;
+    }
+    let Some(body) = style.strip_prefix("vf-pc-") else {
+        return false;
+    };
+    let bytes = body.as_bytes();
+    let mut decoded = 0usize;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'.' => {
+                if !bytes.get(i + 1).is_some_and(u8::is_ascii_lowercase) {
+                    return false;
+                }
+                i += 2;
+            }
+            b if b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_' || b == b'-' => i += 1,
+            _ => return false,
+        }
+        decoded += 1;
+    }
+    (1..=40).contains(&decoded)
+}
+
 pub fn snapshot_id(s: &Snapshot) -> String {
     let content = serde_json::json!({
         "user": s.user,
@@ -982,6 +1061,46 @@ mod tests {
         let snap = merge("tester", &[(Layer::Personal, Some(&personal))], &[less, undo]);
         let kite = snap.apps.iter().find(|a| a["id"] == "kite.exe").unwrap();
         assert!(kite.get("expression").is_none());
+    }
+
+    #[test]
+    fn app_style_edits_list_every_edit_and_the_lists_rule_under_them() {
+        let personal = file(
+            Layer::Personal,
+            "tester",
+            r#""styles":[{"id":"work","label":"Work","prompt":"p"}],"apps":[{"id":"kite.exe","style":"work","expression":1}]"#,
+        );
+        let a = op("a", "2026-01-01T00:00:00Z", r#""type":"app-style","app":"kite.exe","style":"vf-builtin-friends""#);
+        let b = op("b", "2026-01-02T00:00:00Z", r#""type":"app-style","app":"kite.exe","expression":3"#);
+        let c = op("c", "2026-01-03T00:00:00Z", r#""type":"app-style","app":"telegram.exe","style":"vf-pc-.v1.st.g_x"#);
+        let snap = merge("tester", &[(Layer::Personal, Some(&personal))], &[a, b, c]);
+        let rule = |id: &str| snap.apps.iter().find(|r| r["id"] == id).cloned().unwrap();
+        let kite = rule("kite.exe");
+        assert_eq!(kite["style"], "vf-builtin-friends");
+        assert_eq!(kite["expression"], 3);
+        assert_eq!(kite["editId"], "dev1-b");
+        assert_eq!(kite["editIds"], serde_json::json!(["dev1-a", "dev1-b"]));
+        assert_eq!(kite["listsRule"], serde_json::json!({ "style": "work", "expression": 1 }));
+        assert_eq!(rule("telegram.exe")["listsRule"], Value::Null, "no word-list rule under it");
+        // Built-in and this-PC references are styles the app has: no issue.
+        assert!(!snap.issues.iter().any(|i| i.code == "missing-style"), "{:?}", snap.issues);
+        // A rule with no edits has neither field.
+        let plain = merge("tester", &[(Layer::Personal, Some(&personal))], &[]);
+        assert!(plain.apps[0].get("editIds").is_none() && plain.apps[0].get("listsRule").is_none());
+    }
+
+    #[test]
+    fn device_style_refs_must_decode_canonically() {
+        assert!(device_style_ref("vf-builtin-friends"));
+        assert!(!device_style_ref("vf-builtin-pirate"), "not a built-in");
+        assert!(device_style_ref("vf-pc-.v1.st.g.x.r8_.z5jd.hi6.b-my.t"));
+        assert!(device_style_ref("vf-pc-abc"));
+        assert!(!device_style_ref("vf-pc-"), "empty");
+        assert!(!device_style_ref("vf-pc-ab."), "dangling escape");
+        assert!(!device_style_ref("vf-pc-a.1"), "escape of a digit");
+        assert!(!device_style_ref("vf-pc-a..b"));
+        assert!(!device_style_ref(&format!("vf-pc-{}", "a".repeat(41))), "too long");
+        assert!(!device_style_ref("friends"));
     }
 
     #[test]

@@ -11,8 +11,9 @@
  *   one never rewrites another's output.
  * - Its consequences are shown: "this would also change: …", from the
  *   person's recent dictations in the same scope.
- * - A style fix is bounded: this app's style (a word-list style or Raw) and
- *   expression (0–4, at most two steps), nothing else.
+ * - A style fix is bounded: this app's style (a word-list style or Raw; from
+ *   0.9.21 also a built-in or another style on this PC) and expression (0–4,
+ *   at most two steps), nothing else.
  *
  * Pure: the caller passes the snapshot, the corrections in force and the
  * recent dictations.
@@ -28,7 +29,9 @@ import {
 	type CorrectionOp,
 } from '../profile/ops';
 import type { ProfileSnapshot } from '$lib/profile/types';
+import { builtInTitle, isDeviceStyleRef, styleRefOf } from '../profile/style-refs';
 import type { Layer, ModelProposal } from './contract';
+import { availableStyles, type DeviceStyleRef } from './prompt';
 import { spellingRefs, type DictationEvidence } from './evidence';
 import { hasWords } from './stage-diff';
 import { buildPrompt } from '../profile/prompt';
@@ -140,6 +143,11 @@ export type ReviewContext = {
 	active: readonly CorrectionOp[];
 	/** App rules from this device's edits (word lists off). */
 	localAppRules?: ReadonlyMap<string, { style?: string; expression?: number }>;
+	/**
+	 * 0.9.21: this PC's styles (the built-ins included), which an app's
+	 * style fix may also name (`styles_available`).
+	 */
+	deviceStyles?: readonly DeviceStyleRef[];
 	/** Recent dictations, newest first (the subject is skipped). */
 	history: readonly HistoryText[];
 	/** v2: what the person said it should have said (their words, the truth). */
@@ -291,9 +299,27 @@ function appRule(
 	return local?.get(app) ?? null;
 }
 
-function styleName(snapshot: ProfileSnapshot | null, id: string): string {
+/**
+ * A style's name by the reference a rule stores: the word lists' label, or
+ * (0.9.21) this PC's style's name, a built-in's as it ships, or the id.
+ */
+function styleName(
+	snapshot: ProfileSnapshot | null,
+	id: string,
+	deviceStyles: readonly DeviceStyleRef[] = [],
+): string {
 	if (id === 'raw') return 'Raw';
-	return snapshot?.styles.find((s) => s.id === id)?.label || id;
+	return (
+		snapshot?.styles.find((s) => s.id === id)?.label ||
+		availableStyles(snapshot, deviceStyles).find((s) => s.id === id)?.name ||
+		builtInTitle(id) ||
+		id
+	);
+}
+
+/** Whether a fix may switch an app to this style: one offered to the model (`availableStyles`). */
+function styleOffered(ctx: Pick<ReviewContext, 'snapshot' | 'deviceStyles'>, id: string): boolean {
+	return availableStyles(ctx.snapshot, ctx.deviceStyles ?? []).some((s) => s.id === id);
 }
 
 function reviewStyle(
@@ -305,18 +331,16 @@ function reviewStyle(
 	const app = ruleAppOf(evidence) ?? '';
 	if (!app)
 		return { reason: 'A style change needs to know the app, and this dictation’s app isn’t known.' };
-	const current = evidence.styleId?.startsWith('profile:')
-		? evidence.styleId.slice('profile:'.length)
-		: evidence.styleId === 'raw'
-			? 'raw'
-			: null;
+	// 0.9.21: a built-in or PC style is current too, by its reference.
+	const current = styleRefOf(evidence.styleId);
 	let style: StyleFix['style'] = null;
 	if (p.styleId) {
-		if (!snapshot)
-			return { reason: 'Switching an app’s style needs word lists, so that suggestion was left out.' };
-		if (p.styleId !== 'raw' && !snapshot.styles.some((s) => s.id === p.styleId))
+		// 0.9.21: a word-list style, a built-in or another style on this PC,
+		// or Raw; with word lists off too (the edit is kept on this PC).
+		if (!styleOffered(ctx, p.styleId))
 			return { reason: 'A suggested style isn’t one of yours, so it was left out.' };
-		if (p.styleId !== current) style = { id: p.styleId, name: styleName(snapshot, p.styleId) };
+		if (p.styleId !== current)
+			style = { id: p.styleId, name: styleName(snapshot, p.styleId, ctx.deviceStyles) };
 	}
 	let expression: StyleFix['expression'] = null;
 	const target = style?.id ?? current;
@@ -346,7 +370,7 @@ function reviewStyle(
 	const rule = appRule(snapshot, ctx.localAppRules, app);
 	const replaces =
 		rule && (rule.style !== undefined || rule.expression !== undefined)
-			? `Replaces the current rule for ${appName}${rule.style ? ` (${styleName(snapshot, rule.style)} style)` : ''}.`
+			? `Replaces the current rule for ${appName}${rule.style ? ` (${styleName(snapshot, rule.style, ctx.deviceStyles)} style)` : ''}.`
 			: null;
 	return {
 		kind: 'style',
@@ -691,12 +715,20 @@ export function checkSelection(
 		if (fix.kind === 'style') {
 			styles += 1;
 			if (styles > 1) return { ok: false, key: sel.key, message: 'Choose one style change at a time.' };
+			// 0.9.21: a built-in or PC style must still be on this PC.
 			if (
 				fix.style &&
 				fix.style.id !== 'raw' &&
-				!ctx.snapshot?.styles.some((s) => s.id === fix.style?.id)
+				!ctx.snapshot?.styles.some((s) => s.id === fix.style?.id) &&
+				!styleOffered(ctx, fix.style.id)
 			)
-				return { ok: false, key: sel.key, message: `The ${fix.style.name} style is no longer in your word lists.` };
+				return {
+					ok: false,
+					key: sel.key,
+					message: isDeviceStyleRef(fix.style.id)
+						? `The ${fix.style.name} style is no longer on this PC.`
+						: `The ${fix.style.name} style is no longer in your word lists.`,
+				};
 			continue;
 		}
 		if (fix.kind === 'unspell') {

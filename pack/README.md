@@ -85,7 +85,7 @@ A later layer wins:
 |---|---|---|
 | `correction` | `from[]`, `to`, `scope.apps[]`, `note?` | Always write these heard forms this way |
 | `term` | `term: {text, heardAs?, kind?, gloss?, priority?, apps?}` | A word to listen for (hint only) |
-| `app-style` | `app`, `style?`, `expression?` (0–4) | For this app, use this style and/or expression level (an approved feedback fix). Sets the app rule's fields over the layers'; at least one of the two. App ids are native to each platform (`telegram.exe`, a macOS bundle id, an Android package name) |
+| `app-style` | `app`, `style?`, `expression?` (0–4) | For this app, use this style and/or expression level (an approved feedback fix, or from VoiceFlow Desktop 0.9.21 Settings > Tidy-up > Style for each app). Sets the app rule's fields over the layers'; at least one of the two. App ids are native to each platform (`telegram.exe`, a macOS bundle id, an Android package name). The style is a reference, see [Style references](#style-references-in-app-rules) |
 | `style-set` | `style`, `set: {…}` | Some fields of one style: `label`, `prompt`, `model`, `models`, `expression`, `expressionOverride`, `icon`, `kind`, `guidance`, `hidden`, `note` (as in a v2 layer file). Field by field the newest edit wins, so an expression change on a phone never overwrites a prompt edit on the PC. `null` clears an optional field; `label` and `prompt` can't be cleared. A style no layer has is made by its edits once they give it a label and a prompt (until then: `style-incomplete`). Written only once every device reads it ([Versions](#versions-readers-before-writers)) |
 | `default-set` | `set: {cleanupStyle?, pinnedStyles?}` | The default style (`raw` for none) and the pinned styles, over the layers; the newest edit wins each. `null` takes the edits' value away, so the layers' applies again. Same rule for writing as `style-set` |
 | `tombstone` | `target` | Remove the edit with this id |
@@ -125,6 +125,19 @@ A client that doesn't know a `type` skips that file. Edits are the user's own (t
 | `privacy` | `blockApps[]` (app ids never recorded in or pasted into), `titleDenyRe[]` (window-title patterns for sensitive pages: case-insensitive, Rust `regex` syntax, matched on the device only) |
 | `apps[]` | `{id, style?, expression? (0–4), terms[]?}`: per-app rules. `id` is the app id; `style` is the starting style for dictations into that app, `expression` its starting level; `terms` is reserved |
 
+## Style references in app rules
+
+An app rule's `style` (in a layer's `apps[]` or an `app-style` edit) names the style a dictation into that app starts in. It is an id in the usual format (`^[a-z0-9][a-z0-9._-]{0,99}$`), looked up in this order:
+
+1. a style in the merged word lists with that id;
+2. `raw`: no tidy-up;
+3. a built-in style by its fixed id, `vf-builtin-<key>`: `vf-builtin-clean`, `vf-builtin-ai-prompt`, `vf-builtin-email`, `vf-builtin-work-chat`, `vf-builtin-notes`, `vf-builtin-concise`, `vf-builtin-friends`, `vf-builtin-work`, `vf-builtin-family`, `vf-builtin-partner` (VoiceFlow Desktop 0.9.21). `<key>` is the pack id for a style in [`builtin/styles.json`](builtin/styles.json) (`clean`);
+4. a style made on a PC: `vf-pc-` and the style's own id, each capital letter written as `.` and its lower case (a style `aB3` is `vf-pc-a.b3`). It names a style on the device that reads it; a device without it starts in the default style.
+
+A built-in or PC reference that the reading device doesn't have is not an error: that device uses its default style. VoiceFlow Desktop reports neither form as `missing-style`.
+
+The precedence when a dictation starts: a style picked on the bar for that dictation, then the app's rule (the person's own `app-style` edits over the layers' `apps[]` rule, field by field), then the default style.
+
 ## Versions: readers before writers
 
 Every app refuses a whole file, and skips a whole edit, it can't read. So a new field or edit type is rolled out **readers first**: nothing writes it until every device that reads the folder can read it.
@@ -133,7 +146,8 @@ Every app refuses a whole file, and skips a whole edit, it can't read. So a new 
 |---|---|---|
 | `voiceflow-profile` v2 (the style fields marked v2 above, `defaults.pinnedStyles`) | VoiceFlow Desktop 0.9.13 | Nobody yet. A person or assistant may write a v2 file only once every device of every user who reads that file reports `reads.profile` containing 2 |
 | `style-set`, `default-set` edits | VoiceFlow Desktop 0.9.13 | Nobody yet. The apps start writing them only once every device of the user reports both in `reads.op`; until then VoiceFlow Desktop keeps any it finds on the device to itself (`edit-held`) and never uploads it |
-| `app-style` edits, `apps[].expression` | VoiceFlow Desktop 0.9.7 and later; not Android 0.8.2 (it refuses what it does not know) | VoiceFlow Desktop makes them (approved feedback fixes). From 0.9.13 such an edit works on the PC that made it and is uploaded only once every device of the user reports `app-style` in `reads.op`; edits already on the share from 0.9.7 to 0.9.12 stay there |
+| `app-style` edits, `apps[].expression` | VoiceFlow Desktop 0.9.7 and later; not Android 0.8.2 (it refuses what it does not know) | VoiceFlow Desktop makes them (approved feedback fixes; from 0.9.21 also Settings > Tidy-up > Style for each app). From 0.9.13 such an edit works on the PC that made it and is uploaded only once every device of the user reports `app-style` in `reads.op`; edits already on the share from 0.9.7 to 0.9.12 stay there. Tombstones are uploaded as before, so a removed setting's tombstone can reach the share while the edit it removes stays on the PC |
+| Built-in and PC style references in an app rule (`vf-builtin-…`, `vf-pc-…`) | VoiceFlow Desktop 0.9.21 | VoiceFlow Desktop 0.9.21 writes them in `app-style` edits, which stay on the PC. Before `app-style` edits are ever uploaded, every reading device must understand both reference forms, not only report `app-style`: an older reader treats them as a style it doesn't have and starts in the default |
 
 - A file that uses a v2 field must say `"schemaVersion": 2`; a v1 file with one is refused (an older app would refuse it too, so the mistake shows up on the newest device first). A file that needs none stays v1.
 - Each device's status file says what it reads (`reads`, below). A status without `reads` (an app from before 0.9.13, or a phone) counts as reading profile v1 and the edit types `correction`, `term` and `tombstone` only. No status at all proves nothing, so the answer is "not yet".

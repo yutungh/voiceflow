@@ -75,7 +75,11 @@ export type AppStyleOp = OpBase & {
 	type: 'app-style';
 	/** Lower-case app id (exe name or bundle id). */
 	app: string;
-	/** A word-list style id, or `raw`. */
+	/**
+	 * A word-list style id, or `raw`; from 0.9.21 also a built-in
+	 * (`vf-builtin-<key>`) or a style made on a PC (`vf-pc-…`): see
+	 * `style-refs.ts`.
+	 */
 	style?: string;
 	/** 0–4. */
 	expression?: number;
@@ -229,20 +233,32 @@ export function activeCorrections(ops: readonly ProfileOp[]): CorrectionOp[] {
  */
 export function activeAppStyles(
 	ops: readonly ProfileOp[],
-): Map<string, { style?: string; expression?: number; editId: string }> {
-	const removed = removedIds(ops);
-	const rules = new Map<string, { style?: string; expression?: number; editId: string }>();
-	const live = ops
-		.filter((op): op is AppStyleOp => op.type === 'app-style' && !removed.has(op.id))
-		.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-	for (const op of live) {
-		const rule = rules.get(op.app) ?? { editId: op.id };
+): Map<string, LocalAppRule> {
+	const rules = new Map<string, LocalAppRule>();
+	for (const op of liveAppStyleOps(ops)) {
+		const rule = rules.get(op.app) ?? { editId: op.id, editIds: [] };
 		if (op.style !== undefined) rule.style = op.style;
 		if (op.expression !== undefined) rule.expression = op.expression;
 		rule.editId = op.id;
+		rule.editIds.push(op.id);
 		rules.set(op.app, rule);
 	}
 	return rules;
+}
+
+/** An app rule from this device's edits; `editIds` are all of them, oldest first. */
+export type LocalAppRule = { style?: string; expression?: number; editId: string; editIds: string[] };
+
+/** The app-style edits in force, oldest first (one app, or every app). */
+export function liveAppStyleOps(ops: readonly ProfileOp[], app?: string): AppStyleOp[] {
+	const removed = removedIds(ops);
+	const want = app?.toLowerCase();
+	return ops
+		.filter(
+			(op): op is AppStyleOp =>
+				op.type === 'app-style' && !removed.has(op.id) && (want === undefined || op.app === want),
+		)
+		.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
 function appliesTo(op: CorrectionOp, appId: string | null | undefined) {

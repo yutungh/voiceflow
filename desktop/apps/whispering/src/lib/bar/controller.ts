@@ -66,6 +66,8 @@ export type BarHandlers = {
 const machine = createBarMachine();
 let handlers: BarHandlers | null = null;
 let styleCache: BarStyleOption[] = [];
+/** 0.9.21: true once this PC's styles were read (until then an app's built-in keeps its id). */
+let stylesLoaded = false;
 /** This PC's styles marked "Show on the bar" (their own `showOnBar`). */
 let devicePins = new Set<string>();
 /** Recent dictations' styles by name, one per recording (History, then each delivery). */
@@ -143,6 +145,7 @@ async function loadStyles(): Promise<BarStyleOption[]> {
 			kind: presetKindOf(s.title),
 		}));
 		devicePins = new Set(ordered.filter((s) => s.showOnBar === true).map((s) => s.id));
+		stylesLoaded = true;
 	}
 	return styleCache;
 }
@@ -273,14 +276,22 @@ export const bar = {
 	}) {
 		// The word lists' styles and app rule, from the pinned snapshot.
 		// VoiceFlow phase F: the app rule's expression (an approved feedback fix).
+		// 0.9.21: the app rule in force (Settings > Tidy-up > Style for each
+		// app over the word lists'; with word lists off, this PC's own) gives
+		// both the style, a built-in or this PC's own included, and its level.
+		const rule = appRuleFor(snapshot, targetAppIds(target), localAppRules());
 		const { style, styles } = withAppExpression(
 			barStyleChoice({
 				target,
 				snapshot,
 				deviceStyles: styleCache,
 				deviceDefaultId: settings.value['transformations.selectedTransformationId'],
+				appRule: rule,
+				deviceStylesLoaded: stylesLoaded,
 			}),
-			appRuleFor(snapshot, targetAppIds(target), localAppRules()),
+			rule,
+			snapshot,
+			stylesLoaded ? styleCache : null,
 		);
 		machine.begin({
 			recordingId,

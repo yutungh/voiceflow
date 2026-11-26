@@ -72,7 +72,7 @@
 					"style": {
 						"type": "string",
 						"pattern": "^[a-z0-9][a-z0-9._-]{0,99}$",
-						"description": "A style id from the merged word lists, or \"raw\" (no tidy-up)."
+						"description": "A style id from the merged word lists, or \"raw\" (no tidy-up); from VoiceFlow Desktop 0.9.21 also a built-in style (\"vf-builtin-<key>\") or a style made on a PC (\"vf-pc-<encoded id>\"). See pack/README.md, Style references in app rules."
 					},
 					"expression": { "type": "integer", "minimum": 0, "maximum": 4 }
 				}

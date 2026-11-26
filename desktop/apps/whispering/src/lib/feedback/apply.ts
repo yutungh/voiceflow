@@ -221,6 +221,7 @@ export async function undoFix({
 	revisionAfter,
 	listsAfter,
 	reviewAfter,
+	isLive,
 }: {
 	record: FeedbackRecord;
 	opId: string;
@@ -230,11 +231,24 @@ export async function undoFix({
 	listsAfter?: () => Pick<ProfileSnapshot, 'terms'> | null;
 	/** 0.9.16: the lists and evidence once the undo is in, to check the other cards again. */
 	reviewAfter?: () => Promise<{ evidence: DictationEvidence; review: Review } | null>;
+	/**
+	 * 0.9.21: whether the fix's edit is still in force. A style fix that
+	 * Settings > Style for each app has since replaced is still undone (its
+	 * tombstone is written, so undoing the Settings change can't bring it
+	 * back), and the person is told nothing changed now.
+	 */
+	isLive?: (opId: string) => Promise<boolean>;
 }): Promise<{ ok: true; record: FeedbackRecord; message?: string } | { ok: false; message: string }> {
 	const entry = record.applied?.find((x) => x.opId === opId && !x.undoneAt);
 	if (!entry) return { ok: false, message: 'That fix is not applied.' };
+	const isStyle = record.result?.fixes.find((f) => f.key === entry.key)?.kind === 'style';
+	const replaced = isStyle && isLive ? !(await isLive(entry.opId).catch(() => true)) : false;
 	const tombstone = await removeOp(entry.opId);
-	const note = listsAfter ? stillCarried(record, entry.key, entry.opId, listsAfter()) : null;
+	const note = replaced
+		? 'This fix was already replaced in Settings; the app’s current style is unchanged.'
+		: listsAfter
+			? stillCarried(record, entry.key, entry.opId, listsAfter())
+			: null;
 	const undone: FeedbackRecord = {
 		...record,
 		applied: (record.applied ?? []).map((x) =>

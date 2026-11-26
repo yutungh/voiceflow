@@ -19,11 +19,14 @@ import {
 	activeAppStyles,
 	activeCorrections,
 	EVERY_APP,
+	liveAppStyleOps,
 	OP_SCHEMA,
 	OP_VERSION,
 	parseOp,
+	removedIds,
 	validateNewCorrection,
 	type AppStyleOp,
+	type LocalAppRule,
 	type CorrectionOp,
 	type NewCorrection,
 	type ProfileOp,
@@ -112,13 +115,10 @@ export async function loadOps(): Promise<ProfileOp[]> {
 
 // VoiceFlow phase F: app rules from this device's edits, for the bar while
 // word lists are off (with them on, the merged snapshot carries them).
-let appRuleCache = new Map<string, { style?: string; expression?: number; editId?: string }>();
+let appRuleCache = new Map<string, LocalAppRule>();
 
 /** The app rules this device's edits set (synchronous, for the bar). */
-export function localAppRules(): ReadonlyMap<
-	string,
-	{ style?: string; expression?: number; editId?: string }
-> {
+export function localAppRules(): ReadonlyMap<string, LocalAppRule> {
 	return appRuleCache;
 }
 
@@ -364,6 +364,100 @@ export async function saveAppStyle(
 	}
 	await wordLists.editsChanged();
 	return { ok: true, op };
+}
+
+/**
+ * VoiceFlow 0.9.21 (Settings > Tidy-up > Style for each app): sets the
+ * style, and the level or none ("Automatic"), an app starts in. It replaces
+ * this device's own earlier edits for the app, so an older level can't
+ * linger under the new choice: the new edit is written first, then those
+ * edits get tombstones. If the write fails nothing changed; if a tombstone
+ * fails the new edit is still the newest and in force. Edits from other
+ * devices are left alone (removing the setting retires those too).
+ */
+export async function replaceAppStyle(candidate: {
+	app: string;
+	style: string;
+	expression?: number;
+}): Promise<
+	| { ok: true; op: AppStyleOp; retired: string[]; warning?: string }
+	| { ok: false; message: string }
+> {
+	const app = candidate.app.trim().toLowerCase();
+	const before = liveAppStyleOps(await loadOps(), app).map((op) => op.id);
+	const op = parseOp({
+		...newBase(),
+		type: 'app-style',
+		app,
+		style: candidate.style,
+		...(candidate.expression !== undefined ? { expression: candidate.expression } : {}),
+	});
+	if (!op || op.type !== 'app-style')
+		return { ok: false, message: 'That app or style isn’t one VoiceFlow can save.' };
+	try {
+		await writeOpFile(op);
+	} catch (error) {
+		return {
+			ok: false,
+			message: `The style for this app couldn't be saved (${error instanceof Error ? error.message : String(error)}).`,
+		};
+	}
+	const retired: string[] = [];
+	let warning: string | undefined;
+	for (const target of before) {
+		try {
+			await writeOpFile({ ...newBase(), type: 'tombstone', target });
+			retired.push(target);
+		} catch {
+			warning = 'Saved. An older setting for this app could not be cleared; the new one is in force.';
+		}
+	}
+	await refreshLocalAppRules();
+	await wordLists.editsChanged();
+	return { ok: true, op, retired, ...(warning ? { warning } : {}) };
+}
+
+/**
+ * VoiceFlow 0.9.21: removes an app's own setting: a tombstone for each edit
+ * in force for it (this device's, plus `alsoIds`: the merged lists' edits
+ * for the app, cached ones from other devices included). Returns the
+ * tombstones written, for Undo.
+ */
+export async function removeAppStyle(
+	app: string,
+	alsoIds: readonly string[] = [],
+): Promise<{ ok: true; tombstones: TombstoneOp[] } | { ok: false; message: string; tombstones: TombstoneOp[] }> {
+	const key = app.trim().toLowerCase();
+	const targets = [
+		...new Set([...liveAppStyleOps(await loadOps(), key).map((op) => op.id), ...alsoIds]),
+	];
+	const tombstones: TombstoneOp[] = [];
+	let message: string | null = null;
+	for (const target of targets) {
+		const op: TombstoneOp = { ...newBase(), type: 'tombstone', target };
+		try {
+			await writeOpFile(op);
+			tombstones.push(op);
+		} catch (error) {
+			message = `The setting couldn't be fully removed (${error instanceof Error ? error.message : String(error)}).`;
+		}
+	}
+	await refreshLocalAppRules();
+	await wordLists.editsChanged();
+	return message ? { ok: false, message, tombstones } : { ok: true, tombstones };
+}
+
+/** VoiceFlow 0.9.21: Undo for `removeAppStyle`: the tombstones' own tombstones. */
+export async function undoRemoveAppStyle(tombstones: readonly TombstoneOp[]): Promise<void> {
+	for (const t of tombstones) await writeOpFile({ ...newBase(), type: 'tombstone', target: t.id });
+	await refreshLocalAppRules();
+	await wordLists.editsChanged();
+}
+
+/** Whether an edit is still in force on this device (not undone). */
+export async function opIsLive(id: string): Promise<boolean> {
+	const ops = await loadOps();
+	return ops.some((op) => op.id === id) && !removedIds(ops).has(id);
 }
 
 /** Removes an operation by writing a tombstone for it (used by Undo). */

@@ -15,9 +15,11 @@
  * directly. Every write is serialised per record, so a double click can't
  * apply a fix twice.
  */
+import { inPageOrder } from '$lib/vf/style-pins';
 import {
 	correctionsInForce,
 	localAppRules,
+	opIsLive,
 	removeOp,
 	saveAppStyle,
 	saveCorrection,
@@ -152,10 +154,13 @@ async function reviewContext(recording: Recording): Promise<Omit<ReviewContext, 
 		.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 		.slice(0, HISTORY_FOR_COLLISIONS)
 		.map((r) => ({ recordingId: r.id, appId: appIdOf(r), text: r.finalText || r.transcribedText || '' }));
+	// 0.9.21: this PC's styles, built-ins included: a style fix may name one.
+	const { data: styles } = await services.db.transformations.getAll();
 	return {
 		snapshot,
 		active,
 		localAppRules: localAppRules(),
+		deviceStyles: inPageOrder(styles ?? []).map((s) => ({ id: s.id, name: s.title || 'Untitled style' })),
 		history,
 		revision: revisionOf(snapshot, active),
 	};
@@ -311,6 +316,7 @@ const service: FeedbackClient = {
 					removeOp,
 					revisionAfter: revision,
 					listsAfter: () => wordLists.snapshot,
+					isLive: opIsLive,
 					reviewAfter: async () => {
 						const recording = await recordingOf(record.recordingId);
 						if (!recording) return null;

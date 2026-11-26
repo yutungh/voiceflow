@@ -22,6 +22,7 @@
 	import SoundsCard from '$lib/vf/settings/SoundsCard.svelte';
 	import SpeedCard from '$lib/vf/settings/SpeedCard.svelte';
 	import WordListsCard from '$lib/vf/settings/WordListsCard.svelte';
+	import AppStylesCard from '$lib/vf/settings/AppStylesCard.svelte';
 	// VoiceFlow phase F: Settings > Feedback.
 	import FeedbackCard from '$lib/vf/settings/FeedbackCard.svelte';
 	import { modelOf, styleShape } from '$lib/vf/styles';
@@ -372,6 +373,8 @@
 					<div><b>Time limit</b><span>Longer than this, nothing is pasted and you can retry</span></div>
 					<span class="sub num">10 seconds</span>
 				</div>
+				<!-- VoiceFlow 0.9.21: the style each app starts in. -->
+				<AppStylesCard defaultLabel={defaultStyleLabel} />
 			</section>
 
 			<!-- VoiceFlow: Speed (desktop/speed branch). -->
