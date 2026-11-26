@@ -295,7 +295,7 @@ For a production release, you should:
 
 ## Contributing
 
-Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md), and [AGENTS.md](AGENTS.md) for the privacy rules that apply to every change.
 
 ## License
 
