@@ -16,4 +16,4 @@ This repository holds the whole VoiceFlow family: the Android keyboard, the desk
 
 ## README
 
-`README.md` still describes only the Android keyboard. It will be updated for this layout once the in-progress Android work is committed.
+`README.md` is the overview of both apps and the shared word lists. The Android keyboard's full reference (build, install, providers, styles) is [`docs/android/README.md`](docs/android/README.md); the desktop app's is [`desktop/README.md`](desktop/README.md).
