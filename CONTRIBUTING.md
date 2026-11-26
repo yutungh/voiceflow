@@ -19,7 +19,7 @@ This project is intended to be a practical open-source base for Android voice di
 Requirements:
 
 - JDK 17
-- Android SDK with platform 35 and build-tools 35.0.0 (Android Studio installs both), found through `local.properties` (`sdk.dir=...`) or the `ANDROID_HOME` environment variable. See the Build section of the [README](README.md#build).
+- Android SDK with platform 35 and build-tools 35.0.0 (Android Studio installs both), found through `local.properties` (`sdk.dir=...`) or the `ANDROID_HOME` environment variable. See the Build section of the [Android reference](docs/android/README.md#build).
 - Windows: clone with `git clone -c core.longpaths=true https://github.com/yutungh/voiceflow`.
 - Desktop app: see [desktop/README.md](desktop/README.md). Sync server: see [sync/README.md](sync/README.md).
 
