@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.14.0",
-    "openai": "7.64.0"
+    "openai": "7.64.0",
+    "wordlist-english": "1.2.1"
   }
 }

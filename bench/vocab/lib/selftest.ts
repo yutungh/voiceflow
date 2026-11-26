@@ -65,5 +65,12 @@ check('unwrap {"..."} answer', unwrap('{"Please light the candle."}').text === '
 check('control token is empty', unwrap('<|im_sep|>').format === 'empty' && unwrap('  ').format === 'empty');
 check('plain answer untouched', unwrap('Plain text.').format === 'ok');
 
+// Tidy-up fixes
+const fx = await import('./tidyfix');
+check('fix variant base = VoiceFlow prompt', fx.variantSystem({ hints: 'all' }) === tidySystem());
+check('everyday rule drops Beeper and candle, keeps Zora Vin', fx.isEverydayForm('Beeper') && fx.isEverydayForm('candle') && !fx.isEverydayForm('Zora Vin'));
+for (const w of ['A', 'B', 'C'] as const) check(`wording ${w} replaces both deciding bullets`, !fx.variantSystem({ hints: 'all', wording: w }).includes('it makes little sense where it is, and the listed word fits') && fx.variantSystem({ hints: 'all', wording: w }).includes(fx.WORDINGS[w][0]!));
+check('no-everyday variant drops the Beeper hint', !fx.variantSystem({ hints: 'no-everyday' }).includes('wrote "Beeper"') && tidySystem().includes('wrote "Beeper"'));
+
 console.log(failures ? `\n${failures} FAILED` : '\nall checks pass');
 process.exit(failures ? 1 : 0);

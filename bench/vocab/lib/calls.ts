@@ -25,7 +25,11 @@ export type CallResult = {
 	usage: any;
 	stop?: string | null;
 	error?: string;
+	/** Wall time of the whole call, retries and waits included. */
 	ms: number;
+	/** Time of the attempt that answered (the latency a dictation would see). */
+	latencyMs?: number;
+	attempts?: number;
 };
 
 let oa: OpenAI | null = null;
@@ -43,8 +47,11 @@ async function withRetry(model: string, fn: () => Promise<Omit<CallResult, 'ms'>
 	const start = Date.now();
 	let last: unknown;
 	for (let attempt = 0; attempt < 4; attempt++) {
+		const tried = Date.now();
 		try {
-			return { ...(await fn()), ms: Date.now() - start };
+			const r = await fn();
+			const now = Date.now();
+			return { ...r, ms: now - start, latencyMs: now - tried, attempts: attempt + 1 };
 		} catch (e) {
 			last = e;
 			if (!transient(e)) break;
@@ -84,14 +91,21 @@ export function tidyOpenAI(system: string, user: string, model = TIDY_MODEL): Pr
 	});
 }
 
-export function tidyAnthropic(system: string, user: string): Promise<CallResult> {
-	return withRetry(OPUS_MODEL, async () => {
+/**
+ * `effort` unset: as VoiceFlow sends it (the model's default). Set: sent as
+ * output_config.effort (thinking stays adaptive; it can't be turned off on
+ * Opus 5.5, and Sonnet 5.5 only turns it off with between_tools).
+ */
+export function tidyAnthropic(system: string, user: string, opts: { model?: string; effort?: 'low' | 'medium' | 'high' } = {}): Promise<CallResult> {
+	const model = opts.model ?? OPUS_MODEL;
+	return withRetry(model, async () => {
 		const r = await anthropic().messages.create({
-			model: OPUS_MODEL,
+			model,
 			max_tokens: 1024,
 			system,
 			messages: [{ role: 'user', content: user }],
-		});
+			...(opts.effort ? { output_config: { effort: opts.effort } } : {}),
+		} as Anthropic.MessageCreateParamsNonStreaming);
 		const text = r.content
 			.filter((b): b is Anthropic.TextBlock => b.type === 'text')
 			.map((b) => b.text)

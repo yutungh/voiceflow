@@ -14,9 +14,11 @@ const M = 1_000_000;
 export const PRICES = {
 	'gpt-transcribe': { perMinute: 0.0045 },
 	'gpt-5.4-mini': { input: 0.75, cachedInput: 0.075, output: 4.5 },
+	'gpt-5.4': { input: 2.5, cachedInput: 0.25, output: 15 },
 	'gpt-audio-1.5': { textInput: 2.5, audioInput: 32, output: 10, audioOutput: 64 },
 	'gpt-audio-mini': { textInput: 0.6, audioInput: 10, output: 2.4, audioOutput: 20 },
 	'claude-opus-5-5': { input: 4, cacheRead: 0.4, cacheWrite: 5, output: 20 },
+	'claude-sonnet-5-5': { input: 2, cacheRead: 0.1, cacheWrite: 2.5, output: 10 },
 	// gpt-4o-mini-tts bills $0.60/1M text in and $12/1M audio out; the speech
 	// endpoint returns no usage, so it is charged by audio length (~$0.015/min).
 	'gpt-4o-mini-tts': { perMinute: 0.015 },
@@ -32,8 +34,9 @@ export function costOf(model: string, usage: any, extra: { seconds?: number } = 
 		}
 		case 'gpt-4o-mini-tts':
 			return ((extra.seconds ?? 0) / 60) * PRICES['gpt-4o-mini-tts'].perMinute;
-		case 'gpt-5.4-mini': {
-			const p = PRICES['gpt-5.4-mini'];
+		case 'gpt-5.4-mini':
+		case 'gpt-5.4': {
+			const p = PRICES[model];
 			const cached = usage.prompt_tokens_details?.cached_tokens ?? 0;
 			return ((usage.prompt_tokens - cached) * p.input + cached * p.cachedInput + usage.completion_tokens * p.output) / M;
 		}
@@ -50,8 +53,9 @@ export function costOf(model: string, usage: any, extra: { seconds?: number } = 
 				M
 			);
 		}
-		case 'claude-opus-5-5': {
-			const p = PRICES['claude-opus-5-5'];
+		case 'claude-opus-5-5':
+		case 'claude-sonnet-5-5': {
+			const p = PRICES[model];
 			return (
 				(usage.input_tokens * p.input +
 					(usage.cache_read_input_tokens ?? 0) * p.cacheRead +

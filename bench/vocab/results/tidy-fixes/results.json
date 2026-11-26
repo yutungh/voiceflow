@@ -1,0 +1,663 @@
+{
+ "set": "real",
+ "pilot": "tts-coral",
+ "picked": "A",
+ "generated": "2026-11-26T02:52:15.401Z",
+ "runs": 3,
+ "droppedHints": [
+  {
+   "word": "Bepra",
+   "form": "Beeper"
+  },
+  {
+   "word": "Dockra",
+   "form": "Docker"
+  },
+  {
+   "word": "Harbra",
+   "form": "harbor"
+  },
+  {
+   "word": "Kavren",
+   "form": "Cavern"
+  },
+  {
+   "word": "Tailscale",
+   "form": "tail scale"
+  },
+  {
+   "word": "Kandrel",
+   "form": "candle"
+  },
+  {
+   "word": "Syncthing",
+   "form": "sync thing"
+  },
+  {
+   "word": "Ollama",
+   "form": "Oh llama"
+  },
+  {
+   "word": "Nginx",
+   "form": "engine x"
+  }
+ ],
+ "wordings": {
+  "A": [
+   "- Replace a word or phrase in the transcript with a listed word only when the transcript's word is not a real word or name, or is a real one that does not fit the sentence, and the listed word sounds like it and fits the sentence and its context.",
+   "- A real word or name that fits the sentence is correct as written: keep it, even when it sounds like a listed word, and even when a note says speech-to-text once wrote it for that word. If both readings are plausible, keep the transcript's words."
+  ],
+  "B": [
+   "- Before replacing anything, ask whether the transcript's word is a real word or a known name (a product, an app, a place, an everyday word) that makes sense in this sentence. If it is, keep it exactly. Only if it is not, and a listed word sounds like it and fits, write the listed word.",
+   "- The notes on what speech-to-text wrote before describe past mistakes, not this transcript. A match with a note is never a reason on its own to change a word that fits the sentence."
+  ],
+  "C": [
+   "- Change a word to a listed word only to repair a clear mishearing: something that is not a real word, a name broken into pieces, or a word that makes no sense in the sentence.",
+   "- Never change a real word or name that fits the sentence, even if it sounds like a listed word or was once written for one. When unsure, keep the transcript's words."
+  ]
+ },
+ "arms": [
+  {
+   "arm": "fx-mini-base",
+   "label": "gpt-5.4-mini, VoiceFlow's prompt",
+   "model": "gpt-5.4-mini",
+   "perRun": [
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 4,
+     "soundAlikesBroken": 4,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 8,
+     "repairOf": 10,
+     "neverSaid": 4,
+     "wer": 0.029411764705882353,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 3,
+     "soundAlikesBroken": 3,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 8,
+     "repairOf": 10,
+     "neverSaid": 3,
+     "wer": 0.026470588235294117,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 2,
+     "soundAlikesBroken": 2,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 9,
+     "repairOf": 10,
+     "neverSaid": 2,
+     "wer": 0.023529411764705882,
+     "failed": 0
+    }
+   ],
+   "latency": {
+    "median": 0.599,
+    "p90": 0.7478999999999999,
+    "calls": 150,
+    "retried": 0
+   },
+   "costPerCall": 0.00039588899999999996
+  },
+  {
+   "arm": "fx-mini-reword-A",
+   "label": "gpt-5.4-mini, reworded instruction A",
+   "model": "gpt-5.4-mini",
+   "perRun": [
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 1,
+     "soundAlikesBroken": 1,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 8,
+     "repairOf": 10,
+     "neverSaid": 1,
+     "wer": 0.01764705882352941,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 3,
+     "soundAlikesBroken": 3,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 8,
+     "repairOf": 10,
+     "neverSaid": 3,
+     "wer": 0.026470588235294117,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 3,
+     "soundAlikesBroken": 3,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 9,
+     "repairOf": 10,
+     "neverSaid": 3,
+     "wer": 0.026470588235294117,
+     "failed": 0
+    }
+   ],
+   "latency": {
+    "median": 0.591,
+    "p90": 0.7302,
+    "calls": 150,
+    "retried": 0
+   },
+   "costPerCall": 0.0003733409999999999
+  },
+  {
+   "arm": "fx-mini-nohint",
+   "label": "gpt-5.4-mini, no everyday-word hints",
+   "model": "gpt-5.4-mini",
+   "perRun": [
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 2,
+     "soundAlikesBroken": 2,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 9,
+     "repairOf": 10,
+     "neverSaid": 2,
+     "wer": 0.023529411764705882,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 3,
+     "soundAlikesBroken": 3,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 5,
+     "repairOf": 10,
+     "neverSaid": 3,
+     "wer": 0.03235294117647059,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 1,
+     "soundAlikesBroken": 1,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 7,
+     "repairOf": 10,
+     "neverSaid": 1,
+     "wer": 0.020588235294117647,
+     "failed": 0
+    }
+   ],
+   "latency": {
+    "median": 0.588,
+    "p90": 0.7592,
+    "calls": 150,
+    "retried": 0
+   },
+   "costPerCall": 0.001471641
+  },
+  {
+   "arm": "fx-mini-both-A",
+   "label": "gpt-5.4-mini, reworded instruction A + no everyday-word hints",
+   "model": "gpt-5.4-mini",
+   "perRun": [
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 1,
+     "soundAlikesBroken": 1,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 7,
+     "repairOf": 10,
+     "neverSaid": 1,
+     "wer": 0.020588235294117647,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 1,
+     "soundAlikesBroken": 1,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 6,
+     "repairOf": 10,
+     "neverSaid": 1,
+     "wer": 0.020588235294117647,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 1,
+     "soundAlikesBroken": 1,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 4,
+     "repairOf": 10,
+     "neverSaid": 1,
+     "wer": 0.020588235294117647,
+     "failed": 0
+    }
+   ],
+   "latency": {
+    "median": 0.6054999999999999,
+    "p90": 0.7351,
+    "calls": 150,
+    "retried": 0
+   },
+   "costPerCall": 0.000453219
+  },
+  {
+   "arm": "fx-gpt54-base",
+   "label": "GPT-5.4, VoiceFlow's prompt",
+   "model": "gpt-5.4",
+   "perRun": [
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 6,
+     "soundAlikesBroken": 6,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 9,
+     "repairOf": 10,
+     "neverSaid": 6,
+     "wer": 0.03235294117647059,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 6,
+     "soundAlikesBroken": 6,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 9,
+     "repairOf": 10,
+     "neverSaid": 6,
+     "wer": 0.029411764705882353,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 6,
+     "soundAlikesBroken": 6,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 10,
+     "repairOf": 10,
+     "neverSaid": 6,
+     "wer": 0.03235294117647059,
+     "failed": 0
+    }
+   ],
+   "latency": {
+    "median": 0.7715000000000001,
+    "p90": 0.8934,
+    "calls": 150,
+    "retried": 0
+   },
+   "costPerCall": 0.002448690000000002
+  },
+  {
+   "arm": "fx-sonnet-base",
+   "label": "Claude Sonnet 5.5 (effort low), VoiceFlow's prompt",
+   "model": "claude-sonnet-5-5",
+   "perRun": [
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 2,
+     "soundAlikesBroken": 2,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 10,
+     "repairOf": 10,
+     "neverSaid": 2,
+     "wer": 0.026470588235294117,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 1,
+     "soundAlikesBroken": 1,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 10,
+     "repairOf": 10,
+     "neverSaid": 1,
+     "wer": 0.023529411764705882,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 1,
+     "soundAlikesBroken": 1,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 9,
+     "repairOf": 10,
+     "neverSaid": 4,
+     "wer": 0.2411764705882353,
+     "failed": 0
+    }
+   ],
+   "latency": {
+    "median": 1.2905,
+    "p90": 1.7922,
+    "calls": 150,
+    "retried": 0
+   },
+   "costPerCall": 0.007740679999999999
+  },
+  {
+   "arm": "fx-sonnet-both-A",
+   "label": "Claude Sonnet 5.5 (effort low), reworded instruction A + no everyday-word hints",
+   "model": "claude-sonnet-5-5",
+   "perRun": [
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 0,
+     "soundAlikesBroken": 0,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 2,
+     "repairOf": 10,
+     "neverSaid": 0,
+     "wer": 0.020588235294117647,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 0,
+     "soundAlikesBroken": 0,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 3,
+     "repairOf": 10,
+     "neverSaid": 0,
+     "wer": 0.020588235294117647,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 0,
+     "soundAlikesBroken": 0,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 2,
+     "repairOf": 10,
+     "neverSaid": 0,
+     "wer": 0.020588235294117647,
+     "failed": 0
+    }
+   ],
+   "latency": {
+    "median": 1.3555000000000001,
+    "p90": 2.0501,
+    "calls": 150,
+    "retried": 0
+   },
+   "costPerCall": 0.007397813333333336
+  },
+  {
+   "arm": "fx-opus-base",
+   "label": "Claude Opus 5.5 (effort low), VoiceFlow's prompt",
+   "model": "claude-opus-5-5",
+   "perRun": [
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 0,
+     "soundAlikesBroken": 0,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 10,
+     "repairOf": 10,
+     "neverSaid": 0,
+     "wer": 0.011764705882352941,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 0,
+     "soundAlikesBroken": 0,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 10,
+     "repairOf": 10,
+     "neverSaid": 0,
+     "wer": 0.011764705882352941,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 10,
+     "intoListedName": 0,
+     "soundAlikesBroken": 0,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 10,
+     "repairOf": 10,
+     "neverSaid": 0,
+     "wer": 0.011764705882352941,
+     "failed": 0
+    }
+   ],
+   "latency": {
+    "median": 0.784,
+    "p90": 1.6659999999999997,
+    "calls": 150,
+    "retried": 0
+   },
+   "costPerCall": 0.01565082666666667
+  }
+ ],
+ "pilotTuning": [
+  {
+   "arm": "fx-mini-base",
+   "label": "gpt-5.4-mini, VoiceFlow's prompt",
+   "model": "gpt-5.4-mini",
+   "perRun": [
+    {
+     "soundAlikesRightIn": 9,
+     "intoListedName": 2,
+     "soundAlikesBroken": 2,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 8,
+     "repairOf": 10,
+     "neverSaid": 3,
+     "wer": 0.008823529411764706,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 9,
+     "intoListedName": 1,
+     "soundAlikesBroken": 1,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 8,
+     "repairOf": 10,
+     "neverSaid": 2,
+     "wer": 0.0058823529411764705,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 9,
+     "intoListedName": 3,
+     "soundAlikesBroken": 3,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 9,
+     "repairOf": 10,
+     "neverSaid": 4,
+     "wer": 0.011764705882352941,
+     "failed": 0
+    }
+   ],
+   "latency": {
+    "median": 0.602,
+    "p90": 0.7532,
+    "calls": 150,
+    "retried": 0
+   },
+   "costPerCall": 0.00043782599999999994
+  },
+  {
+   "arm": "fx-mini-reword-A",
+   "label": "gpt-5.4-mini, reworded instruction A",
+   "model": "gpt-5.4-mini",
+   "perRun": [
+    {
+     "soundAlikesRightIn": 9,
+     "intoListedName": 1,
+     "soundAlikesBroken": 1,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 8,
+     "repairOf": 10,
+     "neverSaid": 2,
+     "wer": 0.0058823529411764705,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 9,
+     "intoListedName": 2,
+     "soundAlikesBroken": 2,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 8,
+     "repairOf": 10,
+     "neverSaid": 3,
+     "wer": 0.008823529411764706,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 9,
+     "intoListedName": 1,
+     "soundAlikesBroken": 1,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 8,
+     "repairOf": 10,
+     "neverSaid": 2,
+     "wer": 0.0058823529411764705,
+     "failed": 0
+    }
+   ],
+   "latency": {
+    "median": 0.601,
+    "p90": 0.7311,
+    "calls": 150,
+    "retried": 0
+   },
+   "costPerCall": 0.000425766
+  },
+  {
+   "arm": "fx-mini-reword-B",
+   "label": "gpt-5.4-mini, reworded instruction B",
+   "model": "gpt-5.4-mini",
+   "perRun": [
+    {
+     "soundAlikesRightIn": 9,
+     "intoListedName": 1,
+     "soundAlikesBroken": 1,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 9,
+     "repairOf": 10,
+     "neverSaid": 2,
+     "wer": 0.0058823529411764705,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 9,
+     "intoListedName": 3,
+     "soundAlikesBroken": 3,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 8,
+     "repairOf": 10,
+     "neverSaid": 3,
+     "wer": 0.011764705882352941,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 9,
+     "intoListedName": 2,
+     "soundAlikesBroken": 2,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 9,
+     "repairOf": 10,
+     "neverSaid": 3,
+     "wer": 0.008823529411764706,
+     "failed": 0
+    }
+   ],
+   "latency": {
+    "median": 0.604,
+    "p90": 0.7522,
+    "calls": 150,
+    "retried": 0
+   },
+   "costPerCall": 0.0004249859999999998
+  },
+  {
+   "arm": "fx-mini-reword-C",
+   "label": "gpt-5.4-mini, reworded instruction C",
+   "model": "gpt-5.4-mini",
+   "perRun": [
+    {
+     "soundAlikesRightIn": 9,
+     "intoListedName": 3,
+     "soundAlikesBroken": 3,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 8,
+     "repairOf": 10,
+     "neverSaid": 4,
+     "wer": 0.011764705882352941,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 9,
+     "intoListedName": 4,
+     "soundAlikesBroken": 4,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 8,
+     "repairOf": 10,
+     "neverSaid": 5,
+     "wer": 0.014705882352941176,
+     "failed": 0
+    },
+    {
+     "soundAlikesRightIn": 9,
+     "intoListedName": 2,
+     "soundAlikesBroken": 2,
+     "targetsRightIn": 20,
+     "targetsBroken": 0,
+     "repaired": 8,
+     "repairOf": 10,
+     "neverSaid": 3,
+     "wer": 0.008823529411764706,
+     "failed": 0
+    }
+   ],
+   "latency": {
+    "median": 0.5985,
+    "p90": 0.7665,
+    "calls": 150,
+    "retried": 0
+   },
+   "costPerCall": 0.000403326
+  }
+ ]
+}
